@@ -36,6 +36,7 @@ lazy val core = project
     libraryDependencies ++= {
       val reflectionsVersion = "0.9.12"
       val jsonSchemaVersion = "0.5.0"
+      val specs2V = "4.6.0"
 
       Seq(
         "pl.iterators" %% "kebs-spray-json" % kebsV,
@@ -45,7 +46,8 @@ lazy val core = project
         "org.reflections" % "reflections" % reflectionsVersion,
         "com.github.andyglow" %% "scala-jsonschema" % jsonSchemaVersion,
         "com.github.andyglow" %% "scala-jsonschema-spray-json" % jsonSchemaVersion,
-        "com.github.andyglow" %% "scala-jsonschema-enumeratum" % jsonSchemaVersion
+        "com.github.andyglow" %% "scala-jsonschema-enumeratum" % jsonSchemaVersion,
+        "org.specs2" %% "specs2-core" % specs2V % "test"
       )
     }
   )
