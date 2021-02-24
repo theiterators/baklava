@@ -1,0 +1,71 @@
+
+###About
+
+Baklava is open-source library which creates different type of documentation (like openapi or ts interfaces) based on routers.
+Currently it supports akka http and tests written in scalatest or specs2.
+
+### INSTALL
+
+changes need to be done in build.sbt
+
+resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+
+val docgenV = "0.0.1-SNAPSHOT"
+libraryDependencies += "pl.iterators"  %% "docgen-core"  % docgenV  % "test"
+libraryDependencies += "pl.iterators"  %% "docgen-akkahttpscalatest"  % docgenV  % "test" [optional - if you use scalatest]
+libraryDependencies += "pl.iterators"  %% "docgen-akkahttpspecs2"  % docgenV  % "test"    [optional - if you use specs2]
+libraryDependencies += "pl.iterators"  %% "docgen-formatteropenapi"  % docgenV  % "test"  [optional - if you want to generate openapi]
+libraryDependencies += "pl.iterators"  %% "docgen-formatterts"  % docgenV  % "test"       [optional - if you want to generate ts interfaces]
+
+
+
+val generateOutputFromRouteDocSpec = inputKey[Unit]("Generate output from route spec")
+fullRunInputTask(generateOutputFromRouteDocSpec, Test, "pl.iterators.baklava.core.GenerateOutputFromRouteDocSpec")
+fork in generateOutputFromRouteDocSpec := false
+
+
+###USAGE
+
+Consider you have spec named: RouteSpec. In order to use, you need to include proper library in dependency and mix in proper trait to your spec (or create a new one trait, which is preferable if you do not want to extends all tests one time).
+
+trait RouteDocSpec extends LibraryAkkaHttpSpecs2RouteDocSpec with KebsArbitraryPredefs with KebsJsonSchemaPredefs with RouteSpec {
+  override def shutdownSpec() = TestKit.shutdownActorSystem(system,  verifySystemShutdown = true)
+}
+
+class GetHealthcheckRouteSpec extends RouteDocSpec {
+
+  override val routeRepresentation = RouteRepresentation[Unit, TimeResult](
+    "Returns db status",
+    "GET",
+    "/healthcheck"
+  )
+...
+}
+
+#todo more examples
+
+#todo document RouteRepresentation interface
+
+
+
+### Geenration
+In sbt shell:
+generateOutputFromRouteDocSpec [packageName] [outputDir] [fetcher] [formatter]
+
+where:
+
+packageName - the package root of your application
+
+outputDir - the directory where you want to generate doc into
+
+fetcher - the fetcher class you want to use for fetch. each of them are provided by separate subprojects.
+available options:
+- AkkaHttpScalatestFetcher - provided by docgen-akkahttpscalatest
+- AkkaHttpSpecs2Fetcher - provided by docgen-akkahttpspecs2
+
+formatter - the formatter class you want to use for generation. each of them are provided by separate subprojects.
+available options:
+- SimpleOutputFormatter - provided by docgen-core
+- OpenApiFormatter - provided by docgen-formatteropenapi
+- TsFormatter - provided by docgen-formatterts
+- TsStrictFormatter - provided by docgen-formatterts
