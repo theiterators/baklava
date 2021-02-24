@@ -42,6 +42,3 @@ jobs:
 
       - name: Build project
         run: sbt ++${{ matrix.scala }} test
-
-      - name: Compile examples
-        run: sbt examples/compile
