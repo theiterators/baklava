@@ -12,12 +12,12 @@ import scala.util.Random
 
 object StaticTestState {
 
-  var testFetcherCreated: Boolean = false
-  var testFetcherLastMainPackageName = ""
+  var testFetcherCreated: Boolean                                    = false
+  var testFetcherLastMainPackageName                                 = ""
   var testFetcherReturnList: List[EnrichedRouteRepresentation[_, _]] = Nil
 
-  var testFormatterCreated: Boolean = false
-  var testFormatterLastOutputPath: String = ""
+  var testFormatterCreated: Boolean                                   = false
+  var testFormatterLastOutputPath: String                             = ""
   var testFormatterInputList: List[EnrichedRouteRepresentation[_, _]] = Nil
 
 }
@@ -32,27 +32,20 @@ class TestFetcher
 
   StaticTestState.testFetcherCreated = true
 
-  override def fetch(
-      mainPackageName: String): List[EnrichedRouteRepresentation[_, _]] = {
+  override def fetch(mainPackageName: String): List[EnrichedRouteRepresentation[_, _]] = {
     StaticTestState.testFetcherLastMainPackageName = mainPackageName
 
     StaticTestState.testFetcherReturnList = List(
       EnrichedRouteRepresentation(
-        RouteRepresentation[Unit, Unit](Random.nextString(10),
-                                        Random.nextString(10),
-                                        Random.nextString(10)),
+        RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)),
         Nil
       ),
       EnrichedRouteRepresentation(
-        RouteRepresentation[Unit, Unit](Random.nextString(10),
-                                        Random.nextString(10),
-                                        Random.nextString(10)),
+        RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)),
         Nil
       ),
       EnrichedRouteRepresentation(
-        RouteRepresentation[Unit, Unit](Random.nextString(10),
-                                        Random.nextString(10),
-                                        Random.nextString(10)),
+        RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)),
         Nil
       )
     )
@@ -64,9 +57,7 @@ class TestFetcher
 class TestFormatter extends Formatter {
   StaticTestState.testFormatterCreated = true
 
-  override def generate(
-      outputPath: String,
-      printableList: List[EnrichedRouteRepresentation[_, _]]): Unit = {
+  override def generate(outputPath: String, printableList: List[EnrichedRouteRepresentation[_, _]]): Unit = {
     StaticTestState.testFormatterLastOutputPath = outputPath
     StaticTestState.testFormatterInputList = printableList
     ()
@@ -79,9 +70,9 @@ class GeneratorSpec extends Specification {
     1 shouldEqual 1
 
     val mainPackageName: String = "mainPackageName"
-    val outputDir: String = "outputDir"
-    val fetcherName: String = "TestFetcher"
-    val formatterName: String = "TestFormatter"
+    val outputDir: String       = "outputDir"
+    val fetcherName: String     = "TestFetcher"
+    val formatterName: String   = "TestFormatter"
 
     Generator.generate(mainPackageName, outputDir, fetcherName, formatterName)
 

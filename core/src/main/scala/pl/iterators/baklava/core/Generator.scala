@@ -7,11 +7,8 @@ import scala.collection.JavaConverters.asScalaSetConverter
 
 object Generator {
 
-  def generate(mainPackageName: String,
-               outputDir: String,
-               fetcherName: String,
-               formatterName: String): Unit = {
-    val fetcher = dynamicallyLoad(fetcherName, classOf[Fetcher])
+  def generate(mainPackageName: String, outputDir: String, fetcherName: String, formatterName: String): Unit = {
+    val fetcher   = dynamicallyLoad(fetcherName, classOf[Fetcher])
     val formatter = dynamicallyLoad(formatterName, classOf[Formatter])
 
     val routeRepresentations = fetcher.fetch(mainPackageName)
@@ -27,7 +24,6 @@ object Generator {
       .map { specClazz =>
         specClazz.getConstructor().newInstance()
       }
-      .getOrElse(
-        sys.error(s"Unable to find class with name ${className} in classPath"))
+      .getOrElse(sys.error(s"Unable to find class with name ${className} in classPath"))
   }
 }

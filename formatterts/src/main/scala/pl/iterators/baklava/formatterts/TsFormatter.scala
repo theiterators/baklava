@@ -9,13 +9,11 @@ import scala.util.Try
 
 trait TsFormatterBase extends Formatter {
 
-  override def generate(
-      outputPath: String,
-      routesList: List[EnrichedRouteRepresentation[_, _]]): Unit = {
+  override def generate(outputPath: String, routesList: List[EnrichedRouteRepresentation[_, _]]): Unit = {
     val dir = new File(outputPath)
     Try(dir.mkdirs())
 
-    val fileWriter = new FileWriter(s"$outputPath/index.ts")
+    val fileWriter  = new FileWriter(s"$outputPath/index.ts")
     val printWriter = new PrintWriter(fileWriter)
 
     printWriter.print(generateTs(routesList))
@@ -23,30 +21,28 @@ trait TsFormatterBase extends Formatter {
     fileWriter.close()
   }
 
-  private def generateTs(
-      routesList: List[EnrichedRouteRepresentation[_, _]]): String = {
+  private def generateTs(routesList: List[EnrichedRouteRepresentation[_, _]]): String = {
     val tsList = routesList.map(generateTs)
 
     s"""
-      |import axios, {AxiosRequestConfig} from 'axios';
-      |
-      |${tsList.map(_._1).mkString("\n")}
-      |
-      |export function API(axios: any) {
-      |  return {
-      |${tsList.map(_._2).mkString(",\n")}
-      |  }
-      |}
-      |""".stripMargin
+       |import axios, {AxiosRequestConfig} from 'axios';
+       |
+       |${tsList.map(_._1).mkString("\n")}
+       |
+       |export function API(axios: any) {
+       |  return {
+       |${tsList.map(_._2).mkString(",\n")}
+       |  }
+       |}
+       |""".stripMargin
   }
 
-  private def generateTs(
-      route: EnrichedRouteRepresentation[_, _]): (String, String) = {
-    val pathParams = generateRoutePathParamsInterface(route)
+  private def generateTs(route: EnrichedRouteRepresentation[_, _]): (String, String) = {
+    val pathParams  = generateRoutePathParamsInterface(route)
     val queryParams = generateQueryPathParamsInterface(route)
-    val headers = generateHeadersInterface(route)
-    val request = generateRequestInterface(route)
-    val response = generateResponseInterface(route)
+    val headers     = generateHeadersInterface(route)
+    val request     = generateRequestInterface(route)
+    val response    = generateResponseInterface(route)
     val configAndApi = generateAxiosConfigAndApi(route,
                                                  pathParams.map(_._1),
                                                  queryParams.map(_._1),
@@ -67,8 +63,7 @@ trait TsFormatterBase extends Formatter {
     )
   }
 
-  private def generateRoutePathParamsInterface(
-      route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
+  private def generateRoutePathParamsInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
     val pattern = """\{(.*?)\}""".r
     val list = pattern
       .findAllMatchIn(route.routeRepresentation.path)
@@ -89,8 +84,7 @@ trait TsFormatterBase extends Formatter {
     }
   }
 
-  private def generateQueryPathParamsInterface(
-      route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
+  private def generateQueryPathParamsInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
     Option.when(route.routeRepresentation.parameters.nonEmpty) {
       val name = s"${className(route)}QueryParams"
       (
@@ -110,8 +104,7 @@ trait TsFormatterBase extends Formatter {
     }
   }
 
-  private def generateHeadersInterface(
-      route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
+  private def generateHeadersInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
     Option.when(route.routeRepresentation.headers.nonEmpty) {
       val name = s"${className(route)}Headers"
       (
@@ -131,23 +124,17 @@ trait TsFormatterBase extends Formatter {
     }
   }
 
-  private def generateRequestInterface(
-      route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
+  private def generateRequestInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
     Option.when(!route.routeRepresentation.request.isUnit) {
       val name = s"${className(route)}Request"
-      generateClassRepresentation(
-        name,
-        route.routeRepresentation.requestJsonSchemaWrapper.schema)
+      generateClassRepresentation(name, route.routeRepresentation.requestJsonSchemaWrapper.schema)
     }
   }
 
-  private def generateResponseInterface(
-      route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
+  private def generateResponseInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
     Option.when(!route.routeRepresentation.response.isUnit) {
       val name = s"${className(route)}Response"
-      generateClassRepresentation(
-        name,
-        route.routeRepresentation.responseJsonSchemaWrapper.schema)
+      generateClassRepresentation(name, route.routeRepresentation.responseJsonSchemaWrapper.schema)
     }
   }
 
@@ -176,9 +163,7 @@ trait TsFormatterBase extends Formatter {
 
     val pathPattern = """\{(.*?)\}""".r
 
-    val path = pathPattern.replaceAllIn(
-      route.routeRepresentation.path,
-      m => "\\${pathParams." + m.group(1) + "}")
+    val path = pathPattern.replaceAllIn(route.routeRepresentation.path, m => "\\${pathParams." + m.group(1) + "}")
 
     val description = route.routeRepresentation.description +
       "\n" +
@@ -214,9 +199,7 @@ trait TsFormatterBase extends Formatter {
     )
   }
 
-  private def generateClassRepresentation(
-      name: String,
-      jsonSchema: json.Schema[_]): (String, String) = {
+  private def generateClassRepresentation(name: String, jsonSchema: json.Schema[_]): (String, String) = {
     jsonSchema.jsonType match {
       case "null" =>
         ("", "")
@@ -301,8 +284,8 @@ class TsStrictFormatter extends TsFormatterBase {
     pathParts.indices
       .map { idx =>
         val (name, isParam) = pathParts(idx)
-        val prev = pathParts.lift(idx - 1)
-        val next = pathParts.lift(idx + 1)
+        val prev            = pathParts.lift(idx - 1)
+        val next            = pathParts.lift(idx + 1)
         if (!isParam && next.forall(_._2 == false)) {
           name
         } else if (!isParam && next.exists(_._2 == true)) {

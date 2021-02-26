@@ -56,10 +56,8 @@ case class RouteRepresentation[Request, Response](
     s"$path$parametersPath"
   }
 
-  lazy val request: RouteDtoHandler[Request] = RouteDtoHandler(
-    requestPredefinedValue)
-  lazy val response: RouteDtoHandler[Response] = RouteDtoHandler(
-    responsePredefinedValue)
+  lazy val request: RouteDtoHandler[Request]   = RouteDtoHandler(requestPredefinedValue)
+  lazy val response: RouteDtoHandler[Response] = RouteDtoHandler(responsePredefinedValue)
 
   def getParamValue[T](name: String): Option[T] =
     parameters.find(_.name == name).map(_.sampleValue.asInstanceOf[T])

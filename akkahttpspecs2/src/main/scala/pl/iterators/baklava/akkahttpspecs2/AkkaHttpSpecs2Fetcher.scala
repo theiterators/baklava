@@ -3,23 +3,19 @@ package pl.iterators.baklava.akkahttpspecs2
 import org.reflections.Reflections
 import org.specs2.specification.core.Env
 import pl.iterators.baklava.core.fetchers.Fetcher
-import pl.iterators.baklava.core.model.{
-  EnrichedRouteRepresentation,
-  RouteRepresentation
-}
+import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation}
 
 import scala.collection.JavaConverters.asScalaSetConverter
 
 class AkkaHttpSpecs2Fetcher extends Fetcher {
-  override def fetch(
-      mainPackageName: String): List[EnrichedRouteRepresentation[_, _]] = {
+  override def fetch(mainPackageName: String): List[EnrichedRouteRepresentation[_, _]] = {
     val docsSpecClass = classOf[LibraryAkkaHttpSpecs2RouteDocSpec]
     new Reflections(mainPackageName)
       .getSubTypesOf(docsSpecClass)
       .asScala
       .filterNot(_.isInterface)
       .map { specClazz =>
-        val spec = specClazz.getConstructor().newInstance()
+        val spec  = specClazz.getConstructor().newInstance()
         val field = specClazz.getDeclaredField("routeRepresentation")
         field.setAccessible(true)
         val routeRepresentation =

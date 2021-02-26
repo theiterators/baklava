@@ -10,12 +10,10 @@ object EnrichedRouteRepresentation {
       routeRepresentation: RouteRepresentation[Request, Response],
       descriptions: Seq[String]
   ): EnrichedRouteRepresentation[Request, Response] =
-    new EnrichedRouteRepresentation(routeRepresentation,
-                                    descriptions.map(EnrichedDescription.apply))
+    new EnrichedRouteRepresentation(routeRepresentation, descriptions.map(EnrichedDescription.apply))
 }
 
-class EnrichedDescription private (val description: String,
-                                   val statusCodeOpt: Option[Int])
+class EnrichedDescription private (val description: String, val statusCodeOpt: Option[Int])
 
 object EnrichedDescription {
 
@@ -31,17 +29,17 @@ object EnrichedDescription {
 
   private val statusCodesMap =
     Map(
-      "ok" -> 200,
-      "created" -> 201,
-      "accepted" -> 202,
-      "nocontent" -> 204,
-      "badrequest" -> 400,
-      "inaccessible" -> 401,
-      "unauthorized" -> 401,
-      "forbidden" -> 403,
-      "notfound" -> 404,
-      "conflict" -> 409,
-      "internalerror" -> 500,
+      "ok"                  -> 200,
+      "created"             -> 201,
+      "accepted"            -> 202,
+      "nocontent"           -> 204,
+      "badrequest"          -> 400,
+      "inaccessible"        -> 401,
+      "unauthorized"        -> 401,
+      "forbidden"           -> 403,
+      "notfound"            -> 404,
+      "conflict"            -> 409,
+      "internalerror"       -> 500,
       "internalservererror" -> 500
     )
 }

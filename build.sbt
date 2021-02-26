@@ -1,6 +1,6 @@
-val scala_2_12 = "2.12.12"
-val scala_2_13 = "2.13.4"
-val mainScalaVersion = scala_2_13
+val scala_2_12             = "2.12.12"
+val scala_2_13             = "2.13.4"
+val mainScalaVersion       = scala_2_13
 val supportedScalaVersions = Seq(scala_2_12, scala_2_13)
 
 ThisBuild / crossScalaVersions := supportedScalaVersions
@@ -12,11 +12,7 @@ lazy val baseSettings = Seq(
   organizationHomepage := Some(url("https://iterato.rs")),
   version := "0.0.1-SNAPSHOT",
   homepage := Some(url("https://github.com/theiterators/kebs")),
-  scalacOptions := Seq("-deprecation",
-                       "-unchecked",
-                       "-feature",
-                       "-encoding",
-                       "utf8"),
+  scalacOptions := Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8"),
   scalafmtVersion := "1.3.0",
   crossScalaVersions := supportedScalaVersions,
   scalafmtOnCompile := true,
@@ -35,26 +31,26 @@ lazy val core = project
   .settings(
     libraryDependencies ++= {
       val reflectionsVersion = "0.9.12"
-      val jsonSchemaVersion = "0.5.0"
-      val specs2V = "4.6.0"
+      val jsonSchemaVersion  = "0.7.1"
+      val specs2V            = "4.6.0"
 
       Seq(
-        "pl.iterators" %% "kebs-spray-json" % kebsV,
-        "pl.iterators" %% "kebs-tagged-meta" % kebsV,
-        "pl.iterators" %% "kebs-jsonschema" % kebsV,
-        "pl.iterators" %% "kebs-scalacheck" % kebsV,
-        "org.reflections" % "reflections" % reflectionsVersion,
-        "com.github.andyglow" %% "scala-jsonschema" % jsonSchemaVersion,
+        "pl.iterators"        %% "kebs-spray-json"             % kebsV,
+        "pl.iterators"        %% "kebs-tagged-meta"            % kebsV,
+        "pl.iterators"        %% "kebs-jsonschema"             % kebsV,
+        "pl.iterators"        %% "kebs-scalacheck"             % kebsV,
+        "org.reflections"     % "reflections"                  % reflectionsVersion,
+        "com.github.andyglow" %% "scala-jsonschema"            % jsonSchemaVersion,
         "com.github.andyglow" %% "scala-jsonschema-spray-json" % jsonSchemaVersion,
         "com.github.andyglow" %% "scala-jsonschema-enumeratum" % jsonSchemaVersion,
-        "org.specs2" %% "specs2-core" % specs2V % "test"
+        "org.specs2"          %% "specs2-core"                 % specs2V % "test"
       )
     }
   )
 
 lazy val akkahttp = project
   .in(file("akkahttp"))
-  .dependsOn(core)
+  .dependsOn(core % "compile->compile;test->test")
   .settings(baseSettings: _*)
   .settings(
     name := "akkahttp",
@@ -62,13 +58,13 @@ lazy val akkahttp = project
   )
   .settings(
     libraryDependencies ++= {
-      val akkaV = "2.6.1"
+      val akkaV     = "2.6.1"
       val akkaHttpV = "10.2.1"
       Seq(
-        "pl.iterators" %% "kebs-akka-http" % kebsV,
-        "com.typesafe.akka" %% "akka-slf4j" % akkaV,
-        "com.typesafe.akka" %% "akka-stream" % akkaV,
-        "com.typesafe.akka" %% "akka-http-core" % akkaHttpV,
+        "pl.iterators"      %% "kebs-akka-http"    % kebsV,
+        "com.typesafe.akka" %% "akka-slf4j"        % akkaV,
+        "com.typesafe.akka" %% "akka-stream"       % akkaV,
+        "com.typesafe.akka" %% "akka-http-core"    % akkaHttpV,
         "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
       )
     }
@@ -76,7 +72,7 @@ lazy val akkahttp = project
 
 lazy val akkahttpscalatest = project
   .in(file("akkahttpscalatest"))
-  .dependsOn(akkahttp)
+  .dependsOn(akkahttp % "compile->compile;test->test")
   .settings(baseSettings: _*)
   .settings(
     name := "akkahttpscalatest",
@@ -94,7 +90,7 @@ lazy val akkahttpscalatest = project
 
 lazy val akkahttpspecs2 = project
   .in(file("akkahttpspecs2"))
-  .dependsOn(akkahttp)
+  .dependsOn(akkahttp % "compile->compile;test->test")
   .settings(baseSettings: _*)
   .settings(
     name := "akkahttpspecs2",
@@ -112,7 +108,7 @@ lazy val akkahttpspecs2 = project
 
 lazy val formatterts = project
   .in(file("formatterts"))
-  .dependsOn(core)
+  .dependsOn(core % "compile->compile;test->test")
   .settings(baseSettings: _*)
   .settings(
     name := "formatterts",
@@ -121,7 +117,7 @@ lazy val formatterts = project
 
 lazy val formatteropenapi = project
   .in(file("formatteropenapi"))
-  .dependsOn(core)
+  .dependsOn(core % "compile->compile;test->test")
   .settings(baseSettings: _*)
   .settings(
     name := "formatteropenapi",

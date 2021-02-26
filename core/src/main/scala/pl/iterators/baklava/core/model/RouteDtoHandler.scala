@@ -35,11 +35,10 @@ class RouteDtoHandler[T](implicit ttag: TypeTag[T],
   }
 }
 
-class RouteDtoHandlerWithPredefinedValue[T](value: T)(
-    implicit ttag: TypeTag[T],
-    generators: AllGenerators[T],
-    override val jsonSchemaWrapper: JsonSchemaWrapper[T],
-    jsonWriter: JsonWriter[T])
+class RouteDtoHandlerWithPredefinedValue[T](value: T)(implicit ttag: TypeTag[T],
+                                                      generators: AllGenerators[T],
+                                                      override val jsonSchemaWrapper: JsonSchemaWrapper[T],
+                                                      jsonWriter: JsonWriter[T])
     extends RouteDtoHandler {
 
   override lazy val normal: RouteDtoValueWithJsonOpt[T] =
@@ -53,20 +52,16 @@ object RouteDtoHandler {
       jsonSchemaWrapper: JsonSchemaWrapper[T],
       jsonWriter: JsonWriter[T]
   ): RouteDtoHandler[T] =
-    predefinedValue.fold(new RouteDtoHandler[T])(value =>
-      new RouteDtoHandlerWithPredefinedValue[T](value))
+    predefinedValue.fold(new RouteDtoHandler[T])(value => new RouteDtoHandlerWithPredefinedValue[T](value))
 }
 
-class RouteDtoValueWithJsonOpt[T] private (val value: T,
-                                           val jsonOpt: Option[JsValue]) {
+class RouteDtoValueWithJsonOpt[T] private (val value: T, val jsonOpt: Option[JsValue]) {
   lazy val getJsonString: String = jsonOpt.fold("")(_.prettyPrint)
 }
 
 object RouteDtoValueWithJsonOpt {
 
-  def apply[T](value: T)(
-      implicit ttag: TypeTag[T],
-      jsonWriter: JsonWriter[T]): RouteDtoValueWithJsonOpt[T] = {
+  def apply[T](value: T)(implicit ttag: TypeTag[T], jsonWriter: JsonWriter[T]): RouteDtoValueWithJsonOpt[T] = {
     new RouteDtoValueWithJsonOpt[T](
       value,
       Option.when(ttag != implicitly[TypeTag[Unit]])(value.toJson(jsonWriter))
