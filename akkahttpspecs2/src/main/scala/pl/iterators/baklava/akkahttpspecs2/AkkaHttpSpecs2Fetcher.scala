@@ -26,12 +26,9 @@ class AkkaHttpSpecs2Fetcher extends Fetcher {
         val fragments = spec.fragments(env).fragmentsList(env.executionEnv)
 
         val descriptions = fragments
-          .zip(fragments.tail)
-          .map(_._2.description.show)
+          .map(_.description.show)
           .filter(_ != "\n")
           .filter(_.nonEmpty)
-          .tail
-          .map(s => s"should $s")
 
         env.shutdown()
 

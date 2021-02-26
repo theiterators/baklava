@@ -4,7 +4,7 @@ import com.github.andyglow.json.Value
 import io.swagger.v3.oas.models.{media => swagger}
 import org.specs2.mutable.Specification
 import java.math.{BigDecimal => JavaBigDecimal}
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
 

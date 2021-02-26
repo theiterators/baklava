@@ -19,7 +19,14 @@ lazy val baseSettings = Seq(
   resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 )
 
-val kebsV = "1.9.1-SNAPSHOT"
+val kebsV              = "1.9.1-SNAPSHOT"
+val reflectionsVersion = "0.9.12"
+val jsonSchemaVersion  = "0.7.1"
+val specs2V            = "4.6.0"
+val akkaV              = "2.6.1"
+val akkaHttpV          = "10.2.1"
+val swaggerV           = "2.1.6"
+val scalatestV         = "3.2.2"
 
 lazy val core = project
   .in(file("core"))
@@ -30,9 +37,6 @@ lazy val core = project
   )
   .settings(
     libraryDependencies ++= {
-      val reflectionsVersion = "0.9.12"
-      val jsonSchemaVersion  = "0.7.1"
-      val specs2V            = "4.6.0"
 
       Seq(
         "pl.iterators"        %% "kebs-spray-json"             % kebsV,
@@ -58,8 +62,7 @@ lazy val akkahttp = project
   )
   .settings(
     libraryDependencies ++= {
-      val akkaV     = "2.6.1"
-      val akkaHttpV = "10.2.1"
+
       Seq(
         "pl.iterators"      %% "kebs-akka-http"    % kebsV,
         "com.typesafe.akka" %% "akka-slf4j"        % akkaV,
@@ -80,7 +83,6 @@ lazy val akkahttpscalatest = project
   )
   .settings(
     libraryDependencies ++= {
-      val scalatestV = "3.2.2"
 
       Seq(
         "org.scalatest" %% "scalatest" % scalatestV
@@ -98,10 +100,10 @@ lazy val akkahttpspecs2 = project
   )
   .settings(
     libraryDependencies ++= {
-      val specs2V = "4.6.0"
 
       Seq(
-        "org.specs2" %% "specs2-core" % specs2V
+        "org.specs2"        %% "specs2-core"  % specs2V,
+        "com.typesafe.akka" %% "akka-testkit" % akkaV % "test"
       )
     }
   )
@@ -125,7 +127,6 @@ lazy val formatteropenapi = project
   )
   .settings(
     libraryDependencies ++= {
-      val swaggerV = "2.1.6"
 
       Seq(
         "io.swagger.core.v3" % "swagger-core" % swaggerV

@@ -3,7 +3,23 @@ package pl.iterators.baklava.core.model
 class EnrichedRouteRepresentation[Request, Response] private (
     val routeRepresentation: RouteRepresentation[Request, Response],
     val enrichDescriptions: Seq[EnrichedDescription]
-)
+) {
+  override def equals(o: Any): Boolean = o match {
+    case p: EnrichedRouteRepresentation[_, _] =>
+      p.routeRepresentation.equals(routeRepresentation) && p.enrichDescriptions.equals(enrichDescriptions)
+    case _ => false
+  }
+}
+
+class EnrichedDescription private (val description: String, val statusCodeOpt: Option[Int]) {
+  override def equals(o: Any): Boolean = {
+    o match {
+      case p: EnrichedDescription =>
+        p.description.equals(description) && p.statusCodeOpt.equals(statusCodeOpt)
+      case _ => false
+    }
+  }
+}
 
 object EnrichedRouteRepresentation {
   def apply[Request, Response](
@@ -13,19 +29,7 @@ object EnrichedRouteRepresentation {
     new EnrichedRouteRepresentation(routeRepresentation, descriptions.map(EnrichedDescription.apply))
 }
 
-class EnrichedDescription private (val description: String, val statusCodeOpt: Option[Int])
-
 object EnrichedDescription {
-
-  def apply(description: String): EnrichedDescription =
-    new EnrichedDescription(description, extractStatusCode(description))
-
-  private def extractStatusCode(description: String): Option[Int] =
-    description.toLowerCase
-      .replace("inaccessible", "unauthorized")
-      .split(" ")
-      .flatMap(s => statusCodesMap.get(s))
-      .headOption
 
   private val statusCodesMap =
     Map(
@@ -42,4 +46,14 @@ object EnrichedDescription {
       "internalerror"       -> 500,
       "internalservererror" -> 500
     )
+
+  def apply(description: String): EnrichedDescription =
+    new EnrichedDescription(description, extractStatusCode(description))
+
+  private def extractStatusCode(description: String): Option[Int] =
+    description.toLowerCase
+      .replace("inaccessible", "unauthorized")
+      .split(" ")
+      .flatMap(s => statusCodesMap.get(s))
+      .headOption
 }
