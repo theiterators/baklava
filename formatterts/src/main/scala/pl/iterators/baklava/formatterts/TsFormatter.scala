@@ -201,8 +201,6 @@ trait TsFormatterBase extends Formatter {
 
   private def generateClassRepresentation(name: String, jsonSchema: json.Schema[_]): (String, String) = {
     jsonSchema.jsonType match {
-      case "null" =>
-        ("", "")
       case "boolean" =>
         ("boolean", "")
       case "number" =>
@@ -251,6 +249,8 @@ trait TsFormatterBase extends Formatter {
                |""".stripMargin + fields.map(_._2._2).mkString("\n")
           )
         }
+      case _ =>
+        ("", "")
     }
   }
 
