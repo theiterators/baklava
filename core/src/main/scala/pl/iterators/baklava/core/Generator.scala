@@ -13,7 +13,6 @@ object Generator {
 
     val routeRepresentations = fetcher.fetch(mainPackageName)
     formatter.generate(outputDir, routeRepresentations)
-    println("Generated test spec successfully.")
   }
 
   private def dynamicallyLoad[T](className: String, classOf: Class[T]): T = {

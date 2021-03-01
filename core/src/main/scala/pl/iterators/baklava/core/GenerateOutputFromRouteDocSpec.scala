@@ -1,9 +1,5 @@
 package pl.iterators.baklava.core
 
-import pl.iterators.baklava.core.Generator.dynamicallyLoad
-import pl.iterators.baklava.core.fetchers.Fetcher
-import pl.iterators.baklava.core.formatters.Formatter
-
 object GenerateOutputFromRouteDocSpec {
 
   private lazy val fetchers = List[String](
