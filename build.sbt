@@ -1,3 +1,7 @@
+import com.jsuereth.sbtpgp.PgpKeys
+import sbtrelease.ReleasePlugin.autoImport._
+import sbtrelease.ReleaseStateTransformations._
+
 val scala_2_12             = "2.12.12"
 val scala_2_13             = "2.13.4"
 val mainScalaVersion       = scala_2_13
@@ -16,7 +20,25 @@ lazy val baseSettings = Seq(
   scalafmtVersion := "1.3.0",
   crossScalaVersions := supportedScalaVersions,
   scalafmtOnCompile := true,
-  resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+  resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+  // Sonatype settings
+  publishTo := sonatypePublishTo.value,
+  sonatypeProfileName := "pl.iterators",
+  publishMavenStyle := true,
+  licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0")),
+  organization := "pl.iterators",
+  organizationName := "Iterators",
+  organizationHomepage := Some(url("https://www.iteratorshq.com/")),
+  scmInfo := Some(
+    ScmInfo(
+      browseUrl = url("https://github.com/theiterators/baklava"),
+      connection = "scm:git:https://github.com/theiterators/baklava.git"
+    )
+  ),
+  credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
+  releasePublishArtifactsAction := PgpKeys.publishSigned.value,
+  crossScalaVersions := supportedScalaVersions,
+  releaseCrossBuild := true
 )
 
 val kebsV              = "1.9.1-SNAPSHOT"
@@ -147,5 +169,19 @@ lazy val baklava = project
   .settings(baseSettings: _*)
   .settings(
     name := "baklava",
-    description := "Library to generate docs"
+    description := "Library to generate docs",
+    releaseProcess := Seq(
+      checkSnapshotDependencies,
+      inquireVersions,
+      releaseStepCommandAndRemaining("+publishLocalSigned"),
+      releaseStepCommandAndRemaining("+clean"),
+      releaseStepCommandAndRemaining("+test"),
+      setReleaseVersion,
+      commitReleaseVersion,
+      tagRelease,
+      releaseStepCommandAndRemaining("+publishSigned"),
+      setNextVersion,
+      commitNextVersion,
+      pushChanges
+    )
   )
