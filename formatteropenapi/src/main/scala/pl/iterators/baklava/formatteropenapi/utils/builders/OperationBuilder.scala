@@ -5,7 +5,7 @@ import io.swagger.v3.oas.models.parameters.{Parameter, RequestBody}
 import io.swagger.v3.oas.models.responses.ApiResponses
 import io.swagger.v3.oas.models.security.SecurityRequirement
 
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 object OperationBuilder {
   def build(
@@ -14,7 +14,7 @@ object OperationBuilder {
       parameters: List[Parameter],
       requestBody: Option[RequestBody],
       responses: ApiResponses,
-      security: Option[List[SecurityRequirement]]
+      security: List[SecurityRequirement]
   ): Operation = {
     val operation = new Operation()
     operation.setSummary(summary)
@@ -22,7 +22,9 @@ object OperationBuilder {
     parameters.foreach(operation.addParametersItem)
     requestBody.foreach(operation.requestBody)
     operation.setResponses(responses)
-    security.foreach(l => operation.setSecurity(l.asJava))
+    if (security.nonEmpty) {
+      operation.setSecurity(security.asJava)
+    }
     operation
   }
 }

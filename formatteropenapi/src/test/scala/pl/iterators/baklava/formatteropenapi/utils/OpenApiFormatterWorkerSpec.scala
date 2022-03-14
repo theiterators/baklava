@@ -1,9 +1,9 @@
 package pl.iterators.baklava.formatteropenapi.utils
 
-import io.swagger.v3.oas.models.{Components, OpenAPI, Paths}
+import io.swagger.v3.oas.models.{Components, Paths}
 import org.specs2.mutable.Specification
 import org.specs2.specification.Scope
-import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation}
+import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation, RouteSecurity}
 import pl.iterators.kebs.json.KebsSpray
 import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
 import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
@@ -184,25 +184,22 @@ class OpenApiFormatterWorkerSpec extends Specification {
     "properly pass authentication details" in new TestCase {
       val input1 = List(
         EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = None),
+          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = List()),
           List("Ok")
         )
       )
       val input2 = List(
         EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = Some(List("Bearer"))),
+          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = List(RouteSecurity.Bearer)),
           List("Ok")
         )
       )
       val input3 = List(
         EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = Some(List("Bearer", "Basic"))),
-          List("Ok")
-        )
-      )
-      val input4 = List(
-        EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = Some(List("Invalid"))),
+          RouteRepresentation[Unit, TestData.Path1Output]("summary 1",
+                                                          "GET",
+                                                          "/path1",
+                                                          authentication = List(RouteSecurity.Bearer, RouteSecurity.Basic)),
           List("Ok")
         )
       )
@@ -210,7 +207,6 @@ class OpenApiFormatterWorkerSpec extends Specification {
       val openApi1 = worker.generateOpenApi(input1)
       val openApi2 = worker.generateOpenApi(input2)
       val openApi3 = worker.generateOpenApi(input3)
-      val openApi4 = worker.generateOpenApi(input4)
 
       openApi1.getPaths.get("/path1").getGet.getSecurity shouldEqual null
 
@@ -220,8 +216,6 @@ class OpenApiFormatterWorkerSpec extends Specification {
       openApi3.getPaths.get("/path1").getGet.getSecurity.size() shouldEqual 2
       openApi3.getPaths.get("/path1").getGet.getSecurity.get(0).get("bearerAuth") shouldEqual List.empty.asJava
       openApi3.getPaths.get("/path1").getGet.getSecurity.get(1).get("basicAuth") shouldEqual List.empty.asJava
-
-      openApi4.getPaths.get("/path1").getGet.getSecurity.size() shouldEqual 0
     }
   }
 
