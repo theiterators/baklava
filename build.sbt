@@ -41,7 +41,7 @@ lazy val baseSettings = Seq(
   releaseCrossBuild := true
 )
 
-val kebsV              = "1.9.1-SNAPSHOT"
+val kebsV              = "1.9.1"
 val reflectionsVersion = "0.9.12"
 val jsonSchemaVersion  = "0.7.1"
 val specs2V            = "4.6.0"

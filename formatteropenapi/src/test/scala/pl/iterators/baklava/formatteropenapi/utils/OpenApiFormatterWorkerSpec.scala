@@ -1,6 +1,6 @@
 package pl.iterators.baklava.formatteropenapi.utils
 
-import io.swagger.v3.oas.models.{Components, Paths}
+import io.swagger.v3.oas.models.{Components, OpenAPI, Paths}
 import org.specs2.mutable.Specification
 import org.specs2.specification.Scope
 import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation}
@@ -8,6 +8,8 @@ import pl.iterators.kebs.json.KebsSpray
 import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
 import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
 import spray.json._
+
+import scala.jdk.CollectionConverters._
 
 object TestData {
   case class Path1Output(p1Int: Int, p1String: String)
@@ -177,6 +179,49 @@ class OpenApiFormatterWorkerSpec extends Specification {
         converter.convert(genericJsonSchemaWrapper[TestData.Path3Input].schema)
       schemas.get("pl.iterators.baklava.formatteropenapi.utils.TestData.Path3Output") shouldEqual
         converter.convert(genericJsonSchemaWrapper[TestData.Path3Output].schema)
+    }
+
+    "properly pass authentication details" in new TestCase {
+      val input1 = List(
+        EnrichedRouteRepresentation(
+          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = None),
+          List("Ok")
+        )
+      )
+      val input2 = List(
+        EnrichedRouteRepresentation(
+          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = Some(List("Bearer"))),
+          List("Ok")
+        )
+      )
+      val input3 = List(
+        EnrichedRouteRepresentation(
+          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = Some(List("Bearer", "Basic"))),
+          List("Ok")
+        )
+      )
+      val input4 = List(
+        EnrichedRouteRepresentation(
+          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = Some(List("Invalid"))),
+          List("Ok")
+        )
+      )
+
+      val openApi1 = worker.generateOpenApi(input1)
+      val openApi2 = worker.generateOpenApi(input2)
+      val openApi3 = worker.generateOpenApi(input3)
+      val openApi4 = worker.generateOpenApi(input4)
+
+      openApi1.getPaths.get("/path1").getGet.getSecurity shouldEqual null
+
+      openApi2.getPaths.get("/path1").getGet.getSecurity.size() shouldEqual 1
+      openApi2.getPaths.get("/path1").getGet.getSecurity.get(0).get("bearerAuth") shouldEqual List.empty.asJava
+
+      openApi3.getPaths.get("/path1").getGet.getSecurity.size() shouldEqual 2
+      openApi3.getPaths.get("/path1").getGet.getSecurity.get(0).get("bearerAuth") shouldEqual List.empty.asJava
+      openApi3.getPaths.get("/path1").getGet.getSecurity.get(1).get("basicAuth") shouldEqual List.empty.asJava
+
+      openApi4.getPaths.get("/path1").getGet.getSecurity.size() shouldEqual 0
     }
   }
 

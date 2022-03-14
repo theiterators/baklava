@@ -15,6 +15,7 @@ case class RouteRepresentation[Request, Response](
     headers: List[RouteHeaderRepresentation] = Nil,
     requestPredefinedValue: Option[Request] = None,
     responsePredefinedValue: Option[Response] = None,
+    authentication: Option[List[String]] = None
 )(implicit
   requestTypeTag: TypeTag[Request],
   requestGenerators: AllGenerators[Request],

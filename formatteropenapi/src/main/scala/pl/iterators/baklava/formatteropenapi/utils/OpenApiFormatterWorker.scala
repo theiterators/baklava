@@ -6,6 +6,7 @@ import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.media._
 import io.swagger.v3.oas.models.parameters.{Parameter, RequestBody}
 import io.swagger.v3.oas.models.responses.{ApiResponse, ApiResponses}
+import io.swagger.v3.oas.models.security.{SecurityRequirement, SecurityScheme}
 import pl.iterators.baklava.core.model.{
   EnrichedRouteRepresentation,
   RouteDtoHandler,
@@ -31,6 +32,12 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
       case (name, schema) =>
         components.addSchemas(name, schema)
     }
+    routesList
+      .flatMap(_.routeRepresentation.authentication)
+      .flatten
+      .distinct
+      .flatMap(stringToSecuritySchema)
+      .foreach { case (name, schema) => components.addSecuritySchemes(name, schema) }
     components
   }
 
@@ -80,7 +87,8 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
       description = route.enrichDescriptions.map(_.description).mkString("\n"),
       parameters = queryParamsToParams(route.routeRepresentation.parameters) ++ headersToParams(route.routeRepresentation.headers),
       requestBody = routeToRequestBody(route),
-      responses = routeToApiResponses(route)
+      responses = routeToApiResponses(route),
+      security = routeToSecurity(route)
     )
   }
 
@@ -151,6 +159,36 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
           apiResponses.addApiResponse(code.intValue.toString, apiResponse)
       }
     apiResponses
+  }
+
+  private def routeToSecurity(route: EnrichedRouteRepresentation[_, _]): Option[List[SecurityRequirement]] =
+    route.routeRepresentation.authentication.map(_.flatMap {
+      case "Bearer" =>
+        val security = new SecurityRequirement()
+        security.addList("bearerAuth")
+        Some(security)
+      case "Basic" =>
+        val security = new SecurityRequirement()
+        security.addList("basicAuth")
+        Some(security)
+      case _ => None
+    })
+
+  private def stringToSecuritySchema(name: String): Option[(String, SecurityScheme)] = {
+    name match {
+      case "Bearer" =>
+        val securityScheme = new SecurityScheme()
+        securityScheme.setScheme("bearer")
+        securityScheme.setBearerFormat("JWT")
+        securityScheme.setType(SecurityScheme.Type.HTTP)
+        Some(("bearerAuth", securityScheme))
+      case "Basic" =>
+        val securityScheme = new SecurityScheme()
+        securityScheme.setScheme("basic")
+        securityScheme.setType(SecurityScheme.Type.HTTP)
+        Some("basicAuth", securityScheme)
+      case _ => None
+    }
   }
 
   private def routeDtoHandlerToMediaType(dto: RouteDtoHandler[_]): MediaType = {
