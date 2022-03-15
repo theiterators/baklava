@@ -9,7 +9,7 @@ import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
 import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
 import spray.json._
 
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 object TestData {
   case class Path1Output(p1Int: Int, p1String: String)
