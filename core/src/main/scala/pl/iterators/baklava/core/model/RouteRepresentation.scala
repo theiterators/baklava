@@ -2,7 +2,9 @@ package pl.iterators.baklava.core.model
 
 import pl.iterators.kebs.jsonschema.JsonSchemaWrapper
 import pl.iterators.kebs.scalacheck.AllGenerators
-import spray.json.JsonWriter
+import spray.json.{JsonWriter, _}
+import pl.iterators.baklava.core.utils.option.RichOptionCompanion
+
 
 import scala.reflect.runtime.universe._
 
