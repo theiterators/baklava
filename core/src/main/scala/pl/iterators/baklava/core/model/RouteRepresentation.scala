@@ -2,8 +2,7 @@ package pl.iterators.baklava.core.model
 
 import pl.iterators.kebs.jsonschema.JsonSchemaWrapper
 import pl.iterators.kebs.scalacheck.AllGenerators
-import spray.json.{JsonWriter, _}
-import pl.iterators.baklava.core.utils.option.RichOptionCompanion
+import spray.json.JsonWriter
 
 import scala.reflect.runtime.universe._
 
@@ -15,7 +14,7 @@ case class RouteRepresentation[Request, Response](
     headers: List[RouteHeaderRepresentation] = Nil,
     requestPredefinedValue: Option[Request] = None,
     responsePredefinedValue: Option[Response] = None,
-    authentication: List[RouteSecurity] = List.empty
+    authentication: List[RouteSecurityGroup] = List.empty
 )(implicit
   requestTypeTag: TypeTag[Request],
   requestGenerators: AllGenerators[Request],

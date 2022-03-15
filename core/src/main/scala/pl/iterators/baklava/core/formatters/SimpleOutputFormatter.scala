@@ -4,11 +4,10 @@ import com.github.andyglow.json.JsonFormatter
 import com.github.andyglow.jsonschema.AsValue
 import json.schema.Version.Draft07
 import pl.iterators.baklava.core.model.EnrichedRouteRepresentation
-import pl.iterators.baklava.core.utils.option.RichOptionCompanion
+import spray.json._
 
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Try
-import spray.json._
 
 class SimpleOutputFormatter extends Formatter {
 
@@ -116,7 +115,7 @@ class SimpleOutputFormatter extends Formatter {
       Some(s"<tr><td><b>ROUTE</b></td><td>${r.path}</td></tr>"),
       Some(s"<tr><td><b>DESCRIPTION</b></td><td>${r.description}</td></tr>"),
       Option.when(r.authentication.nonEmpty) {
-        s"<tr><td><b>AUTHENTICATION</b></td><td>${r.authentication.mkString(", ")}</td></tr>"
+        s"<tr><td><b>AUTHENTICATION</b></td><td><ul>${r.authentication.map("<li>" ++ _.toString ++ "</li>").mkString}</ul></td></tr>"
       },
       Some(s"<tr><td><b>BEHAVIOUR</b></td><td>${p.enrichDescriptions
         .map { enrichedDescription =>

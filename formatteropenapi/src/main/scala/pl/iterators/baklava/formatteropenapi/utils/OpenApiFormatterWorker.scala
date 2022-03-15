@@ -27,11 +27,10 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
       case (name, schema) =>
         components.addSchemas(name, schema)
     }
-    routesList
-      .flatMap(_.routeRepresentation.authentication)
-      .distinct
-      .map(stringToSecuritySchema)
-      .foreach { case (name, schema) => components.addSecuritySchemes(name, schema) }
+    routesList.flatMap(routeSecurityGroupToSecuritySchemaWithName).foreach {
+      case (name, schema) =>
+        components.addSecuritySchemes(name, schema)
+    }
     components
   }
 
@@ -156,30 +155,44 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
   }
 
   private def routeToSecurity(route: EnrichedRouteRepresentation[_, _]): List[SecurityRequirement] =
-    route.routeRepresentation.authentication.map {
-      case RouteSecurity.Bearer =>
-        val security = new SecurityRequirement()
-        security.addList("bearerAuth")
-        security
-      case RouteSecurity.Basic =>
-        val security = new SecurityRequirement()
-        security.addList("basicAuth")
-        security
+    route.routeRepresentation.authentication.map { routeSecurityGroup =>
+      val security = new SecurityRequirement()
+      routeSecurityGroup.list.map(_.schemaName).foreach(security.addList)
+      security
     }
 
-  private def stringToSecuritySchema(name: RouteSecurity): (String, SecurityScheme) = {
-    name match {
-      case RouteSecurity.Bearer =>
+  private def routeSecurityGroupToSecuritySchemaWithName(route: EnrichedRouteRepresentation[_, _]): List[(String, SecurityScheme)] = {
+
+    route.routeRepresentation.authentication.flatMap(_.list).distinct.map {
+      case RouteSecurity.Bearer(schemaName) =>
         val securityScheme = new SecurityScheme()
         securityScheme.setScheme("bearer")
         securityScheme.setBearerFormat("JWT")
         securityScheme.setType(SecurityScheme.Type.HTTP)
-        ("bearerAuth", securityScheme)
-      case RouteSecurity.Basic =>
+        (schemaName, securityScheme)
+      case RouteSecurity.Basic(schemaName) =>
         val securityScheme = new SecurityScheme()
         securityScheme.setScheme("basic")
         securityScheme.setType(SecurityScheme.Type.HTTP)
-        ("basicAuth", securityScheme)
+        (schemaName, securityScheme)
+      case RouteSecurity.HeaderApiKey(name, schemaName) =>
+        val securityScheme = new SecurityScheme()
+        securityScheme.setType(SecurityScheme.Type.APIKEY)
+        securityScheme.setIn(SecurityScheme.In.HEADER)
+        securityScheme.setName(name)
+        (schemaName, securityScheme)
+      case RouteSecurity.QueryApiKey(name, schemaName) =>
+        val securityScheme = new SecurityScheme()
+        securityScheme.setType(SecurityScheme.Type.APIKEY)
+        securityScheme.setIn(SecurityScheme.In.QUERY)
+        securityScheme.setName(name)
+        (schemaName, securityScheme)
+      case RouteSecurity.CookieApiKey(name, schemaName) =>
+        val securityScheme = new SecurityScheme()
+        securityScheme.setType(SecurityScheme.Type.APIKEY)
+        securityScheme.setIn(SecurityScheme.In.COOKIE)
+        securityScheme.setName(name)
+        (schemaName, securityScheme)
     }
   }
 

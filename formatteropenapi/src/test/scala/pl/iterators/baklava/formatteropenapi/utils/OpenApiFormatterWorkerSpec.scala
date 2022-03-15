@@ -1,5 +1,6 @@
 package pl.iterators.baklava.formatteropenapi.utils
 
+import io.swagger.v3.oas.models.security.SecurityScheme
 import io.swagger.v3.oas.models.{Components, Paths}
 import org.specs2.mutable.Specification
 import org.specs2.specification.Scope
@@ -182,6 +183,8 @@ class OpenApiFormatterWorkerSpec extends Specification {
     }
 
     "properly pass authentication details" in new TestCase {
+      import pl.iterators.baklava.core.model.RouteSecurityGroup._
+
       val input1 = List(
         EnrichedRouteRepresentation(
           RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = List()),
@@ -190,7 +193,7 @@ class OpenApiFormatterWorkerSpec extends Specification {
       )
       val input2 = List(
         EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = List(RouteSecurity.Bearer)),
+          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1", authentication = List(RouteSecurity.Bearer())),
           List("Ok")
         )
       )
@@ -199,7 +202,49 @@ class OpenApiFormatterWorkerSpec extends Specification {
           RouteRepresentation[Unit, TestData.Path1Output]("summary 1",
                                                           "GET",
                                                           "/path1",
-                                                          authentication = List(RouteSecurity.Bearer, RouteSecurity.Basic)),
+                                                          authentication = List(RouteSecurity.Bearer(), RouteSecurity.Basic())),
+          List("Ok")
+        )
+      )
+      val input4 = List(
+        EnrichedRouteRepresentation(
+          RouteRepresentation[Unit, TestData.Path1Output]("summary 1",
+                                                          "GET",
+                                                          "/path1",
+                                                          authentication =
+                                                            List(RouteSecurity.Bearer(), RouteSecurity.Bearer("bearerAuth2"))),
+          List("Ok")
+        )
+      )
+      val input5 = List(
+        EnrichedRouteRepresentation(
+          RouteRepresentation[Unit, TestData.Path1Output](
+            "summary 1",
+            "GET",
+            "/path1",
+            authentication = List(
+              List(
+                RouteSecurity.HeaderApiKey(name = "X-SECRET-API-KEY", schemaName = "secretApiKeyAuth"),
+                RouteSecurity.HeaderApiKey(name = "X-ID-API-KEY", schemaName = "idApiKeyAuth")
+              ),
+              RouteSecurity.Bearer()
+            )
+          ),
+          List("Ok")
+        )
+      )
+      val input6 = List(
+        EnrichedRouteRepresentation(
+          RouteRepresentation[Unit, TestData.Path1Output](
+            "summary 1",
+            "GET",
+            "/path1",
+            authentication = List(
+              RouteSecurity.HeaderApiKey("X-API-KEY"),
+              RouteSecurity.QueryApiKey("api_key"),
+              RouteSecurity.CookieApiKey("X-COOKIE-KEY-KEY")
+            )
+          ),
           List("Ok")
         )
       )
@@ -207,15 +252,70 @@ class OpenApiFormatterWorkerSpec extends Specification {
       val openApi1 = worker.generateOpenApi(input1)
       val openApi2 = worker.generateOpenApi(input2)
       val openApi3 = worker.generateOpenApi(input3)
+      val openApi4 = worker.generateOpenApi(input4)
+      val openApi5 = worker.generateOpenApi(input5)
+      val openApi6 = worker.generateOpenApi(input6)
 
       openApi1.getPaths.get("/path1").getGet.getSecurity shouldEqual null
+      openApi1.getComponents.getSecuritySchemes shouldEqual null
 
       openApi2.getPaths.get("/path1").getGet.getSecurity.size() shouldEqual 1
       openApi2.getPaths.get("/path1").getGet.getSecurity.get(0).get("bearerAuth") shouldEqual List.empty.asJava
+      openApi2.getComponents.getSecuritySchemes.size() shouldEqual 1
+      openApi2.getComponents.getSecuritySchemes.get("bearerAuth").getScheme shouldEqual "bearer"
+      openApi2.getComponents.getSecuritySchemes.get("bearerAuth").getBearerFormat shouldEqual "JWT"
+      openApi2.getComponents.getSecuritySchemes.get("bearerAuth").getType shouldEqual SecurityScheme.Type.HTTP
 
       openApi3.getPaths.get("/path1").getGet.getSecurity.size() shouldEqual 2
       openApi3.getPaths.get("/path1").getGet.getSecurity.get(0).get("bearerAuth") shouldEqual List.empty.asJava
       openApi3.getPaths.get("/path1").getGet.getSecurity.get(1).get("basicAuth") shouldEqual List.empty.asJava
+      openApi3.getComponents.getSecuritySchemes.size() shouldEqual 2
+      openApi3.getComponents.getSecuritySchemes.get("bearerAuth").getScheme shouldEqual "bearer"
+      openApi3.getComponents.getSecuritySchemes.get("bearerAuth").getBearerFormat shouldEqual "JWT"
+      openApi3.getComponents.getSecuritySchemes.get("bearerAuth").getType shouldEqual SecurityScheme.Type.HTTP
+      openApi3.getComponents.getSecuritySchemes.get("basicAuth").getScheme shouldEqual "basic"
+      openApi3.getComponents.getSecuritySchemes.get("basicAuth").getType shouldEqual SecurityScheme.Type.HTTP
+
+      openApi4.getPaths.get("/path1").getGet.getSecurity.size() shouldEqual 2
+      openApi4.getPaths.get("/path1").getGet.getSecurity.get(0).get("bearerAuth") shouldEqual List.empty.asJava
+      openApi4.getPaths.get("/path1").getGet.getSecurity.get(1).get("bearerAuth2") shouldEqual List.empty.asJava
+      openApi4.getComponents.getSecuritySchemes.size() shouldEqual 2
+      openApi4.getComponents.getSecuritySchemes.get("bearerAuth").getScheme shouldEqual "bearer"
+      openApi4.getComponents.getSecuritySchemes.get("bearerAuth").getBearerFormat shouldEqual "JWT"
+      openApi4.getComponents.getSecuritySchemes.get("bearerAuth").getType shouldEqual SecurityScheme.Type.HTTP
+      openApi4.getComponents.getSecuritySchemes.get("bearerAuth2").getScheme shouldEqual "bearer"
+      openApi4.getComponents.getSecuritySchemes.get("bearerAuth2").getBearerFormat shouldEqual "JWT"
+      openApi4.getComponents.getSecuritySchemes.get("bearerAuth2").getType shouldEqual SecurityScheme.Type.HTTP
+
+      openApi5.getPaths.get("/path1").getGet.getSecurity.size() shouldEqual 2
+      openApi5.getPaths.get("/path1").getGet.getSecurity.get(0).get("secretApiKeyAuth") shouldEqual List.empty.asJava
+      openApi5.getPaths.get("/path1").getGet.getSecurity.get(0).get("idApiKeyAuth") shouldEqual List.empty.asJava
+      openApi5.getPaths.get("/path1").getGet.getSecurity.get(1).get("bearerAuth") shouldEqual List.empty.asJava
+      openApi5.getComponents.getSecuritySchemes.size() shouldEqual 3
+      openApi5.getComponents.getSecuritySchemes.get("bearerAuth").getScheme shouldEqual "bearer"
+      openApi5.getComponents.getSecuritySchemes.get("bearerAuth").getBearerFormat shouldEqual "JWT"
+      openApi5.getComponents.getSecuritySchemes.get("bearerAuth").getType shouldEqual SecurityScheme.Type.HTTP
+      openApi5.getComponents.getSecuritySchemes.get("idApiKeyAuth").getType shouldEqual SecurityScheme.Type.APIKEY
+      openApi5.getComponents.getSecuritySchemes.get("idApiKeyAuth").getIn shouldEqual SecurityScheme.In.HEADER
+      openApi5.getComponents.getSecuritySchemes.get("idApiKeyAuth").getName shouldEqual "X-ID-API-KEY"
+      openApi5.getComponents.getSecuritySchemes.get("secretApiKeyAuth").getType shouldEqual SecurityScheme.Type.APIKEY
+      openApi5.getComponents.getSecuritySchemes.get("secretApiKeyAuth").getIn shouldEqual SecurityScheme.In.HEADER
+      openApi5.getComponents.getSecuritySchemes.get("secretApiKeyAuth").getName shouldEqual "X-SECRET-API-KEY"
+
+      openApi6.getPaths.get("/path1").getGet.getSecurity.size() shouldEqual 3
+      openApi6.getPaths.get("/path1").getGet.getSecurity.get(0).get("headerApiKeyAuth") shouldEqual List.empty.asJava
+      openApi6.getPaths.get("/path1").getGet.getSecurity.get(1).get("queryApiKeyAuth") shouldEqual List.empty.asJava
+      openApi6.getPaths.get("/path1").getGet.getSecurity.get(2).get("cookieApiKeyAuth") shouldEqual List.empty.asJava
+      openApi6.getComponents.getSecuritySchemes.size() shouldEqual 3
+      openApi6.getComponents.getSecuritySchemes.get("headerApiKeyAuth").getType shouldEqual SecurityScheme.Type.APIKEY
+      openApi6.getComponents.getSecuritySchemes.get("headerApiKeyAuth").getIn shouldEqual SecurityScheme.In.HEADER
+      openApi6.getComponents.getSecuritySchemes.get("headerApiKeyAuth").getName shouldEqual "X-API-KEY"
+      openApi6.getComponents.getSecuritySchemes.get("queryApiKeyAuth").getType shouldEqual SecurityScheme.Type.APIKEY
+      openApi6.getComponents.getSecuritySchemes.get("queryApiKeyAuth").getIn shouldEqual SecurityScheme.In.QUERY
+      openApi6.getComponents.getSecuritySchemes.get("queryApiKeyAuth").getName shouldEqual "api_key"
+      openApi6.getComponents.getSecuritySchemes.get("cookieApiKeyAuth").getType shouldEqual SecurityScheme.Type.APIKEY
+      openApi6.getComponents.getSecuritySchemes.get("cookieApiKeyAuth").getIn shouldEqual SecurityScheme.In.COOKIE
+      openApi6.getComponents.getSecuritySchemes.get("cookieApiKeyAuth").getName shouldEqual "X-COOKIE-KEY-KEY"
     }
   }
 
