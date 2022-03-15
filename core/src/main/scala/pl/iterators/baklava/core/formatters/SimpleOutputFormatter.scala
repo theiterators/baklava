@@ -4,6 +4,7 @@ import com.github.andyglow.json.JsonFormatter
 import com.github.andyglow.jsonschema.AsValue
 import json.schema.Version.Draft07
 import pl.iterators.baklava.core.model.EnrichedRouteRepresentation
+import pl.iterators.baklava.core.utils.option.RichOptionCompanion
 import spray.json._
 
 import java.io.{File, FileWriter, PrintWriter}
