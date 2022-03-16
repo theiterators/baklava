@@ -6,12 +6,8 @@ import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.media._
 import io.swagger.v3.oas.models.parameters.{Parameter, RequestBody}
 import io.swagger.v3.oas.models.responses.{ApiResponse, ApiResponses}
-import pl.iterators.baklava.core.model.{
-  EnrichedRouteRepresentation,
-  RouteDtoHandler,
-  RouteHeaderRepresentation,
-  RouteParameterRepresentation
-}
+import io.swagger.v3.oas.models.security.{SecurityRequirement, SecurityScheme}
+import pl.iterators.baklava.core.model._
 import pl.iterators.baklava.formatteropenapi.utils.builders.{OpenApiBuilder, OperationBuilder, PathItemBuilder}
 import pl.iterators.kebs.jsonschema.JsonSchemaWrapper
 
@@ -30,6 +26,10 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
     routesList.flatMap(routeToSchemaWithName).foreach {
       case (name, schema) =>
         components.addSchemas(name, schema)
+    }
+    routesList.flatMap(routeSecurityGroupToSecuritySchemaWithName).foreach {
+      case (name, schema) =>
+        components.addSecuritySchemes(name, schema)
     }
     components
   }
@@ -80,7 +80,8 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
       description = route.enrichDescriptions.map(_.description).mkString("\n"),
       parameters = queryParamsToParams(route.routeRepresentation.parameters) ++ headersToParams(route.routeRepresentation.headers),
       requestBody = routeToRequestBody(route),
-      responses = routeToApiResponses(route)
+      responses = routeToApiResponses(route),
+      security = routeToSecurity(route)
     )
   }
 
@@ -151,6 +152,48 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
           apiResponses.addApiResponse(code.intValue.toString, apiResponse)
       }
     apiResponses
+  }
+
+  private def routeToSecurity(route: EnrichedRouteRepresentation[_, _]): List[SecurityRequirement] =
+    route.routeRepresentation.authentication.map { routeSecurityGroup =>
+      val security = new SecurityRequirement()
+      routeSecurityGroup.list.map(_.schemaName).foreach(security.addList)
+      security
+    }
+
+  private def routeSecurityGroupToSecuritySchemaWithName(route: EnrichedRouteRepresentation[_, _]): List[(String, SecurityScheme)] = {
+
+    route.routeRepresentation.authentication.flatMap(_.list).distinct.map {
+      case RouteSecurity.Bearer(schemaName) =>
+        val securityScheme = new SecurityScheme()
+        securityScheme.setScheme("bearer")
+        securityScheme.setBearerFormat("JWT")
+        securityScheme.setType(SecurityScheme.Type.HTTP)
+        (schemaName, securityScheme)
+      case RouteSecurity.Basic(schemaName) =>
+        val securityScheme = new SecurityScheme()
+        securityScheme.setScheme("basic")
+        securityScheme.setType(SecurityScheme.Type.HTTP)
+        (schemaName, securityScheme)
+      case RouteSecurity.HeaderApiKey(name, schemaName) =>
+        val securityScheme = new SecurityScheme()
+        securityScheme.setType(SecurityScheme.Type.APIKEY)
+        securityScheme.setIn(SecurityScheme.In.HEADER)
+        securityScheme.setName(name)
+        (schemaName, securityScheme)
+      case RouteSecurity.QueryApiKey(name, schemaName) =>
+        val securityScheme = new SecurityScheme()
+        securityScheme.setType(SecurityScheme.Type.APIKEY)
+        securityScheme.setIn(SecurityScheme.In.QUERY)
+        securityScheme.setName(name)
+        (schemaName, securityScheme)
+      case RouteSecurity.CookieApiKey(name, schemaName) =>
+        val securityScheme = new SecurityScheme()
+        securityScheme.setType(SecurityScheme.Type.APIKEY)
+        securityScheme.setIn(SecurityScheme.In.COOKIE)
+        securityScheme.setName(name)
+        (schemaName, securityScheme)
+    }
   }
 
   private def routeDtoHandlerToMediaType(dto: RouteDtoHandler[_]): MediaType = {
