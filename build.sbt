@@ -13,15 +13,11 @@ ThisBuild / scalaVersion := mainScalaVersion
 lazy val baseSettings = Seq(
   organization := "pl.iterators",
   organizationName := "Iterators",
-  organizationHomepage := Some(url("https://iterato.rs")),
-  version := "0.0.1-SNAPSHOT",
-  homepage := Some(url("https://github.com/theiterators/kebs")),
+  homepage := Some(url("https://github.com/theiterators/baklava")),
   scalacOptions := Seq("-deprecation", "-unchecked", "-feature", "-encoding", "utf8"),
   scalafmtVersion := "1.3.0",
   crossScalaVersions := supportedScalaVersions,
-  scalafmtOnCompile := true,
-  resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-  // Sonatype settings
+  scalafmtOnCompile := true, // Sonatype settings
   publishTo := sonatypePublishTo.value,
   sonatypeProfileName := "pl.iterators",
   publishMavenStyle := true,
