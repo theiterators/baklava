@@ -25,6 +25,14 @@ lazy val baseSettings = Seq(
   organization := "pl.iterators",
   organizationName := "Iterators",
   organizationHomepage := Some(url("https://www.iteratorshq.com/")),
+  developers := List(
+    Developer(
+      id = "kpalcowski",
+      name = "Krzysztof Palcowski",
+      email = "kpalcowski@iteratorshq.com",
+      url = url("https://github.com/kristerr")
+    )
+  ),
   scmInfo := Some(
     ScmInfo(
       browseUrl = url("https://github.com/theiterators/baklava"),
