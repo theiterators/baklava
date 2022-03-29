@@ -2,6 +2,7 @@ package pl.iterators.baklava.akkahttpspecs2
 
 import org.specs2.mutable.Specification
 import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation}
+import pl.iterators.baklava.sprayjson.SprayJsonStringProvider
 import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
 import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
 import spray.json.DefaultJsonProtocol
@@ -14,6 +15,7 @@ object TestData
     extends KebsArbitraryPredefs
     with KebsJsonSchemaPredefs
     with DefaultJsonProtocol
+    with SprayJsonStringProvider
     with KebsJsonSchema
     with KebsScalacheckGenerators {
   val routeRepresentation1: RouteRepresentation[Unit, Unit] = RouteRepresentation(

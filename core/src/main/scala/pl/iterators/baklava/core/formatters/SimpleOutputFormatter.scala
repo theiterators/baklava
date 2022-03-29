@@ -5,7 +5,6 @@ import com.github.andyglow.jsonschema.AsValue
 import json.schema.Version.Draft07
 import pl.iterators.baklava.core.model.EnrichedRouteRepresentation
 import pl.iterators.baklava.core.utils.option.RichOptionCompanion
-import spray.json._
 
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Try
@@ -110,41 +109,40 @@ class SimpleOutputFormatter extends Formatter {
       |}
       |</style>
       |""".stripMargin +
-    "<table>" +
-    List(
-      Some(s"<tr><td><b>METHOD</b></td><td>${r.method}</td></tr>"),
-      Some(s"<tr><td><b>ROUTE</b></td><td>${r.path}</td></tr>"),
-      Some(s"<tr><td><b>DESCRIPTION</b></td><td>${r.description}</td></tr>"),
-      Option.when(r.authentication.nonEmpty) {
-        s"<tr><td><b>AUTHENTICATION</b></td><td><ul>${r.authentication.map("<li>" ++ _.toString ++ "</li>").mkString}</ul></td></tr>"
-      },
-      Some(s"<tr><td><b>BEHAVIOUR</b></td><td>${p.enrichDescriptions
-        .map { enrichedDescription =>
-          s"${enrichedDescription.description} ${enrichedDescription.statusCodeOpt.map(c => s"-> [$c]").getOrElse("")}"
-        }
-        .mkString("<br/>")}</td></tr>"),
-      Some(s"<tr><td><b>STATUS CODES</b></td><td>${statusCodes.mkString("<br/>")}</td></tr>"),
-      Option.when(r.parameters.nonEmpty) {
-        s"<tr><td><b>PARAMETERS</b></td><td>" +
-        s"${r.parameters.map(h => s"${h.name} [${h.scalaType}] ${Option.when(h.required)(s"<b style='color: red'>*</b>").getOrElse("")}").mkString("<br/>")}" +
-        s"</td></tr>" +
-        s"<tr><td><b>ROUTE WITH MINIMAL PARAMS</b></td><td>${r.routePathWithRequiredParameters}</td></tr>" +
-        s"<tr><td><b>ROUTE WITH ALL PARAMS</b></td><td>${r.routePathWithAllParameters}</td></tr>"
-      },
-      Option.when(r.headers.nonEmpty)(
-        s"<tr><td><b>HEADERS</b></td><td>" +
+      "<table>" +
+      List(
+        Some(s"<tr><td><b>METHOD</b></td><td>${r.method}</td></tr>"),
+        Some(s"<tr><td><b>ROUTE</b></td><td>${r.path}</td></tr>"),
+        Some(s"<tr><td><b>DESCRIPTION</b></td><td>${r.description}</td></tr>"),
+        Option.when(r.authentication.nonEmpty) {
+          s"<tr><td><b>AUTHENTICATION</b></td><td><ul>${r.authentication.map("<li>" ++ _.toString ++ "</li>").mkString}</ul></td></tr>"
+        },
+        Some(s"<tr><td><b>BEHAVIOUR</b></td><td>${p.enrichDescriptions
+          .map { enrichedDescription =>
+            s"${enrichedDescription.description} ${enrichedDescription.statusCodeOpt.map(c => s"-> [$c]").getOrElse("")}"
+          }
+          .mkString("<br/>")}</td></tr>"),
+        Some(s"<tr><td><b>STATUS CODES</b></td><td>${statusCodes.mkString("<br/>")}</td></tr>"),
+        Option.when(r.parameters.nonEmpty) {
+          s"<tr><td><b>PARAMETERS</b></td><td>" +
+            s"${r.parameters.map(h => s"${h.name} [${h.scalaType}] ${Option.when(h.required)(s"<b style='color: red'>*</b>").getOrElse("")}").mkString("<br/>")}" +
+            s"</td></tr>" +
+            s"<tr><td><b>ROUTE WITH MINIMAL PARAMS</b></td><td>${r.routePathWithRequiredParameters}</td></tr>" +
+            s"<tr><td><b>ROUTE WITH ALL PARAMS</b></td><td>${r.routePathWithAllParameters}</td></tr>"
+        },
+        Option.when(r.headers.nonEmpty)(s"<tr><td><b>HEADERS</b></td><td>" +
           s"${r.headers.map(h => s"${h.name}${Option.when(h.required)("<b style='color: red'>*</b>").getOrElse("")}").mkString("<br/>")}" +
           s"</td></tr>"),
-      r.request.scalaClassOpt.map(s => s"<tr><td><b>REQUEST SCALA TYPE</b></td><td><pre>$s</pre></td></tr>"),
-      r.request.minimal.jsonOpt.map(s => s"<tr><td><b>REQUEST MINIMAL JSON</b></td><td><pre>${s.prettyPrint}</pre></td></tr>"),
-      r.request.maximal.jsonOpt.map(s => s"<tr><td><b>REQUEST MAXIMAL JSON</b></td><td><pre>${s.prettyPrint}</pre></td></tr>"),
-      r.request.schema.map(s => s"<tr><td><b>REQUEST SCHEMA</b></td><td><pre>${printSchema(s).parseJson.prettyPrint}</pre></td></tr>"),
-      r.response.scalaClassOpt.map(s => s"<tr><td><b>RESPONSE SCALA TYPE</b></td><td><pre>$s</pre></td></tr>"),
-      r.response.minimal.jsonOpt.map(s => s"<tr><td><b>RESPONSE MINIMAL JSON</b></td><td><pre>${s.prettyPrint}</pre></td></tr>"),
-      r.response.maximal.jsonOpt.map(s => s"<tr><td><b>RESPONSE MAXIMAL JSON</b></td><td><pre>${s.prettyPrint}</pre></td></tr>"),
-      r.response.schema.map(s => s"<tr><td><b>RESPONSE SCHEMA</b></td><td><pre>${printSchema(s).parseJson.prettyPrint}</pre></td></tr>"),
-    ).flatten.mkString("\n") +
-    "</table>"
+        r.request.scalaClassOpt.map(s => s"<tr><td><b>REQUEST SCALA TYPE</b></td><td><pre>$s</pre></td></tr>"),
+        r.request.minimal.jsonString.map(s => s"<tr><td><b>REQUEST MINIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
+        r.request.maximal.jsonString.map(s => s"<tr><td><b>REQUEST MAXIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
+        r.request.schema.map(s => s"<tr><td><b>REQUEST SCHEMA</b></td><td><pre>${printSchema(s)}</pre></td></tr>"),
+        r.response.scalaClassOpt.map(s => s"<tr><td><b>RESPONSE SCALA TYPE</b></td><td><pre>$s</pre></td></tr>"),
+        r.response.minimal.jsonString.map(s => s"<tr><td><b>RESPONSE MINIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
+        r.response.maximal.jsonString.map(s => s"<tr><td><b>RESPONSE MAXIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
+        r.response.schema.map(s => s"<tr><td><b>RESPONSE SCHEMA</b></td><td><pre>${printSchema(s)}</pre></td></tr>"),
+      ).flatten.mkString("\n") +
+      "</table>"
   }
 
   private def printSchema[T](schema: json.Schema[T]): String =

@@ -3,10 +3,11 @@ package pl.iterators.baklava.akkahttpscalatest
 import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
 import org.scalatest.matchers.should.Matchers
 import org.specs2.mutable.Specification
+import pl.iterators.baklava.circe.CirceJsonStringProvider
 import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation}
+import pl.iterators.kebs.circe.KebsCirce
 import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
 import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
-import spray.json.DefaultJsonProtocol
 
 trait LibraryTestSpec extends LibraryAkkaHttpScalatestRouteDocSpec with AnyFlatSpecLike with Matchers {
   override def shutdownSpec(): Unit = ()
@@ -15,7 +16,8 @@ trait LibraryTestSpec extends LibraryAkkaHttpScalatestRouteDocSpec with AnyFlatS
 object TestData
     extends KebsArbitraryPredefs
     with KebsJsonSchemaPredefs
-    with DefaultJsonProtocol
+    with KebsCirce
+    with CirceJsonStringProvider
     with KebsJsonSchema
     with KebsScalacheckGenerators {
   val routeRepresentation1: RouteRepresentation[Unit, Unit] = RouteRepresentation(
