@@ -5,6 +5,7 @@ import io.swagger.v3.oas.models.{Components, Paths}
 import org.specs2.mutable.Specification
 import org.specs2.specification.Scope
 import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation, RouteSecurity}
+import pl.iterators.baklava.sprayjson.SprayJsonStringProvider
 import pl.iterators.kebs.json.KebsSpray
 import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
 import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
@@ -27,6 +28,7 @@ class OpenApiFormatterWorkerSpec extends Specification {
   trait TestCase
       extends Scope
       with DefaultJsonProtocol
+      with SprayJsonStringProvider
       with KebsSpray
       with KebsJsonSchema
       with KebsArbitraryPredefs

@@ -1,5 +1,7 @@
 package pl.iterators.baklava.core.model
 
+import scala.language.implicitConversions
+
 case class RouteSecurityGroup(list: List[RouteSecurity]) {
   override def toString: String = list.mkString(", ")
 }

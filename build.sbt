@@ -65,15 +65,45 @@ lazy val core = project
     libraryDependencies ++= {
 
       Seq(
-        "pl.iterators"        %% "kebs-spray-json"             % kebsV,
         "pl.iterators"        %% "kebs-tagged-meta"            % kebsV,
         "pl.iterators"        %% "kebs-jsonschema"             % kebsV,
         "pl.iterators"        %% "kebs-scalacheck"             % kebsV,
         "org.reflections"     % "reflections"                  % reflectionsVersion,
         "com.github.andyglow" %% "scala-jsonschema"            % jsonSchemaVersion,
-        "com.github.andyglow" %% "scala-jsonschema-spray-json" % jsonSchemaVersion,
         "com.github.andyglow" %% "scala-jsonschema-enumeratum" % jsonSchemaVersion,
         "org.specs2"          %% "specs2-core"                 % specs2V % "test"
+      )
+    }
+  )
+
+lazy val circe = project
+  .in(file("circe"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(baseSettings: _*)
+  .settings(
+    name := "circe",
+    moduleName := "baklava-circe"
+  )
+  .settings(
+    libraryDependencies ++= {
+      Seq(
+        "pl.iterators" %% "kebs-circe" % kebsV
+      )
+    }
+  )
+
+lazy val sprayjson = project
+  .in(file("sprayjson"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(baseSettings: _*)
+  .settings(
+    name := "sprayjson",
+    moduleName := "baklava-sprayjson"
+  )
+  .settings(
+    libraryDependencies ++= {
+      Seq(
+        "pl.iterators" %% "kebs-spray-json" % kebsV
       )
     }
   )
@@ -102,6 +132,7 @@ lazy val akkahttp = project
 lazy val akkahttpscalatest = project
   .in(file("akkahttpscalatest"))
   .dependsOn(akkahttp % "compile->compile;test->test")
+  .dependsOn(circe % "test->test")
   .settings(baseSettings: _*)
   .settings(
     name := "akkahttpscalatest",
@@ -119,6 +150,7 @@ lazy val akkahttpscalatest = project
 lazy val akkahttpspecs2 = project
   .in(file("akkahttpspecs2"))
   .dependsOn(akkahttp % "compile->compile;test->test")
+  .dependsOn(sprayjson % "test->test")
   .settings(baseSettings: _*)
   .settings(
     name := "akkahttpspecs2",
@@ -134,6 +166,23 @@ lazy val akkahttpspecs2 = project
     }
   )
 
+lazy val formatteropenapi = project
+  .in(file("formatteropenapi"))
+  .dependsOn(core % "compile->compile;test->test")
+  .dependsOn(sprayjson % "test->test")
+  .settings(baseSettings: _*)
+  .settings(
+    name := "formatteropenapi",
+    moduleName := "baklava-formatteropenapi"
+  )
+  .settings(
+    libraryDependencies ++= {
+      Seq(
+        "io.swagger.core.v3" % "swagger-core" % swaggerV
+      )
+    }
+  )
+
 lazy val formatterts = project
   .in(file("formatterts"))
   .dependsOn(core % "compile->compile;test->test")
@@ -143,27 +192,12 @@ lazy val formatterts = project
     moduleName := "baklava-formatterts"
   )
 
-lazy val formatteropenapi = project
-  .in(file("formatteropenapi"))
-  .dependsOn(core % "compile->compile;test->test")
-  .settings(baseSettings: _*)
-  .settings(
-    name := "formatteropenapi",
-    moduleName := "baklava-formatteropenapi"
-  )
-  .settings(
-    libraryDependencies ++= {
-
-      Seq(
-        "io.swagger.core.v3" % "swagger-core" % swaggerV
-      )
-    }
-  )
-
 lazy val baklava = project
   .in(file("."))
   .aggregate(
     core,
+    circe,
+    sprayjson,
     akkahttp,
     akkahttpscalatest,
     akkahttpspecs2,

@@ -55,7 +55,7 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val outputInner = output.asInstanceOf[swagger.ArraySchema].getItems
     outputInner should haveClass[swagger.ObjectSchema]
     outputInner.asInstanceOf[swagger.ObjectSchema].getRequired.asScala should
-    containTheSameElementsAs(List("sampleString", "sampleBoolean"))
+      containTheSameElementsAs(List("sampleString", "sampleBoolean"))
     val outputInnerProperties = outputInner.getProperties.asScala
     outputInnerProperties("sampleString") should haveClass[swagger.StringSchema]
     outputInnerProperties("sampleInteger") should haveClass[swagger.IntegerSchema]
@@ -204,7 +204,7 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
 
     output should haveClass[swagger.ObjectSchema]
     output.asInstanceOf[swagger.ObjectSchema].getRequired.asScala should
-    containTheSameElementsAs(List("sampleString", "sampleBoolean"))
+      containTheSameElementsAs(List("sampleString", "sampleBoolean"))
     val outputProperties = output.getProperties.asScala
     outputProperties("sampleString") should haveClass[swagger.StringSchema]
     outputProperties("sampleInteger") should haveClass[swagger.IntegerSchema]
@@ -242,7 +242,7 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
 
     output should haveClass[swagger.ObjectSchema]
     output.asInstanceOf[swagger.ObjectSchema].getRequired.asScala should
-    containTheSameElementsAs(List("sampleString", "sampleNumber", "innerObject", "innerArrayOfObjects"))
+      containTheSameElementsAs(List("sampleString", "sampleNumber", "innerObject", "innerArrayOfObjects"))
     val outputProperties = output.getProperties.asScala
     outputProperties("sampleString") should haveClass[swagger.StringSchema]
     outputProperties("sampleNumber") should haveClass[swagger.NumberSchema]

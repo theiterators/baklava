@@ -1,6 +1,7 @@
-package pl.iterators.baklava.core
+package pl.iterators.baklava.sprayjson
 
 import org.specs2.mutable.Specification
+import pl.iterators.baklava.core.Generator
 import pl.iterators.baklava.core.fetchers.Fetcher
 import pl.iterators.baklava.core.formatters.Formatter
 import pl.iterators.baklava.core.model._
@@ -24,6 +25,7 @@ object StaticTestState {
 
 class TestFetcher
     extends Fetcher
+    with SprayJsonStringProvider
     with DefaultJsonProtocol
     with KebsJsonSchema
     with KebsArbitraryPredefs
