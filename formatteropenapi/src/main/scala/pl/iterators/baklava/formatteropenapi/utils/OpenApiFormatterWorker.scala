@@ -77,7 +77,8 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
   private def routeToOperation(route: EnrichedRouteRepresentation[_, _]): Operation = {
     OperationBuilder.build(
       summary = route.routeRepresentation.description,
-      description = route.enrichDescriptions.map(_.description).mkString("\n"),
+      description = route.routeRepresentation.extendedDescription
+        .getOrElse(route.enrichDescriptions.map(_.description).mkString("\n")),
       parameters = queryParamsToParams(route.routeRepresentation.parameters) ++ headersToParams(route.routeRepresentation.headers),
       requestBody = routeToRequestBody(route),
       responses = routeToApiResponses(route),

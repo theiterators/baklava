@@ -114,6 +114,7 @@ class SimpleOutputFormatter extends Formatter {
         Some(s"<tr><td><b>METHOD</b></td><td>${r.method}</td></tr>"),
         Some(s"<tr><td><b>ROUTE</b></td><td>${r.path}</td></tr>"),
         Some(s"<tr><td><b>DESCRIPTION</b></td><td>${r.description}</td></tr>"),
+        r.extendedDescription.map(s => s"<tr><td><b>EXTENDED DESCRIPTION</b></td><td>$s</td></tr>"),
         Option.when(r.authentication.nonEmpty) {
           s"<tr><td><b>AUTHENTICATION</b></td><td><ul>${r.authentication.map("<li>" ++ _.toString ++ "</li>").mkString}</ul></td></tr>"
         },

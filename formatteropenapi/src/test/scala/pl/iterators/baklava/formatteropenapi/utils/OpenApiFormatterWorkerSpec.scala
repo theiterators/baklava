@@ -101,7 +101,7 @@ class OpenApiFormatterWorkerSpec extends Specification {
       openApi.getComponents shouldEqual new Components
     }
 
-    "properly pass enriched descriptions" in new TestCase {
+    "properly pass enriched and extended descriptions" in new TestCase {
       val input = List(
         EnrichedRouteRepresentation(
           RouteRepresentation[Unit, Unit]("summary 1", "GET", "/path1"),
@@ -109,6 +109,10 @@ class OpenApiFormatterWorkerSpec extends Specification {
         ),
         EnrichedRouteRepresentation(
           RouteRepresentation[Unit, Unit]("summary 2", "GET", "/path2"),
+          List("when Ok then not Ok", "when InternalServerError then Internal Server Error")
+        ),
+        EnrichedRouteRepresentation(
+          RouteRepresentation[Unit, Unit]("summary 3", "GET", "/path3", extendedDescription = Some("extendedDescription")),
           List("when Ok then not Ok", "when InternalServerError then Internal Server Error")
         )
       )
@@ -122,6 +126,10 @@ class OpenApiFormatterWorkerSpec extends Specification {
       val path2 = openApi.getPaths.get("/path2")
       path2.getGet.getSummary shouldEqual "summary 2"
       path2.getGet.getDescription shouldEqual "when Ok then not Ok\nwhen InternalServerError then Internal Server Error"
+
+      val path3 = openApi.getPaths.get("/path3")
+      path3.getGet.getSummary shouldEqual "summary 3"
+      path3.getGet.getDescription shouldEqual "extendedDescription"
 
       openApi.getComponents shouldEqual new Components
     }
