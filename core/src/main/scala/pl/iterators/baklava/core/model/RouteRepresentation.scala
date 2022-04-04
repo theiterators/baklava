@@ -14,7 +14,8 @@ case class RouteRepresentation[Request, Response](
     headers: List[RouteHeaderRepresentation] = Nil,
     requestPredefinedValue: Option[Request] = None,
     responsePredefinedValue: Option[Response] = None,
-    authentication: List[RouteSecurityGroup] = List.empty
+    authentication: List[RouteSecurityGroup] = List.empty,
+    extendedDescription: Option[String] = None
 )(implicit
   requestTypeTag: TypeTag[Request],
   requestGenerators: AllGenerators[Request],
