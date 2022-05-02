@@ -9,8 +9,9 @@ import scala.util.Try
 
 trait TsFormatterBase extends Formatter {
 
-  override def generate(outputPath: String, routesList: List[EnrichedRouteRepresentation[_, _]]): Unit = {
-    val dir = new File(outputPath)
+  override def generate(outputBasePath: String, routesList: List[EnrichedRouteRepresentation[_, _]]): Unit = {
+    val outputPath = s"$outputBasePath/ts"
+    val dir        = new File(outputPath)
     Try(dir.mkdirs())
 
     val fileWriter  = new FileWriter(s"$outputPath/index.ts")

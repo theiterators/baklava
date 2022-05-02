@@ -55,6 +55,10 @@ class GetHealthcheckRouteSpec extends RouteDocSpec {
 
 #todo document RouteRepresentation interface
 
+#todo split document into generation and serve parts
+
+#todo describe BaklavaRoutes
+
 
 ### Generation
 

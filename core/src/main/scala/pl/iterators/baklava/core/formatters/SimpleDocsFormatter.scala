@@ -9,10 +9,11 @@ import pl.iterators.baklava.core.utils.option.RichOptionCompanion
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Try
 
-class SimpleOutputFormatter extends Formatter {
+class SimpleDocsFormatter extends Formatter {
 
-  override def generate(outputPath: String, routesList: List[EnrichedRouteRepresentation[_, _]]): Unit = {
-    val dir = new File(outputPath)
+  override def generate(outputBasePath: String, routesList: List[EnrichedRouteRepresentation[_, _]]): Unit = {
+    val outputPath = s"$outputBasePath/simple"
+    val dir        = new File(outputPath)
     Try(dir.mkdirs())
 
     val indexContent = """

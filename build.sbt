@@ -45,14 +45,36 @@ lazy val baseSettings = Seq(
   releaseCrossBuild := true
 )
 
-val kebsV              = "1.9.1"
+val akkaV              = "2.6.19"
+val akkaHttpV          = "10.2.9"
+val typesafeConfigV    = "1.4.2"
+val kebsV              = "1.9.4"
 val reflectionsVersion = "0.9.12"
 val jsonSchemaVersion  = "0.7.1"
 val specs2V            = "4.6.0"
-val akkaV              = "2.6.1"
-val akkaHttpV          = "10.2.1"
 val swaggerV           = "2.1.6"
 val scalatestV         = "3.2.2"
+val webjarsLocatorV    = "0.45"
+val swaggerUiV         = "3.40.0" //unfortunately we need to stuck with this version
+
+lazy val routes = project
+  .in(file("routes"))
+  .settings(baseSettings: _*)
+  .settings(
+    name := "routes",
+    moduleName := "baklava-routes"
+  )
+  .settings(
+    libraryDependencies ++= {
+
+      Seq(
+        "com.typesafe.akka" %% "akka-http"      % akkaHttpV,
+        "com.typesafe"      % "config"          % typesafeConfigV,
+        "org.webjars"       % "webjars-locator" % webjarsLocatorV,
+        "org.webjars"       % "swagger-ui"      % swaggerUiV
+      )
+    }
+  )
 
 lazy val core = project
   .in(file("core"))
@@ -195,6 +217,7 @@ lazy val formatterts = project
 lazy val baklava = project
   .in(file("."))
   .aggregate(
+    routes,
     core,
     circe,
     sprayjson,

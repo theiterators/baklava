@@ -10,8 +10,9 @@ import scala.util.Try
 
 class OpenApiFormatter extends Formatter {
 
-  override def generate(outputPath: String, routesList: List[EnrichedRouteRepresentation[_, _]]): Unit = {
-    val dir = new File(outputPath)
+  override def generate(outputBasePath: String, routesList: List[EnrichedRouteRepresentation[_, _]]): Unit = {
+    val outputPath = s"$outputBasePath/openapi"
+    val dir        = new File(outputPath)
     Try(dir.mkdirs())
 
     val fileWriter  = new FileWriter(s"$outputPath/openapi.yml")
