@@ -18,9 +18,9 @@ lazy val baseSettings = Seq(
   scalafmtVersion := "1.3.0",
   crossScalaVersions := supportedScalaVersions,
   scalafmtOnCompile := true, // Sonatype settings
-  publishTo := sonatypePublishTo.value,
+  // publishTo := sonatypePublishTo.value,
   sonatypeProfileName := "pl.iterators",
-  publishMavenStyle := true,
+  // publishMavenStyle := true,
   licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0")),
   organization := "pl.iterators",
   organizationName := "Iterators",
@@ -39,7 +39,7 @@ lazy val baseSettings = Seq(
       connection = "scm:git:https://github.com/theiterators/baklava.git"
     )
   ),
-  credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
+  // credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   crossScalaVersions := supportedScalaVersions,
   releaseCrossBuild := true
