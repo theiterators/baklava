@@ -85,14 +85,13 @@ lazy val core = project
   )
   .settings(
     libraryDependencies ++= {
-
       Seq(
         "pl.iterators"        %% "kebs-tagged-meta"            % kebsV,
         "pl.iterators"        %% "kebs-jsonschema"             % kebsV,
         "pl.iterators"        %% "kebs-scalacheck"             % kebsV,
-        "org.reflections"     % "reflections"                  % reflectionsVersion,
         "com.github.andyglow" %% "scala-jsonschema"            % jsonSchemaVersion,
         "com.github.andyglow" %% "scala-jsonschema-enumeratum" % jsonSchemaVersion,
+        "org.reflections"     % "reflections"                  % reflectionsVersion,
         "org.specs2"          %% "specs2-core"                 % specs2V % "test"
       )
     }
@@ -130,6 +129,51 @@ lazy val sprayjson = project
     }
   )
 
+lazy val formatter = project
+  .in(file("formatter"))
+  .dependsOn(core % "compile->compile;test->test")
+  .dependsOn(circe % "test->test")
+  .dependsOn(sprayjson % "test->test")
+  .settings(baseSettings: _*)
+  .settings(
+    name := "formatter",
+    moduleName := "baklava-formatter"
+  )
+
+lazy val formatteropenapi = project
+  .in(file("formatteropenapi"))
+  .dependsOn(core % "compile->compile;test->test")
+  .dependsOn(formatter % "compile->compile;test->test")
+  .settings(baseSettings: _*)
+  .settings(
+    name := "formatteropenapi",
+    moduleName := "baklava-formatteropenapi"
+  )
+  .settings(
+    libraryDependencies ++= {
+      Seq(
+        "io.swagger.core.v3" % "swagger-core" % swaggerV
+      )
+    }
+  )
+
+lazy val generator = project
+  .in(file("generator"))
+  .dependsOn(core % "compile->compile;test->test")
+  .dependsOn(formatter % "compile->compile;test->test")
+  .settings(baseSettings: _*)
+  .settings(
+    name := "generator",
+    moduleName := "baklava-generator"
+  )
+  .settings(
+    libraryDependencies ++= {
+      Seq(
+        "org.reflections" % "reflections" % reflectionsVersion
+      )
+    }
+  )
+
 lazy val akkahttp = project
   .in(file("akkahttp"))
   .dependsOn(core % "compile->compile;test->test")
@@ -146,19 +190,20 @@ lazy val akkahttp = project
         "com.typesafe.akka" %% "akka-slf4j"        % akkaV,
         "com.typesafe.akka" %% "akka-stream"       % akkaV,
         "com.typesafe.akka" %% "akka-http-core"    % akkaHttpV,
-        "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
+        "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % "test"
       )
     }
   )
 
-lazy val akkahttpscalatest = project
-  .in(file("akkahttpscalatest"))
-  .dependsOn(akkahttp % "compile->compile;test->test")
+lazy val scalatest = project
+  .in(file("scalatest"))
+  .dependsOn(core % "compile->compile;test->test")
+  .dependsOn(akkahttp % "test->test")
   .dependsOn(circe % "test->test")
   .settings(baseSettings: _*)
   .settings(
-    name := "akkahttpscalatest",
-    moduleName := "baklava-akkahttpscalatest"
+    name := "scalatest",
+    moduleName := "baklava-scalatest"
   )
   .settings(
     libraryDependencies ++= {
@@ -169,49 +214,43 @@ lazy val akkahttpscalatest = project
     }
   )
 
-lazy val akkahttpspecs2 = project
-  .in(file("akkahttpspecs2"))
-  .dependsOn(akkahttp % "compile->compile;test->test")
+lazy val specs2 = project
+  .in(file("specs2"))
+  .dependsOn(core % "compile->compile;test->test")
   .dependsOn(sprayjson % "test->test")
   .settings(baseSettings: _*)
   .settings(
-    name := "akkahttpspecs2",
-    moduleName := "baklava-akkahttpspecs2"
+    name := "specs2",
+    moduleName := "baklava-specs2"
   )
   .settings(
     libraryDependencies ++= {
 
       Seq(
-        "org.specs2"        %% "specs2-core"  % specs2V,
-        "com.typesafe.akka" %% "akka-testkit" % akkaV % "test"
+        "org.specs2"        %% "specs2-core"         % specs2V,
+        "com.typesafe.akka" %% "akka-stream"         % akkaV % "test",
+        "com.typesafe.akka" %% "akka-stream-testkit" % akkaV % "test",
+        "com.typesafe.akka" %% "akka-testkit"        % akkaV % "test",
+        "com.typesafe.akka" %% "akka-http-core"      % akkaHttpV % "test",
+        "com.typesafe.akka" %% "akka-http-testkit"   % akkaHttpV % "test"
       )
     }
   )
 
-lazy val formatteropenapi = project
-  .in(file("formatteropenapi"))
-  .dependsOn(core % "compile->compile;test->test")
-  .dependsOn(sprayjson % "test->test")
+lazy val sbtplugin = project
+  .in(file("sbtplugin"))
+  .enablePlugins(SbtPlugin)
   .settings(baseSettings: _*)
   .settings(
-    name := "formatteropenapi",
-    moduleName := "baklava-formatteropenapi"
-  )
-  .settings(
-    libraryDependencies ++= {
-      Seq(
-        "io.swagger.core.v3" % "swagger-core" % swaggerV
-      )
+    name := "sbt-plugin",
+    moduleName := "baklava-sbt-plugin",
+    scalaVersion := "2.12.12",
+    crossScalaVersions := Seq("2.12.12"),
+    pluginCrossBuild / sbtVersion := {
+      scalaBinaryVersion.value match {
+        case "2.12" => "1.3.10" // set minimum sbt version
+      }
     }
-  )
-
-lazy val formatterts = project
-  .in(file("formatterts"))
-  .dependsOn(core % "compile->compile;test->test")
-  .settings(baseSettings: _*)
-  .settings(
-    name := "formatterts",
-    moduleName := "baklava-formatterts"
   )
 
 lazy val baklava = project
@@ -221,11 +260,13 @@ lazy val baklava = project
     core,
     circe,
     sprayjson,
-    akkahttp,
-    akkahttpscalatest,
-    akkahttpspecs2,
+    formatter,
     formatteropenapi,
-    formatterts
+    generator,
+    akkahttp,
+    scalatest,
+    specs2,
+    sbtplugin
   )
   .settings(baseSettings: _*)
   .settings(
