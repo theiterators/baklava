@@ -9,6 +9,7 @@ val supportedScalaVersions = Seq(scala_2_12, scala_2_13)
 
 ThisBuild / crossScalaVersions := supportedScalaVersions
 ThisBuild / scalaVersion := mainScalaVersion
+ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val baseSettings = Seq(
   organization := "pl.iterators",
