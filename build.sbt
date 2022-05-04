@@ -37,7 +37,7 @@ lazy val baseSettings = Seq(
       connection = "scm:git:https://github.com/theiterators/baklava.git"
     )
   ),
-  credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
+//   credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
   crossScalaVersions := supportedScalaVersions
 )
 
