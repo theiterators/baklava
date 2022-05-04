@@ -1,6 +1,4 @@
 import com.jsuereth.sbtpgp.PgpKeys
-import sbtrelease.ReleasePlugin.autoImport._
-import sbtrelease.ReleaseStateTransformations._
 
 val scala_2_12             = "2.12.12"
 val scala_2_13             = "2.13.4"
@@ -20,9 +18,7 @@ lazy val baseSettings = Seq(
   scalafmtVersion := "1.3.0",
   crossScalaVersions := supportedScalaVersions,
   scalafmtOnCompile := true, // Sonatype settings
-  // publishTo := sonatypePublishTo.value,
   sonatypeProfileName := "pl.iterators",
-  // publishMavenStyle := true,
   licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0")),
   organization := "pl.iterators",
   organizationName := "Iterators",
@@ -41,10 +37,8 @@ lazy val baseSettings = Seq(
       connection = "scm:git:https://github.com/theiterators/baklava.git"
     )
   ),
-  // credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
-  releasePublishArtifactsAction := PgpKeys.publishSigned.value,
-  crossScalaVersions := supportedScalaVersions,
-  releaseCrossBuild := true
+  credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
+  crossScalaVersions := supportedScalaVersions
 )
 
 val akkaV              = "2.6.19"
@@ -273,19 +267,5 @@ lazy val baklava = project
   .settings(baseSettings: _*)
   .settings(
     name := "baklava",
-    description := "Library to generate docs",
-    releaseProcess := Seq(
-      checkSnapshotDependencies,
-      inquireVersions,
-      releaseStepCommandAndRemaining("+publishLocalSigned"),
-      releaseStepCommandAndRemaining("+clean"),
-      releaseStepCommandAndRemaining("+test"),
-      setReleaseVersion,
-      commitReleaseVersion,
-      tagRelease,
-      releaseStepCommandAndRemaining("+publishSigned"),
-      setNextVersion,
-      commitNextVersion,
-      pushChanges
-    )
+    description := "Library to generate docs"
   )
