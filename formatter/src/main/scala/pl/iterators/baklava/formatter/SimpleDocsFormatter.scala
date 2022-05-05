@@ -58,7 +58,9 @@ class SimpleDocsFormatter extends Formatter {
 
           val filename = r.name
             .replaceAll("/", "_")
-            .replaceAll(" ", "_") + ".html"
+            .replaceAll(" ", "_")
+            .replaceAll("\\{", "__")
+            .replaceAll("}", "__") + ".html"
 
           val fileWriter  = new FileWriter(s"$outputPath/$filename")
           val printWriter = new PrintWriter(fileWriter)
