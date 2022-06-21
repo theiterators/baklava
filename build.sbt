@@ -51,7 +51,7 @@ val specs2V            = "4.6.0"
 val swaggerV           = "2.1.6"
 val scalatestV         = "3.2.2"
 val webjarsLocatorV    = "0.45"
-val swaggerUiV         = "3.40.0" //unfortunately we need to stuck with this version
+val swaggerUiV         = "3.52.5" //unfortunately we need to stuck with this version
 
 lazy val routes = project
   .in(file("routes"))

@@ -52,7 +52,7 @@ object BaklavaRoutes {
   }
 
   private def swaggerRedirectHttpResponse(implicit internalConfig: BaklavaRoutes.Config) = {
-    val swaggerUiUrl   = s"${internalConfig.publicPathPrefix}swagger-ui/3.40.0/index.html"
+    val swaggerUiUrl   = s"${internalConfig.publicPathPrefix}swagger-ui/3.52.5/index.html"
     val swaggerDocsUrl = s"${internalConfig.publicPathPrefix}openapi"
     HttpResponse(status = StatusCodes.SeeOther, headers = Location(s"$swaggerUiUrl?url=$swaggerDocsUrl&layout=BaseLayout") :: Nil)
   }
