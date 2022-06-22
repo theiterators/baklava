@@ -1,6 +1,6 @@
 import com.jsuereth.sbtpgp.PgpKeys
 
-val scala_2_12             = "2.12.16"
+val scala_2_12             = "2.12.12"
 val scala_2_13             = "2.13.4"
 val mainScalaVersion       = scala_2_13
 val supportedScalaVersions = Seq(scala_2_12, scala_2_13)
@@ -240,8 +240,8 @@ lazy val sbtplugin = project
   .settings(
     name := "sbt-plugin",
     moduleName := "baklava-sbt-plugin",
-    scalaVersion := "2.12.16",
-    crossScalaVersions := Seq("2.12.16"),
+    scalaVersion := "2.12.12",
+    crossScalaVersions := Seq("2.12.12"),
     pluginCrossBuild / sbtVersion := {
       scalaBinaryVersion.value match {
         case "2.12" => "1.3.10" // set minimum sbt version
