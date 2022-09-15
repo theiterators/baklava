@@ -10,56 +10,74 @@ A library maintained by [Iterators](https://www.iteratorshq.com).
 * [Generation](#generation)
 
 ### Installation
-
-Changes need to be done in build.sbt
+First we need to add plugin to ``` plugins.sbt ```
+```scala
+addSbtPlugin("pl.iterators" % "baklava-sbt-plugin" % "0.1.1")
+```
+Then we need to make some changes in build.sbt
 
 ```scala
-resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
 val baklavaV = "0.1.1"
-libraryDependencies += "pl.iterators"  %% "baklava-core"               % baklavaV  % "test"
-libraryDependencies += "pl.iterators"  %% "baklava-akkahttpscalatest"  % baklavaV  % "test" # [optional - if you use scalatest]
-libraryDependencies += "pl.iterators"  %% "baklava-akkahttpspecs2"     % baklavaV  % "test" # [optional - if you use specs2]
-libraryDependencies += "pl.iterators"  %% "baklava-formatteropenapi"   % baklavaV  % "test" # [optional - if you want to generate openapi]
-libraryDependencies += "pl.iterators"  %% "baklava-formatterts"        % baklavaV  % "test" # [optional - if you want to generate ts interfaces]
+libraryDependencies += "pl.iterators"             %% "baklava-akkahttp"         % baklavaV    % "test"
+libraryDependencies += "pl.iterators"             %% "baklava-circe"            % baklavaV    % "test"
+libraryDependencies += "pl.iterators"             %% "baklava-formatteropenapi" % baklavaV    % "test"
+libraryDependencies += "pl.iterators"             %% "baklava-generator"        % baklavaV    % "test"
+libraryDependencies += "pl.iterators"             %% "baklava-routes"           % baklavaV
+libraryDependencies += "pl.iterators"             %% "baklava-specs2"           % baklavaV    % "test"
 
-val generateOutputFromRouteDocSpec = inputKey[Unit]("Generate output from route spec")
-fullRunInputTask(generateOutputFromRouteDocSpec, Test, "pl.iterators.baklava.core.GenerateOutputFromRouteDocSpec")
-fork / generateOutputFromRouteDocSpec := false
+enablePlugins(BaklavaSbtPlugin)
+inConfig(Test)(
+  BaklavaSbtPlugin.settings(Test) ++ Seq(
+    baklavaTestClassPackage := "pl.iterators.sample", // variable that tells us beginning package of classes that inherits from RouteSpec
+    baklavaFormatters := Seq(BaklavaSbtPlugin.model.Formatters.SimpleDocsFormatter, BaklavaSbtPlugin.model.Formatters.OpenApiFormatter)
+  )
+)
 
 ```
 
-
 ### Usage
-
+We will demonstrate usage based on an example with circe.
 Consider you have spec named: RouteSpec. In order to use, you need to include proper library in dependency and mix in proper trait to your spec (or create a new one trait, which is preferable if you do not want to extends all tests one time).
 
 ```scala
-trait RouteDocSpec extends LibraryAkkaHttpSpecs2RouteDocSpec with KebsArbitraryPredefs with KebsJsonSchemaPredefs with RouteSpec {
-  override def shutdownSpec() = TestKit.shutdownActorSystem(system,  verifySystemShutdown = true)
+trait RouteDocSpec extends AkkaHttpRouteBaklavaSpec with Specs2RouteBaklavaSpec with ProjectDefinedPredefs with RouteSpec {
+  override def shutdownSpec() = TestKit.shutdownActorSystem(system, verifySystemShutdown = true)
 }
 
-class GetHealthcheckRouteSpec extends RouteDocSpec {
+class HealthCheckRouterSpec extends RouteDocSpec {
 
-  override val routeRepresentation = RouteRepresentation[Unit, Unit](
-    "Returns db status",
-    "GET",
-    "/healthcheck"
-  )
+  override val routeRepresentation = RouteRepresentation[Unit, Unit]("Health check", "GET", "/health-check")
   
-  // Example of usage with specs2 library
+  // base scope has custom UserAuthenticator function which differentiates logged-user based on whether his AuthContext is Some(_) or None
+  trait loggedTestCase extends BaseScope {
+    override lazy val authContextForTest: Option[AuthContext] = Some(allGenerators[AuthContext].normal.generate)
+  }
+
+  val routePath = routeRepresentation.path
+
   routeRepresentation.name should {
-    "Return OK for non-logged user" in new BaseScope {
-      TestRequest(routeRepresentation.path, emptyString) ~> allRoutes ~> check {
-        response.status shouldEqual NoContent
+    "return OK for logged user" in new loggedTestCase {
+      TestRequest(routePath, emptyString) ~> allRoutes ~> check {
+        response.status shouldEqual OK
       }
     }
   }
-}
 
+}
+```
+where
+```scala
+trait ProjectDefinedPredefs extends KebsArbitraryPredefs with KebsJsonSchemaPredefs {
+  implicit def mapPredef[B1, T1, B2, T2](implicit
+                                         schema: _root_.json.schema.Predef[Map[B1, B2]]
+                                        ): _root_.json.schema.Predef[Map[B1 @@ T1, B2 @@ T2]] =
+    schema.asInstanceOf[_root_.json.schema.Predef[Map[B1 @@ T1, B2 @@ T2]]]
+}
 ```
 
-#todo more examples
+is based on kebs library (https://github.com/theiterators/kebs) and 
+where `RouteSpec` has to be extended with `CirceJsonStringProvider` if we wish to use circe in our tests definitions.
 
 #todo document RouteRepresentation interface
 
@@ -71,22 +89,5 @@ class GetHealthcheckRouteSpec extends RouteDocSpec {
 ### Generation
 
 In sbt shell:
-`generateOutputFromRouteDocSpec [packageName] [outputDir] [fetcher] [formatter]`
-
-where:
-
-`packageName` - the package root of your application
-
-`outputDir` - the directory where you want to generate doc into
-
-`fetcher` - the fetcher class you want to use for fetch. each of them are provided by separate subprojects.
-available options:
-- AkkaHttpScalatestFetcher - provided by baklava-akkahttpscalatest
-- AkkaHttpSpecs2Fetcher - provided by baklava-akkahttpspecs2
-
-`formatter` - the formatter class you want to use for generation. each of them are provided by separate subprojects.
-available options:
-- SimpleOutputFormatter - provided by baklava-core
-- OpenApiFormatter - provided by baklava-formatteropenapi
-- TsFormatter - provided by baklava-formatterts
-- TsStrictFormatter - provided by baklava-formatterts
+`baklavaGenerate` to generate an output in a form of html files describing each of the endpoints fow which we specified documentation in tests.
+Files will be located in ```target.baklava```.
