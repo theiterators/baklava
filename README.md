@@ -16,7 +16,7 @@ Changes need to be done in build.sbt
 ```scala
 resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
-val baklavaV = "0.0.1-SNAPSHOT"
+val baklavaV = "0.1.1"
 libraryDependencies += "pl.iterators"  %% "baklava-core"               % baklavaV  % "test"
 libraryDependencies += "pl.iterators"  %% "baklava-akkahttpscalatest"  % baklavaV  % "test" # [optional - if you use scalatest]
 libraryDependencies += "pl.iterators"  %% "baklava-akkahttpspecs2"     % baklavaV  % "test" # [optional - if you use specs2]
@@ -25,7 +25,7 @@ libraryDependencies += "pl.iterators"  %% "baklava-formatterts"        % baklava
 
 val generateOutputFromRouteDocSpec = inputKey[Unit]("Generate output from route spec")
 fullRunInputTask(generateOutputFromRouteDocSpec, Test, "pl.iterators.baklava.core.GenerateOutputFromRouteDocSpec")
-fork in generateOutputFromRouteDocSpec := false
+fork / generateOutputFromRouteDocSpec := false
 
 ```
 
@@ -41,12 +41,20 @@ trait RouteDocSpec extends LibraryAkkaHttpSpecs2RouteDocSpec with KebsArbitraryP
 
 class GetHealthcheckRouteSpec extends RouteDocSpec {
 
-  override val routeRepresentation = RouteRepresentation[Unit, TimeResult](
+  override val routeRepresentation = RouteRepresentation[Unit, Unit](
     "Returns db status",
     "GET",
     "/healthcheck"
   )
-...
+  
+  // Example of usage with specs2 library
+  routeRepresentation.name should {
+    "Return OK for non-logged user" in new BaseScope {
+      TestRequest(routeRepresentation.path, emptyString) ~> allRoutes ~> check {
+        response.status shouldEqual NoContent
+      }
+    }
+  }
 }
 
 ```
