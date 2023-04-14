@@ -49,7 +49,7 @@ val reflectionsVersion = "0.9.12"
 val specs2V            = "4.16.1"
 val jsonSchemaVersion  = "0.7.9"
 val swaggerV           = "2.1.6"
-val scalatestV         = "3.2.2"
+val scalatestV         = "3.2.12"
 val webjarsLocatorV    = "0.45"
 val swaggerUiV         = "3.40.0" //unfortunately we need to stuck with this version
 
