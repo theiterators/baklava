@@ -1,7 +1,7 @@
 import com.jsuereth.sbtpgp.PgpKeys
 
-val scala_2_12             = "2.12.12"
-val scala_2_13             = "2.13.4"
+val scala_2_12             = "2.12.17"
+val scala_2_13             = "2.13.10"
 val mainScalaVersion       = scala_2_13
 val supportedScalaVersions = Seq(scala_2_12, scala_2_13)
 
@@ -46,10 +46,10 @@ val akkaHttpV          = "10.2.9"
 val typesafeConfigV    = "1.4.2"
 val kebsV              = "1.9.4"
 val reflectionsVersion = "0.10.2"
-val jsonSchemaVersion  = "0.7.1"
-val specs2V            = "4.6.0"
+val specs2V            = "4.16.1"
+val jsonSchemaVersion  = "0.7.9"
 val swaggerV           = "2.1.6"
-val scalatestV         = "3.2.2"
+val scalatestV         = "3.2.12"
 val webjarsLocatorV    = "0.45"
 val swaggerUiV         = "3.40.0" //unfortunately we need to stuck with this version
 
@@ -240,8 +240,8 @@ lazy val sbtplugin = project
   .settings(
     name := "sbt-plugin",
     moduleName := "baklava-sbt-plugin",
-    scalaVersion := "2.12.12",
-    crossScalaVersions := Seq("2.12.12"),
+    scalaVersion := "2.12.17",
+    crossScalaVersions := Seq("2.12.17"),
     pluginCrossBuild / sbtVersion := {
       scalaBinaryVersion.value match {
         case "2.12" => "1.3.10" // set minimum sbt version
