@@ -43,6 +43,7 @@ lazy val baseSettings = Seq(
 
 val akkaV              = "2.6.19"
 val akkaHttpV          = "10.2.9"
+val http4sStirV        = "0.2"
 val typesafeConfigV    = "1.4.2"
 val kebsV              = "1.9.4"
 val reflectionsVersion = "0.10.2"
@@ -65,6 +66,25 @@ lazy val routes = project
 
       Seq(
         "com.typesafe.akka" %% "akka-http"      % akkaHttpV,
+        "com.typesafe"      % "config"          % typesafeConfigV,
+        "org.webjars"       % "webjars-locator" % webjarsLocatorV,
+        "org.webjars"       % "swagger-ui"      % swaggerUiV
+      )
+    }
+  )
+
+lazy val routesHttp4sStir = project
+  .in(file("routes-http4s-stir"))
+  .settings(baseSettings: _*)
+  .settings(
+    name := "routes-http4s-stir",
+    moduleName := "baklava-routes-http4s-stir"
+  )
+  .settings(
+    libraryDependencies ++= {
+
+      Seq(
+        "pl.iterators"      %% "http4s-stir"    % http4sStirV,
         "com.typesafe"      % "config"          % typesafeConfigV,
         "org.webjars"       % "webjars-locator" % webjarsLocatorV,
         "org.webjars"       % "swagger-ui"      % swaggerUiV
@@ -191,6 +211,24 @@ lazy val akkahttp = project
     }
   )
 
+lazy val http4sstir = project
+  .in(file("http4sstir"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(baseSettings: _*)
+  .settings(
+    name := "http4sstir",
+    moduleName := "baklava-http4sstir"
+  )
+  .settings(
+    libraryDependencies ++= {
+
+      Seq(
+        "pl.iterators" %% "http4s-stir"         % http4sStirV,
+        "pl.iterators" %% "http4s-stir-testkit" % http4sStirV,
+      )
+    }
+  )
+
 lazy val scalatest = project
   .in(file("scalatest"))
   .dependsOn(core % "compile->compile;test->test")
@@ -260,6 +298,8 @@ lazy val baklava = project
     formatteropenapi,
     generator,
     akkahttp,
+    http4sstir,
+    routesHttp4sStir,
     scalatest,
     specs2,
     sbtplugin
