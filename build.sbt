@@ -41,14 +41,14 @@ lazy val baseSettings = Seq(
   crossScalaVersions := supportedScalaVersions
 )
 
-val akkaV              = "2.6.19"
-val akkaHttpV          = "10.2.9"
+val akkaV              = "2.6.20"
+val akkaHttpV          = "10.2.10"
 val http4sStirV        = "0.2"
 val typesafeConfigV    = "1.4.2"
-val kebsV              = "1.9.4"
+val kebsV              = "1.9.5"
 val reflectionsVersion = "0.10.2"
 val specs2V            = "4.16.1"
-val jsonSchemaVersion  = "0.7.9"
+val jsonSchemaVersion  = "0.7.11"
 val swaggerV           = "2.1.6"
 val scalatestV         = "3.2.12"
 val webjarsLocatorV    = "0.45"
@@ -84,10 +84,10 @@ lazy val routesHttp4sStir = project
     libraryDependencies ++= {
 
       Seq(
-        "pl.iterators"      %% "http4s-stir"    % http4sStirV,
-        "com.typesafe"      % "config"          % typesafeConfigV,
-        "org.webjars"       % "webjars-locator" % webjarsLocatorV,
-        "org.webjars"       % "swagger-ui"      % swaggerUiV
+        "pl.iterators" %% "http4s-stir"    % http4sStirV,
+        "com.typesafe" % "config"          % typesafeConfigV,
+        "org.webjars"  % "webjars-locator" % webjarsLocatorV,
+        "org.webjars"  % "swagger-ui"      % swaggerUiV
       )
     }
   )
@@ -224,7 +224,7 @@ lazy val http4sstir = project
 
       Seq(
         "pl.iterators" %% "http4s-stir"         % http4sStirV,
-        "pl.iterators" %% "http4s-stir-testkit" % http4sStirV,
+        "pl.iterators" %% "http4s-stir-testkit" % http4sStirV
       )
     }
   )
