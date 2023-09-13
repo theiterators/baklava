@@ -19,12 +19,12 @@ Then we need to make some changes in build.sbt
 ```scala
 
 val baklavaV = "0.2.0"
-libraryDependencies += "pl.iterators"             %% "baklava-akkahttp"         % baklavaV    % "test"
-libraryDependencies += "pl.iterators"             %% "baklava-circe"            % baklavaV    % "test"
-libraryDependencies += "pl.iterators"             %% "baklava-formatteropenapi" % baklavaV    % "test"
-libraryDependencies += "pl.iterators"             %% "baklava-generator"        % baklavaV    % "test"
-libraryDependencies += "pl.iterators"             %% "baklava-routes"           % baklavaV
-libraryDependencies += "pl.iterators"             %% "baklava-specs2"           % baklavaV    % "test"
+libraryDependencies += "pl.iterators"             %% "baklava-akka-http"                   % baklavaV    % "test"
+libraryDependencies += "pl.iterators"             %% "baklava-circe"                      % baklavaV    % "test"
+libraryDependencies += "pl.iterators"             %% "baklava-formatteropenapi"           % baklavaV    % "test"
+libraryDependencies += "pl.iterators"             %% "baklava-generator"                  % baklavaV    % "test"
+libraryDependencies += "pl.iterators"             %% "baklava-routes-akka-http"           % baklavaV
+libraryDependencies += "pl.iterators"             %% "baklava-specs2"                     % baklavaV    % "test"
 
 enablePlugins(BaklavaSbtPlugin)
 inConfig(Test)(
