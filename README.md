@@ -12,13 +12,13 @@ A library maintained by [Iterators](https://www.iteratorshq.com).
 ### Installation
 First we need to add plugin to ``` plugins.sbt ```
 ```scala
-addSbtPlugin("pl.iterators" % "baklava-sbt-plugin" % "0.1.1")
+addSbtPlugin("pl.iterators" % "baklava-sbt-plugin" % "0.2.0")
 ```
 Then we need to make some changes in build.sbt
 
 ```scala
 
-val baklavaV = "0.1.1"
+val baklavaV = "0.2.0"
 libraryDependencies += "pl.iterators"             %% "baklava-akkahttp"         % baklavaV    % "test"
 libraryDependencies += "pl.iterators"             %% "baklava-circe"            % baklavaV    % "test"
 libraryDependencies += "pl.iterators"             %% "baklava-formatteropenapi" % baklavaV    % "test"
