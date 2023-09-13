@@ -1,9 +1,8 @@
 import com.jsuereth.sbtpgp.PgpKeys
 
-val scala_2_12             = "2.12.17"
 val scala_2_13             = "2.13.10"
 val mainScalaVersion       = scala_2_13
-val supportedScalaVersions = Seq(scala_2_12, scala_2_13)
+val supportedScalaVersions = Seq(scala_2_13)
 
 ThisBuild / crossScalaVersions := supportedScalaVersions
 ThisBuild / scalaVersion := mainScalaVersion
@@ -41,33 +40,52 @@ lazy val baseSettings = Seq(
   crossScalaVersions := supportedScalaVersions
 )
 
-val akkaV              = "2.6.19"
-val akkaHttpV          = "10.2.9"
-val typesafeConfigV    = "1.4.2"
-val kebsV              = "1.9.4"
-val reflectionsVersion = "0.10.2"
-val specs2V            = "4.16.1"
-val jsonSchemaVersion  = "0.7.9"
-val swaggerV           = "2.1.6"
-val scalatestV         = "3.2.12"
-val webjarsLocatorV    = "0.45"
-val swaggerUiV         = "3.40.0" //unfortunately we need to stuck with this version
+val akkaV           = "2.6.20"
+val akkaHttpV       = "10.2.10"
+val http4sStirV     = "0.2"
+val typesafeConfigV = "1.4.2"
+val kebsV           = "1.9.5"
+val reflectionsV    = "0.10.2"
+val specs2V         = "4.16.1"
+val jsonSchemaV     = "0.7.11"
+val swaggerV        = "2.1.6"
+val scalatestV      = "3.2.12"
+val webjarsLocatorV = "0.45"
+val swaggerUiV      = "3.40.0" //unfortunately we need to stuck with this version
 
-lazy val routes = project
-  .in(file("routes"))
+lazy val akkahttproutes = project
+  .in(file("akka-http-routes"))
   .settings(baseSettings: _*)
   .settings(
-    name := "routes",
-    moduleName := "baklava-routes"
+    name := "akka-http-routes",
+    moduleName := "baklava-akka-http-routes"
   )
   .settings(
     libraryDependencies ++= {
-
       Seq(
         "com.typesafe.akka" %% "akka-http"      % akkaHttpV,
         "com.typesafe"      % "config"          % typesafeConfigV,
         "org.webjars"       % "webjars-locator" % webjarsLocatorV,
         "org.webjars"       % "swagger-ui"      % swaggerUiV
+      )
+    }
+  )
+
+lazy val http4sstirroutes = project
+  .in(file("http4s-stir-routes"))
+  .settings(baseSettings: _*)
+  .settings(
+    name := "http4s-stir-routes",
+    moduleName := "baklava-http4s-stir-routes"
+  )
+  .settings(
+    libraryDependencies ++= {
+
+      Seq(
+        "pl.iterators" %% "http4s-stir"    % http4sStirV,
+        "com.typesafe" % "config"          % typesafeConfigV,
+        "org.webjars"  % "webjars-locator" % webjarsLocatorV,
+        "org.webjars"  % "swagger-ui"      % swaggerUiV
       )
     }
   )
@@ -85,9 +103,9 @@ lazy val core = project
         "pl.iterators"        %% "kebs-tagged-meta"            % kebsV,
         "pl.iterators"        %% "kebs-jsonschema"             % kebsV,
         "pl.iterators"        %% "kebs-scalacheck"             % kebsV,
-        "com.github.andyglow" %% "scala-jsonschema"            % jsonSchemaVersion,
-        "com.github.andyglow" %% "scala-jsonschema-enumeratum" % jsonSchemaVersion,
-        "org.reflections"     % "reflections"                  % reflectionsVersion,
+        "com.github.andyglow" %% "scala-jsonschema"            % jsonSchemaV,
+        "com.github.andyglow" %% "scala-jsonschema-enumeratum" % jsonSchemaV,
+        "org.reflections"     % "reflections"                  % reflectionsV,
         "org.specs2"          %% "specs2-core"                 % specs2V % "test"
       )
     }
@@ -137,13 +155,13 @@ lazy val formatter = project
   )
 
 lazy val formatteropenapi = project
-  .in(file("formatteropenapi"))
+  .in(file("formatter-openapi"))
   .dependsOn(core % "compile->compile;test->test")
   .dependsOn(formatter % "compile->compile;test->test")
   .settings(baseSettings: _*)
   .settings(
-    name := "formatteropenapi",
-    moduleName := "baklava-formatteropenapi"
+    name := "formatter-openapi",
+    moduleName := "baklava-formatter-openapi"
   )
   .settings(
     libraryDependencies ++= {
@@ -165,18 +183,18 @@ lazy val generator = project
   .settings(
     libraryDependencies ++= {
       Seq(
-        "org.reflections" % "reflections" % reflectionsVersion
+        "org.reflections" % "reflections" % reflectionsV
       )
     }
   )
 
 lazy val akkahttp = project
-  .in(file("akkahttp"))
+  .in(file("akka-http"))
   .dependsOn(core % "compile->compile;test->test")
   .settings(baseSettings: _*)
   .settings(
-    name := "akkahttp",
-    moduleName := "baklava-akkahttp"
+    name := "akka-http",
+    moduleName := "baklava-akka-http"
   )
   .settings(
     libraryDependencies ++= {
@@ -189,6 +207,25 @@ lazy val akkahttp = project
         "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV % "test"
       )
     }
+  )
+
+lazy val http4sstir = project
+  .in(file("http4s-stir"))
+  .dependsOn(core % "compile->compile;test->test")
+  .settings(baseSettings: _*)
+  .settings(
+    name := "http4s-stir",
+    moduleName := "baklava-http4s-stir"
+  )
+  .settings(
+    libraryDependencies ++= {
+
+      Seq(
+        "pl.iterators" %% "http4s-stir"         % http4sStirV,
+        "pl.iterators" %% "http4s-stir-testkit" % http4sStirV
+      )
+    },
+    crossScalaVersions := Seq(scala_2_13)
   )
 
 lazy val scalatest = project
@@ -252,7 +289,6 @@ lazy val sbtplugin = project
 lazy val baklava = project
   .in(file("."))
   .aggregate(
-    routes,
     core,
     circe,
     sprayjson,
@@ -260,6 +296,9 @@ lazy val baklava = project
     formatteropenapi,
     generator,
     akkahttp,
+    akkahttproutes,
+    http4sstir,
+    http4sstirroutes,
     scalatest,
     specs2,
     sbtplugin
