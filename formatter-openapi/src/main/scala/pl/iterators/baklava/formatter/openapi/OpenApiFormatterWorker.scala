@@ -10,6 +10,7 @@ import io.swagger.v3.oas.models.security.{SecurityRequirement, SecurityScheme}
 import pl.iterators.baklava.core.model._
 import pl.iterators.baklava.formatter.openapi.builders.{OpenApiBuilder, OperationBuilder, PathItemBuilder}
 import pl.iterators.kebs.jsonschema.JsonSchemaWrapper
+import scala.jdk.CollectionConverters._
 
 class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwaggerSchemaWorker) {
 
@@ -99,12 +100,17 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
 
   private def queryParamsToParams(parameters: List[RouteParameterRepresentation[_]]): List[Parameter] = {
     parameters.map { param =>
+      val schema = new StringSchema
+      schema.setExample(param.sampleValue)
+      param.enums.foreach { values =>
+        schema.setEnum(values.toList.asJava)
+      }
+
       val p = new Parameter()
       p.setName(param.name)
       p.setIn("query")
-      p.setExample(param.sampleValue)
       p.setRequired(param.required)
-      p.setSchema(new StringSchema)
+      p.setSchema(schema)
       p
     }
   }
