@@ -109,7 +109,6 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
       val p = new Parameter()
       p.setName(param.name)
       p.setIn("query")
-      p.setExample(param.sampleValue)
       p.setRequired(param.required)
       p.setSchema(schema)
       p
