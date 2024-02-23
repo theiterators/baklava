@@ -22,17 +22,9 @@ object ScalatestTestData
     with CirceJsonStringProvider
     with KebsJsonSchema
     with KebsScalacheckGenerators {
-  val routeRepresentation1: RouteRepresentation[Unit, Unit] = RouteRepresentation(
-    "description1",
-    "method1",
-    "path1"
-  )
+  val routeRepresentation1: RouteRepresentation[Unit, Unit] = RouteRepresentation("description1", "method1", "path1")
 
-  val routeRepresentation2: RouteRepresentation[Unit, Unit] = RouteRepresentation(
-    "description1",
-    "method1",
-    "path1"
-  )
+  val routeRepresentation2: RouteRepresentation[Unit, Unit] = RouteRepresentation("description1", "method1", "path1")
 
   val text11 = "returns Ok test case"
   val text12 = "returns NotFound test"
@@ -69,10 +61,13 @@ class AkkaHttpScalatestFetcherSpec extends Specification {
 
     fetcher.fetch(reflections, "pl.iterators.baklava") should containTheSameElementsAs(
       List(
-        EnrichedRouteRepresentation(ScalatestTestData.routeRepresentation1,
-                                    List(ScalatestTestData.text11, ScalatestTestData.text12).map(t => s"should $t")),
-        EnrichedRouteRepresentation(ScalatestTestData.routeRepresentation2, List(ScalatestTestData.text21).map(t => s"should $t")),
-      ))
+        EnrichedRouteRepresentation(
+          ScalatestTestData.routeRepresentation1,
+          List(ScalatestTestData.text11, ScalatestTestData.text12).map(t => s"should $t")
+        ),
+        EnrichedRouteRepresentation(ScalatestTestData.routeRepresentation2, List(ScalatestTestData.text21).map(t => s"should $t"))
+      )
+    )
   }
 
 }

@@ -5,12 +5,8 @@ import pl.iterators.baklava.core.model.JsonStringPrinter
 
 trait CirceJsonStringProvider {
 
-  implicit val unitPrinter = new JsonStringPrinter[Unit] {
-    override def printJson(obj: Unit): String = ""
-  }
+  implicit val unitPrinter: JsonStringPrinter[Unit] = (obj: Unit) => ""
 
-  implicit def circeJsonString[T](implicit encoder: Encoder[T]) = new JsonStringPrinter[T] {
-    override def printJson(obj: T): String = encoder.apply(obj).toString()
-  }
+  implicit def circeJsonString[T](implicit encoder: Encoder[T]): JsonStringPrinter[T] = (obj: T) => encoder.apply(obj).toString()
 
 }

@@ -26,7 +26,8 @@ object BaklavaRoutes {
         } ~ pathPrefix("swagger") {
           get(complete(swaggerRedirectHttpResponse))
         }
-      } else
+      }
+    else
       RouteDirectives.reject
   }
 
@@ -57,7 +58,7 @@ object BaklavaRoutes {
     HttpResponse(status = StatusCodes.SeeOther, headers = Location(s"$swaggerUiUrl?url=$swaggerDocsUrl&layout=BaseLayout") :: Nil)
   }
 
-  private lazy val swaggerWebJar: Route = {
+  private lazy val swaggerWebJar: Route =
     extractUnmatchedPath { path =>
       Try((new WebJarAssetLocator).getFullPath("swagger-ui", path.toString)) match {
         case Success(fullPath) =>
@@ -68,14 +69,14 @@ object BaklavaRoutes {
           failWith(e)
       }
     }
-  }
 
-  private case class Config(enabled: Boolean,
-                            basicAuthUser: Option[String],
-                            basicAuthPassword: Option[String],
-                            fileSystemPath: String,
-                            publicPathPrefix: String,
-                            apiPublicPathPrefix: String)
+  private case class Config(
+    enabled: Boolean,
+    basicAuthUser: Option[String],
+    basicAuthPassword: Option[String],
+    fileSystemPath: String,
+    publicPathPrefix: String,
+    apiPublicPathPrefix: String)
 
   private object Config {
     def apply(config: com.typesafe.config.Config): Config = {

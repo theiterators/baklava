@@ -1,9 +1,8 @@
 package pl.iterators.baklava.core.model
 
 class EnrichedRouteRepresentation[Request, Response] private (
-    val routeRepresentation: RouteRepresentation[Request, Response],
-    val enrichDescriptions: Seq[EnrichedDescription]
-) {
+  val routeRepresentation: RouteRepresentation[Request, Response],
+  val enrichDescriptions: Seq[EnrichedDescription]) {
   override def equals(o: Any): Boolean = o match {
     case p: EnrichedRouteRepresentation[_, _] =>
       p.routeRepresentation.equals(routeRepresentation) && p.enrichDescriptions.equals(enrichDescriptions)
@@ -12,20 +11,17 @@ class EnrichedRouteRepresentation[Request, Response] private (
 }
 
 class EnrichedDescription private (val description: String, val statusCodeOpt: Option[Int]) {
-  override def equals(o: Any): Boolean = {
+  override def equals(o: Any): Boolean =
     o match {
       case p: EnrichedDescription =>
         p.description.equals(description) && p.statusCodeOpt.equals(statusCodeOpt)
       case _ => false
     }
-  }
 }
 
 object EnrichedRouteRepresentation {
-  def apply[Request, Response](
-      routeRepresentation: RouteRepresentation[Request, Response],
-      descriptions: Seq[String]
-  ): EnrichedRouteRepresentation[Request, Response] =
+  def apply[Request, Response](routeRepresentation: RouteRepresentation[Request, Response], descriptions: Seq[String])
+    : EnrichedRouteRepresentation[Request, Response] =
     new EnrichedRouteRepresentation(routeRepresentation, descriptions.map(EnrichedDescription.apply))
 }
 

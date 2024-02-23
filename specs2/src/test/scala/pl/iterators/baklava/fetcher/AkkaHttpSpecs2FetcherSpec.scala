@@ -21,17 +21,9 @@ object Specs2TestData
     with SprayJsonStringProvider
     with KebsJsonSchema
     with KebsScalacheckGenerators {
-  val routeRepresentation1: RouteRepresentation[Unit, Unit] = RouteRepresentation(
-    "description1",
-    "method1",
-    "path1"
-  )
+  val routeRepresentation1: RouteRepresentation[Unit, Unit] = RouteRepresentation("description1", "method1", "path1")
 
-  val routeRepresentation2: RouteRepresentation[Unit, Unit] = RouteRepresentation(
-    "description1",
-    "method1",
-    "path1"
-  )
+  val routeRepresentation2: RouteRepresentation[Unit, Unit] = RouteRepresentation("description1", "method1", "path1")
 
   val text11 = "returns Ok test case"
   val text12 = "returns NotFound test"
@@ -71,8 +63,9 @@ class AkkaHttpSpecs2FetcherSpec extends Specification {
     fetcher.fetch(reflections, "pl.iterators.baklava") should containTheSameElementsAs(
       List(
         EnrichedRouteRepresentation(Specs2TestData.routeRepresentation1, List("it should", Specs2TestData.text11, Specs2TestData.text12)),
-        EnrichedRouteRepresentation(Specs2TestData.routeRepresentation2, List(Specs2TestData.text21)),
-      ))
+        EnrichedRouteRepresentation(Specs2TestData.routeRepresentation2, List(Specs2TestData.text21))
+      )
+    )
   }
 
 }
