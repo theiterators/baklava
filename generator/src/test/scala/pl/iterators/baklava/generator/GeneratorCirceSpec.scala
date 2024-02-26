@@ -37,18 +37,9 @@ class CirceTestFetcher
     CirceStaticTestState.testFetcherLastMainPackageName = mainPackageName
 
     CirceStaticTestState.testFetcherReturnList = List(
-      EnrichedRouteRepresentation(
-        RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)),
-        Nil
-      ),
-      EnrichedRouteRepresentation(
-        RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)),
-        Nil
-      ),
-      EnrichedRouteRepresentation(
-        RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)),
-        Nil
-      )
+      EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)), Nil),
+      EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)), Nil),
+      EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)), Nil)
     )
 
     CirceStaticTestState.testFetcherReturnList

@@ -43,12 +43,8 @@ trait TsFormatterBase extends Formatter {
     val headers     = generateHeadersInterface(route)
     val request     = generateRequestInterface(route)
     val response    = generateResponseInterface(route)
-    val configAndApi = generateAxiosConfigAndApi(route,
-                                                 pathParams.map(_._1),
-                                                 queryParams.map(_._1),
-                                                 headers.map(_._1),
-                                                 request.map(_._1),
-                                                 response.map(_._1))
+    val configAndApi =
+      generateAxiosConfigAndApi(route, pathParams.map(_._1), queryParams.map(_._1), headers.map(_._1), request.map(_._1), response.map(_._1))
 
     (
       s"""/* -- Start of ${route.routeRepresentation.name} -- */ \n""" +
@@ -75,16 +71,12 @@ trait TsFormatterBase extends Formatter {
         name,
         list
           .map(i => s"""  \"$i\": string;""")
-          .mkString(
-            s"interface $name {\n",
-            "\n",
-            "\n}\n\n"
-          )
+          .mkString(s"interface $name {\n", "\n", "\n}\n\n")
       )
     }
   }
 
-  private def generateQueryPathParamsInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
+  private def generateQueryPathParamsInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] =
     Option.when(route.routeRepresentation.parameters.nonEmpty) {
       val name = s"${className(route)}QueryParams"
       (
@@ -92,19 +84,14 @@ trait TsFormatterBase extends Formatter {
         route.routeRepresentation.parameters
           .map { p =>
             s"""  \"${p.name}\"${Option
-              .when(p.required)("")
-              .getOrElse("?")}: string;"""
+                .when(p.required)("")
+                .getOrElse("?")}: string;"""
           }
-          .mkString(
-            s"interface $name {\n",
-            "\n",
-            "\n}\n\n"
-          )
+          .mkString(s"interface $name {\n", "\n", "\n}\n\n")
       )
     }
-  }
 
-  private def generateHeadersInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
+  private def generateHeadersInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] =
     Option.when(route.routeRepresentation.headers.nonEmpty) {
       val name = s"${className(route)}Headers"
       (
@@ -112,47 +99,39 @@ trait TsFormatterBase extends Formatter {
         route.routeRepresentation.headers
           .map { p =>
             s"""  \"${p.name}\"${Option
-              .when(p.required)("")
-              .getOrElse("?")}: string;"""
+                .when(p.required)("")
+                .getOrElse("?")}: string;"""
           }
-          .mkString(
-            s"interface $name {\n",
-            "\n",
-            "\n}\n\n"
-          )
+          .mkString(s"interface $name {\n", "\n", "\n}\n\n")
       )
     }
-  }
 
-  private def generateRequestInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
+  private def generateRequestInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] =
     Option.when(!route.routeRepresentation.request.isUnit) {
       val name = s"${className(route)}Request"
       generateClassRepresentation(name, route.routeRepresentation.requestJsonSchemaWrapper.schema)
     }
-  }
 
-  private def generateResponseInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] = {
+  private def generateResponseInterface(route: EnrichedRouteRepresentation[_, _]): Option[(String, String)] =
     Option.when(!route.routeRepresentation.response.isUnit) {
       val name = s"${className(route)}Response"
       generateClassRepresentation(name, route.routeRepresentation.responseJsonSchemaWrapper.schema)
     }
-  }
 
   private def generateAxiosConfigAndApi(
-      route: EnrichedRouteRepresentation[_, _],
-      pathParams: Option[String],
-      queryParams: Option[String],
-      headers: Option[String],
-      request: Option[String],
-      response: Option[String]
+    route: EnrichedRouteRepresentation[_, _],
+    pathParams: Option[String],
+    queryParams: Option[String],
+    headers: Option[String],
+    request: Option[String],
+    response: Option[String]
   ): (String, String) = {
-    val allFunctionParamsWithNames = (
+    val allFunctionParamsWithNames =
       pathParams.map(p => ("pathParams", p)) ::
         queryParams.map(p => ("queryParams", p)) ::
         headers.map(p => ("headers", p)) ::
         request.map(p => ("request", p)) ::
         Nil
-    )
 
     val functionParamsNamesAndValuesString = allFunctionParamsWithNames.flatten
       .map(p => s"${p._1}: ${p._2}")
@@ -170,8 +149,8 @@ trait TsFormatterBase extends Formatter {
       route.enrichDescriptions
         .map { enrichedDescription =>
           s"      ${enrichedDescription.description} ${enrichedDescription.statusCodeOpt
-            .map(c => s"-> [$c]")
-            .getOrElse("")}"
+              .map(c => s"-> [$c]")
+              .getOrElse("")}"
         }
         .mkString("\n")
 
@@ -190,7 +169,7 @@ trait TsFormatterBase extends Formatter {
          |      $description
          |    */
          |    ${methodName(route)}: function($functionParamsNamesAndValuesString): Promise<${response
-           .getOrElse("{}")}> {
+          .getOrElse("{}")}> {
          |      return axios(${methodName(route)}AxiosConfig($functionParamsNamesString))
          |        .then(function (response: any) {
          |           return response.data;
@@ -199,7 +178,7 @@ trait TsFormatterBase extends Formatter {
     )
   }
 
-  private def generateClassRepresentation(name: String, jsonSchema: json.Schema[_]): (String, String) = {
+  private def generateClassRepresentation(name: String, jsonSchema: json.Schema[_]): (String, String) =
     jsonSchema.jsonType match {
       case "boolean" =>
         ("boolean", "")
@@ -243,8 +222,8 @@ trait TsFormatterBase extends Formatter {
             name,
             s"""interface $name {
                |${fields
-                 .map(f => s"""  "${f._1}": ${f._2._1};""")
-                 .mkString("\n")}
+                .map(f => s"""  "${f._1}": ${f._2._1};""")
+                .mkString("\n")}
                |}
                |""".stripMargin + fields.map(_._2._2).mkString("\n")
           )
@@ -252,7 +231,6 @@ trait TsFormatterBase extends Formatter {
       case _ =>
         ("", "")
     }
-  }
 
   private def className(route: EnrichedRouteRepresentation[_, _]): String = {
     val methodPart = route.routeRepresentation.method.toLowerCase.capitalize
@@ -268,14 +246,13 @@ trait TsFormatterBase extends Formatter {
 }
 
 class TsFormatter extends TsFormatterBase {
-  override protected def pathName(path: String): String = {
+  override protected def pathName(path: String): String =
     path
       .replaceAll("\\{", "")
       .replaceAll("\\}", "")
       .split("/")
       .map(_.toLowerCase.capitalize)
       .mkString("")
-  }
 }
 
 class TsStrictFormatter extends TsFormatterBase {
@@ -300,7 +277,7 @@ class TsStrictFormatter extends TsFormatterBase {
       .mkString("")
   }
 
-  private def pluralToSingular(word: String): String = {
+  private def pluralToSingular(word: String): String =
     if (word.endsWith("es")) {
       word.stripSuffix("es")
     } else if (word.endsWith("s")) {
@@ -308,5 +285,4 @@ class TsStrictFormatter extends TsFormatterBase {
     } else {
       word
     }
-  }
 }

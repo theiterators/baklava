@@ -122,10 +122,10 @@ class SimpleDocsFormatter extends Formatter {
           s"<tr><td><b>AUTHENTICATION</b></td><td><ul>${r.authentication.map("<li>" ++ _.toString ++ "</li>").mkString}</ul></td></tr>"
         },
         Some(s"<tr><td><b>BEHAVIOUR</b></td><td>${p.enrichDescriptions
-          .map { enrichedDescription =>
-            s"${enrichedDescription.description} ${enrichedDescription.statusCodeOpt.map(c => s"-> [$c]").getOrElse("")}"
-          }
-          .mkString("<br/>")}</td></tr>"),
+            .map { enrichedDescription =>
+              s"${enrichedDescription.description} ${enrichedDescription.statusCodeOpt.map(c => s"-> [$c]").getOrElse("")}"
+            }
+            .mkString("<br/>")}</td></tr>"),
         Some(s"<tr><td><b>STATUS CODES</b></td><td>${statusCodes.mkString("<br/>")}</td></tr>"),
         Option.when(r.parameters.nonEmpty) {
           s"<tr><td><b>PARAMETERS</b></td><td>" +
@@ -134,9 +134,11 @@ class SimpleDocsFormatter extends Formatter {
             s"<tr><td><b>ROUTE WITH MINIMAL PARAMS</b></td><td>${r.routePathWithRequiredParameters}</td></tr>" +
             s"<tr><td><b>ROUTE WITH ALL PARAMS</b></td><td>${r.routePathWithAllParameters}</td></tr>"
         },
-        Option.when(r.headers.nonEmpty)(s"<tr><td><b>HEADERS</b></td><td>" +
-          s"${r.headers.map(h => s"${h.name}${Option.when(h.required)("<b style='color: red'>*</b>").getOrElse("")}").mkString("<br/>")}" +
-          s"</td></tr>"),
+        Option.when(r.headers.nonEmpty)(
+          s"<tr><td><b>HEADERS</b></td><td>" +
+            s"${r.headers.map(h => s"${h.name}${Option.when(h.required)("<b style='color: red'>*</b>").getOrElse("")}").mkString("<br/>")}" +
+            s"</td></tr>"
+        ),
         r.request.scalaClassOpt.map(s => s"<tr><td><b>REQUEST SCALA TYPE</b></td><td><pre>$s</pre></td></tr>"),
         r.request.minimal.jsonString.map(s => s"<tr><td><b>REQUEST MINIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
         r.request.maximal.jsonString.map(s => s"<tr><td><b>REQUEST MAXIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
@@ -144,7 +146,7 @@ class SimpleDocsFormatter extends Formatter {
         r.response.scalaClassOpt.map(s => s"<tr><td><b>RESPONSE SCALA TYPE</b></td><td><pre>$s</pre></td></tr>"),
         r.response.minimal.jsonString.map(s => s"<tr><td><b>RESPONSE MINIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
         r.response.maximal.jsonString.map(s => s"<tr><td><b>RESPONSE MAXIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
-        r.response.schema.map(s => s"<tr><td><b>RESPONSE SCHEMA</b></td><td><pre>${printSchema(s)}</pre></td></tr>"),
+        r.response.schema.map(s => s"<tr><td><b>RESPONSE SCHEMA</b></td><td><pre>${printSchema(s)}</pre></td></tr>")
       ).flatten.mkString("\n") +
       "</table>"
   }

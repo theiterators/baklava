@@ -12,7 +12,7 @@ import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
 import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
 import spray.json._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object TestData {
   case class Path1Output(p1Int: Int, p1String: String)
@@ -49,38 +49,14 @@ class OpenApiFormatterWorkerSpec extends Specification {
 
     "properly split groups paths" in new TestCase {
       val input = List(
-        EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, Unit]("summary 1", "GET", "/path1"),
-          Nil
-        ),
-        EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, Unit]("summary 2", "POST", "/path1"),
-          Nil
-        ),
-        EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, Unit]("summary 3", "GET", "/path2/abc"),
-          Nil
-        ),
-        EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, Unit]("summary 4", "POST", "/path2/abc"),
-          Nil
-        ),
-        EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, Unit]("summary 5", "PATCH", "/path2/abc"),
-          Nil
-        ),
-        EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, Unit]("summary 6", "DELETE", "/path2/abc"),
-          Nil
-        ),
-        EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, Unit]("summary 7", "PUT", "/path2/abc"),
-          Nil
-        ),
-        EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, Unit]("summary 8", "PUT", "/abc/path3"),
-          Nil
-        ),
+        EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit]("summary 1", "GET", "/path1"), Nil),
+        EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit]("summary 2", "POST", "/path1"), Nil),
+        EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit]("summary 3", "GET", "/path2/abc"), Nil),
+        EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit]("summary 4", "POST", "/path2/abc"), Nil),
+        EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit]("summary 5", "PATCH", "/path2/abc"), Nil),
+        EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit]("summary 6", "DELETE", "/path2/abc"), Nil),
+        EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit]("summary 7", "PUT", "/path2/abc"), Nil),
+        EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit]("summary 8", "PUT", "/abc/path3"), Nil)
       )
 
       val openApi = worker.generateOpenApi(input)
@@ -137,18 +113,9 @@ class OpenApiFormatterWorkerSpec extends Specification {
 
     "properly pass schema refs for input and output classes" in new TestCase {
       val input = List(
-        EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1"),
-          List("Ok")
-        ),
-        EnrichedRouteRepresentation(
-          RouteRepresentation[TestData.Path2Input, Unit]("summary 2", "PUT", "/path2"),
-          List("Ok")
-        ),
-        EnrichedRouteRepresentation(
-          RouteRepresentation[TestData.Path3Input, TestData.Path3Output]("summary 3", "POST", "/path3"),
-          List("Ok")
-        )
+        EnrichedRouteRepresentation(RouteRepresentation[Unit, TestData.Path1Output]("summary 1", "GET", "/path1"), List("Ok")),
+        EnrichedRouteRepresentation(RouteRepresentation[TestData.Path2Input, Unit]("summary 2", "PUT", "/path2"), List("Ok")),
+        EnrichedRouteRepresentation(RouteRepresentation[TestData.Path3Input, TestData.Path3Output]("summary 3", "POST", "/path3"), List("Ok"))
       )
 
       val openApi = worker.generateOpenApi(input)
@@ -184,13 +151,13 @@ class OpenApiFormatterWorkerSpec extends Specification {
 
       val schemas = openApi.getComponents.getSchemas
       schemas.get("pl.iterators.baklava.formatter.TestData.Path1Output") shouldEqual
-        converter.convert(genericJsonSchemaWrapper[TestData.Path1Output].schema)
+        converter.convertMatch(genericJsonSchemaWrapper[TestData.Path1Output].schema)
       schemas.get("pl.iterators.baklava.formatter.TestData.Path2Input") shouldEqual
-        converter.convert(genericJsonSchemaWrapper[TestData.Path2Input].schema)
+        converter.convertMatch(genericJsonSchemaWrapper[TestData.Path2Input].schema)
       schemas.get("pl.iterators.baklava.formatter.TestData.Path3Input") shouldEqual
-        converter.convert(genericJsonSchemaWrapper[TestData.Path3Input].schema)
+        converter.convertMatch(genericJsonSchemaWrapper[TestData.Path3Input].schema)
       schemas.get("pl.iterators.baklava.formatter.TestData.Path3Output") shouldEqual
-        converter.convert(genericJsonSchemaWrapper[TestData.Path3Output].schema)
+        converter.convertMatch(genericJsonSchemaWrapper[TestData.Path3Output].schema)
     }
 
     "properly pass authentication details" in new TestCase {
@@ -210,20 +177,23 @@ class OpenApiFormatterWorkerSpec extends Specification {
       )
       val input3 = List(
         EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, TestData.Path1Output]("summary 1",
-                                                          "GET",
-                                                          "/path1",
-                                                          authentication = List(RouteSecurity.Bearer(), RouteSecurity.Basic())),
+          RouteRepresentation[Unit, TestData.Path1Output](
+            "summary 1",
+            "GET",
+            "/path1",
+            authentication = List(RouteSecurity.Bearer(), RouteSecurity.Basic())
+          ),
           List("Ok")
         )
       )
       val input4 = List(
         EnrichedRouteRepresentation(
-          RouteRepresentation[Unit, TestData.Path1Output]("summary 1",
-                                                          "GET",
-                                                          "/path1",
-                                                          authentication =
-                                                            List(RouteSecurity.Bearer(), RouteSecurity.Bearer("bearerAuth2"))),
+          RouteRepresentation[Unit, TestData.Path1Output](
+            "summary 1",
+            "GET",
+            "/path1",
+            authentication = List(RouteSecurity.Bearer(), RouteSecurity.Bearer("bearerAuth2"))
+          ),
           List("Ok")
         )
       )
@@ -250,11 +220,8 @@ class OpenApiFormatterWorkerSpec extends Specification {
             "summary 1",
             "GET",
             "/path1",
-            authentication = List(
-              RouteSecurity.HeaderApiKey("X-API-KEY"),
-              RouteSecurity.QueryApiKey("api_key"),
-              RouteSecurity.CookieApiKey("X-COOKIE-KEY-KEY")
-            )
+            authentication =
+              List(RouteSecurity.HeaderApiKey("X-API-KEY"), RouteSecurity.QueryApiKey("api_key"), RouteSecurity.CookieApiKey("X-COOKIE-KEY-KEY"))
           ),
           List("Ok")
         )

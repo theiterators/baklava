@@ -4,11 +4,16 @@ import org.reflections.Reflections
 import pl.iterators.baklava.core.fetchers.Fetcher
 import pl.iterators.baklava.formatter.Formatter
 
-import scala.collection.JavaConverters.asScalaSetConverter
+import scala.jdk.CollectionConverters._
 
 object Generator {
 
-  def generate(mainPackageName: String, outputDir: String, fetcherName: String, formatterNames: Seq[String]): Unit = {
+  def generate(
+    mainPackageName: String,
+    outputDir: String,
+    fetcherName: String,
+    formatterNames: Seq[String]
+  ): Unit = {
     val reflections = new Reflections(mainPackageName, "pl.iterators.baklava")
 
     val fetcher              = dynamicallyLoad(reflections, fetcherName, classOf[Fetcher])
@@ -20,7 +25,11 @@ object Generator {
     }
   }
 
-  private def dynamicallyLoad[T](reflections: Reflections, className: String, classOf: Class[T]): T = {
+  private def dynamicallyLoad[T](
+    reflections: Reflections,
+    className: String,
+    classOf: Class[T]
+  ): T =
     reflections
       .getSubTypesOf(classOf)
       .asScala
@@ -29,5 +38,4 @@ object Generator {
         specClazz.getConstructor().newInstance()
       }
       .getOrElse(sys.error(s"Unable to find class with name $className in classPath"))
-  }
 }

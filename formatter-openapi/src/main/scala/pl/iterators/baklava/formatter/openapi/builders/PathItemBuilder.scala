@@ -5,12 +5,12 @@ import io.swagger.v3.oas.models.parameters.Parameter
 
 object PathItemBuilder {
   def build(
-      parameters: List[Parameter],
-      get: Option[Operation],
-      post: Option[Operation],
-      patch: Option[Operation],
-      put: Option[Operation],
-      delete: Option[Operation]
+    parameters: List[Parameter],
+    get: Option[Operation],
+    post: Option[Operation],
+    patch: Option[Operation],
+    put: Option[Operation],
+    delete: Option[Operation]
   ): PathItem = {
     val pathItem = new PathItem
 

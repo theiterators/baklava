@@ -5,7 +5,7 @@ import org.specs2.specification.core.Env
 import pl.iterators.baklava.core.fetchers.Fetcher
 import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation}
 
-import scala.collection.JavaConverters.asScalaSetConverter
+import scala.jdk.CollectionConverters._
 
 class Specs2Fetcher extends Fetcher {
   override def fetch(reflections: Reflections, mainPackageName: String): List[EnrichedRouteRepresentation[_, _]] = {

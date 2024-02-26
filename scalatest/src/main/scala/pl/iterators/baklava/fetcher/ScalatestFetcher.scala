@@ -4,7 +4,7 @@ import org.reflections.Reflections
 import pl.iterators.baklava.core.fetchers.Fetcher
 import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation}
 
-import scala.collection.JavaConverters.asScalaSetConverter
+import scala.jdk.CollectionConverters._
 
 class ScalatestFetcher extends Fetcher {
   override def fetch(reflections: Reflections, mainPackageName: String): List[EnrichedRouteRepresentation[_, _]] = {

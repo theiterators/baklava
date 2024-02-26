@@ -39,18 +39,9 @@ class SprayTestFetcher
     SprayStaticTestState.testFetcherLastMainPackageName = mainPackageName
 
     SprayStaticTestState.testFetcherReturnList = List(
-      EnrichedRouteRepresentation(
-        RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)),
-        Nil
-      ),
-      EnrichedRouteRepresentation(
-        RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)),
-        Nil
-      ),
-      EnrichedRouteRepresentation(
-        RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)),
-        Nil
-      )
+      EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)), Nil),
+      EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)), Nil),
+      EnrichedRouteRepresentation(RouteRepresentation[Unit, Unit](Random.nextString(10), Random.nextString(10), Random.nextString(10)), Nil)
     )
 
     SprayStaticTestState.testFetcherReturnList

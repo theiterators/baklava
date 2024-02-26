@@ -1,12 +1,11 @@
 package pl.iterators.baklava.routes
 
-import cats.effect.IO
-import org.http4s.headers.Location
-import org.http4s.{Headers, Response, Status, Uri}
-import pl.iterators.stir.server.Directives._
+import org.apache.pekko.http.scaladsl.model.headers.Location
+import org.apache.pekko.http.scaladsl.model.{HttpResponse, StatusCodes}
+import org.apache.pekko.http.scaladsl.server.Directives._
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.server.directives.{Credentials, RouteDirectives}
 import org.webjars.WebJarAssetLocator
-import pl.iterators.stir.server.Route
-import pl.iterators.stir.server.directives.{CredentialsHelper, RouteDirectives}
 
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
@@ -32,12 +31,12 @@ object BaklavaRoutes {
       RouteDirectives.reject
   }
 
-  private def basicAuthOpt(credentials: CredentialsHelper)(implicit internalConfig: BaklavaRoutes.Config): Option[String] =
+  private def basicAuthOpt(credentials: Credentials)(implicit internalConfig: BaklavaRoutes.Config): Option[String] =
     (internalConfig.basicAuthUser, internalConfig.basicAuthPassword) match {
       case (Some(user), Some(password)) =>
         credentials match {
-          case p @ CredentialsHelper.Provided(id) if id == user && p.verify(password) => Some(id)
-          case _                                                                      => None
+          case p @ Credentials.Provided(id) if id == user && p.verify(password) => Some(id)
+          case _                                                                => None
         }
       case _ => Some("")
     }
@@ -56,7 +55,7 @@ object BaklavaRoutes {
   private def swaggerRedirectHttpResponse(implicit internalConfig: BaklavaRoutes.Config) = {
     val swaggerUiUrl   = s"${internalConfig.publicPathPrefix}swagger-ui/3.40.0/index.html"
     val swaggerDocsUrl = s"${internalConfig.publicPathPrefix}openapi"
-    Response[IO](status = Status.SeeOther, headers = Headers(Location(Uri.unsafeFromString(s"$swaggerUiUrl?url=$swaggerDocsUrl&layout=BaseLayout"))))
+    HttpResponse(status = StatusCodes.SeeOther, headers = Location(s"$swaggerUiUrl?url=$swaggerDocsUrl&layout=BaseLayout") :: Nil)
   }
 
   private lazy val swaggerWebJar: Route =

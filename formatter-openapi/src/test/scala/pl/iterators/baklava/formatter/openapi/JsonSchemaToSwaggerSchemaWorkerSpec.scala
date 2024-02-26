@@ -4,7 +4,7 @@ import com.github.andyglow.json.Value
 import io.swagger.v3.oas.models.{media => swagger}
 import org.specs2.mutable.Specification
 import java.math.{BigDecimal => JavaBigDecimal}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
 
@@ -18,12 +18,12 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val input2 = new json.Schema.allof(Set(inner2, inner1))
     val input3 = new json.Schema.allof(Set.empty)
 
-    val output1 = converter.convert(input1)
-    val output2 = converter.convert(input2)
-    val output3 = converter.convert(input3)
+    val output1 = converter.convertMatch(input1)
+    val output2 = converter.convertMatch(input2)
+    val output3 = converter.convertMatch(input3)
 
-    output1 shouldEqual converter.convert(inner1)
-    output2 shouldEqual converter.convert(inner2)
+    output1 shouldEqual converter.convertMatch(inner1)
+    output2 shouldEqual converter.convertMatch(inner2)
     output3 shouldEqual new swagger.Schema[Unit]()
   }
 
@@ -31,8 +31,8 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val input1 = new json.Schema.array[Boolean, List](json.Schema.boolean)
     val input2 = new json.Schema.array[Double, List](json.Schema.number[Double])
 
-    val output1 = converter.convert(input1)
-    val output2 = converter.convert(input2)
+    val output1 = converter.convertMatch(input1)
+    val output2 = converter.convertMatch(input2)
 
     output1 should haveClass[swagger.ArraySchema]
     output2 should haveClass[swagger.ArraySchema]
@@ -47,9 +47,10 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
         json.Schema.`object`.Field("sampleString", json.Schema.string, true),
         json.Schema.`object`.Field("sampleInteger", json.Schema.integer, false),
         json.Schema.`object`.Field("sampleBoolean", json.Schema.boolean, true)
-      ))
+      )
+    )
 
-    val output = converter.convert(input)
+    val output = converter.convertMatch(input)
     output should haveClass[swagger.ArraySchema]
 
     val outputInner = output.asInstanceOf[swagger.ArraySchema].getItems
@@ -65,7 +66,7 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
   "should convert array schema properly (array contains dict inside)" in {
     val input = json.Schema.array(new json.Schema.dictionary(json.Schema.string))
 
-    val output = converter.convert(input)
+    val output = converter.convertMatch(input)
     output should haveClass[swagger.ArraySchema]
 
     val outputInner = output.asInstanceOf[swagger.ArraySchema].getItems
@@ -77,7 +78,7 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
   "should convert boolean schema properly" in {
     val input = json.Schema.boolean
 
-    val output = converter.convert(input)
+    val output = converter.convertMatch(input)
 
     output shouldEqual new swagger.BooleanSchema
   }
@@ -86,8 +87,8 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val input1 = new json.Schema.`def`("sig", json.Schema.boolean)
     val input2 = new json.Schema.`def`("sig", new json.Schema.array[Float, List](json.Schema.number[Float]))
 
-    val output1 = converter.convert(input1)
-    val output2 = converter.convert(input2)
+    val output1 = converter.convertMatch(input1)
+    val output2 = converter.convertMatch(input2)
 
     output1 shouldEqual new swagger.BooleanSchema
     output2 should haveClass[swagger.ArraySchema]
@@ -99,9 +100,9 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val input2 = new json.Schema.dictionary(json.Schema.number[BigDecimal])
     val input3 = new json.Schema.dictionary(json.Schema.string)
 
-    val output1 = converter.convert(input1)
-    val output2 = converter.convert(input2)
-    val output3 = converter.convert(input3)
+    val output1 = converter.convertMatch(input1)
+    val output2 = converter.convertMatch(input2)
+    val output3 = converter.convertMatch(input3)
 
     output1 should haveClass[swagger.ObjectSchema]
     output2 should haveClass[swagger.ObjectSchema]
@@ -124,11 +125,11 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val input      = new json.Schema.dictionary(innerInput)
     val arrayInput = new json.Schema.dictionary(arrayInnerInput)
 
-    val output = converter.convert(input)
-    output.asInstanceOf[swagger.ObjectSchema].getProperties.asScala shouldEqual Map("^.*$" -> converter.convert(innerInput))
+    val output = converter.convertMatch(input)
+    output.asInstanceOf[swagger.ObjectSchema].getProperties.asScala shouldEqual Map("^.*$" -> converter.convertMatch(innerInput))
 
-    val arrayOutput = converter.convert(arrayInput)
-    arrayOutput.asInstanceOf[swagger.ObjectSchema].getProperties.asScala shouldEqual Map("^.*$" -> converter.convert(arrayInnerInput))
+    val arrayOutput = converter.convertMatch(arrayInput)
+    arrayOutput.asInstanceOf[swagger.ObjectSchema].getProperties.asScala shouldEqual Map("^.*$" -> converter.convertMatch(arrayInnerInput))
   }
 
   "should convert enum schema properly" in {
@@ -136,9 +137,9 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val input2 = json.Schema.`enum`(json.Schema.integer, Set(Value.num(1), Value.num(10), Value.num(30)))
     val input3 = json.Schema.`enum`(json.Schema.number[Double], Set(Value.num(1.123), Value.num(10.1), Value.num(3.2)))
 
-    val output1 = converter.convert(input1)
-    val output2 = converter.convert(input2)
-    val output3 = converter.convert(input3)
+    val output1 = converter.convertMatch(input1)
+    val output2 = converter.convertMatch(input2)
+    val output3 = converter.convertMatch(input3)
 
     output1 should haveClass[swagger.StringSchema]
     output2 should haveClass[swagger.IntegerSchema]
@@ -154,7 +155,7 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
   "should convert integer schema properly" in {
     val input = json.Schema.integer
 
-    val output = converter.convert(input)
+    val output = converter.convertMatch(input)
 
     output shouldEqual new swagger.IntegerSchema
   }
@@ -162,7 +163,7 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
   "should convert not schema properly" in {
     val input = json.Schema.not(json.Schema.integer)
 
-    val output = converter.convert(input)
+    val output = converter.convertMatch(input)
 
     output shouldEqual new swagger.Schema[Unit]()
   }
@@ -172,9 +173,9 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val input2 = json.Schema.number[BigDecimal]
     val input3 = json.Schema.number[Float]
 
-    val output1 = converter.convert(input1)
-    val output2 = converter.convert(input2)
-    val output3 = converter.convert(input3)
+    val output1 = converter.convertMatch(input1)
+    val output2 = converter.convertMatch(input2)
+    val output3 = converter.convertMatch(input3)
 
     output1 shouldEqual new swagger.NumberSchema
     output2 shouldEqual new swagger.NumberSchema
@@ -185,8 +186,8 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val input1 = json.Schema.string
     val input2 = json.Schema.string(json.Schema.string.Format.uuid)
 
-    val output1 = converter.convert(input1)
-    val output2 = converter.convert(input2)
+    val output1 = converter.convertMatch(input1)
+    val output2 = converter.convertMatch(input2)
 
     output1 shouldEqual new swagger.StringSchema
     output2 should haveClass[swagger.StringSchema]
@@ -200,7 +201,7 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
       json.Schema.`object`.Field("sampleBoolean", json.Schema.boolean, true)
     )
 
-    val output = converter.convert(input)
+    val output = converter.convertMatch(input)
 
     output should haveClass[swagger.ObjectSchema]
     output.asInstanceOf[swagger.ObjectSchema].getRequired.asScala should
@@ -235,10 +236,10 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
       json.Schema.`object`.Field("innerDict", innerDict, false),
       json.Schema.`object`.Field("innerDictOfArray", innerDictOfArray, false),
       json.Schema.`object`.Field("innerDictOfArrayOfObjects", innerDictOfArrayOfObjects, false),
-      json.Schema.`object`.Field("innerDictOfObjects", innerDictOfObjects, false),
+      json.Schema.`object`.Field("innerDictOfObjects", innerDictOfObjects, false)
     )
 
-    val output = converter.convert(input)
+    val output = converter.convertMatch(input)
 
     output should haveClass[swagger.ObjectSchema]
     output.asInstanceOf[swagger.ObjectSchema].getRequired.asScala should
@@ -246,12 +247,12 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val outputProperties = output.getProperties.asScala
     outputProperties("sampleString") should haveClass[swagger.StringSchema]
     outputProperties("sampleNumber") should haveClass[swagger.NumberSchema]
-    outputProperties("innerArray") shouldEqual converter.convert(innerArray)
-    outputProperties("innerArrayOfObjects") shouldEqual converter.convert(innerArrayOfObjects)
-    outputProperties("innerDict") shouldEqual converter.convert(innerDict)
-    outputProperties("innerDictOfArray") shouldEqual converter.convert(innerDictOfArray)
-    outputProperties("innerDictOfArrayOfObjects") shouldEqual converter.convert(innerDictOfArrayOfObjects)
-    outputProperties("innerDictOfObjects") shouldEqual converter.convert(innerDictOfObjects)
+    outputProperties("innerArray") shouldEqual converter.convertMatch(innerArray)
+    outputProperties("innerArrayOfObjects") shouldEqual converter.convertMatch(innerArrayOfObjects)
+    outputProperties("innerDict") shouldEqual converter.convertMatch(innerDict)
+    outputProperties("innerDictOfArray") shouldEqual converter.convertMatch(innerDictOfArray)
+    outputProperties("innerDictOfArrayOfObjects") shouldEqual converter.convertMatch(innerDictOfArrayOfObjects)
+    outputProperties("innerDictOfObjects") shouldEqual converter.convertMatch(innerDictOfObjects)
   }
 
   "should convert oneof schema properly" in {
@@ -262,19 +263,19 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val input2 = new json.Schema.oneof(Set(inner2, inner1))
     val input3 = new json.Schema.oneof(Set.empty)
 
-    val output1 = converter.convert(input1)
-    val output2 = converter.convert(input2)
-    val output3 = converter.convert(input3)
+    val output1 = converter.convertMatch(input1)
+    val output2 = converter.convertMatch(input2)
+    val output3 = converter.convertMatch(input3)
 
-    output1 shouldEqual converter.convert(inner1)
-    output2 shouldEqual converter.convert(inner2)
+    output1 shouldEqual converter.convertMatch(inner1)
+    output2 shouldEqual converter.convertMatch(inner2)
     output3 shouldEqual new swagger.Schema[Unit]()
   }
 
   "should convert ref schema properly" in {
     val input = json.Schema.ref("ref")
 
-    val output = converter.convert(input)
+    val output = converter.convertMatch(input)
 
     output shouldEqual new swagger.Schema[Unit]()
   }
@@ -288,13 +289,13 @@ class JsonSchemaToSwaggerSchemaWorkerSpec extends Specification {
     val input2 = json.Schema.`value-class`[String, BigDecimal](inner2)
     val input3 = json.Schema.`value-class`[Float, String](inner3)
 
-    val output1 = converter.convert(input1)
-    val output2 = converter.convert(input2)
-    val output3 = converter.convert(input3)
+    val output1 = converter.convertMatch(input1)
+    val output2 = converter.convertMatch(input2)
+    val output3 = converter.convertMatch(input3)
 
-    output1 shouldEqual converter.convert(inner1)
-    output2 shouldEqual converter.convert(inner2)
-    output3 shouldEqual converter.convert(inner3)
+    output1 shouldEqual converter.convertMatch(inner1)
+    output2 shouldEqual converter.convertMatch(inner2)
+    output3 shouldEqual converter.convertMatch(inner3)
   }
 
 }

@@ -7,15 +7,15 @@ import pl.iterators.baklava.core.utils.option.RichOptionCompanion
 import scala.reflect.runtime.universe._
 
 case class RouteRepresentation[Request, Response](
-    description: String,
-    method: String,
-    path: String,
-    parameters: List[RouteParameterRepresentation[_]] = Nil,
-    headers: List[RouteHeaderRepresentation] = Nil,
-    requestPredefinedValue: Option[Request] = None,
-    responsePredefinedValue: Option[Response] = None,
-    authentication: List[RouteSecurityGroup] = List.empty,
-    extendedDescription: Option[String] = None
+  description: String,
+  method: String,
+  path: String,
+  parameters: List[RouteParameterRepresentation[_]] = Nil,
+  headers: List[RouteHeaderRepresentation] = Nil,
+  requestPredefinedValue: Option[Request] = None,
+  responsePredefinedValue: Option[Response] = None,
+  authentication: List[RouteSecurityGroup] = List.empty,
+  extendedDescription: Option[String] = None
 )(implicit
   requestTypeTag: TypeTag[Request],
   requestGenerators: AllGenerators[Request],

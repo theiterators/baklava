@@ -32,7 +32,7 @@ object BaklavaSbtPlugin extends AutoPlugin {
     val baklavaFetcher          = settingKey[Fetchers.Fetcher]("Selected fetcher")
     val baklavaFormatters       = settingKey[Seq[Formatters.Formatter]]("Selected formatters")
 
-    //tasks
+    // tasks
     val baklavaGenerate = taskKey[Unit]("Generate documentation using baklava")
     val baklavaClean    = taskKey[Unit]("Clean baklava resources")
   }
