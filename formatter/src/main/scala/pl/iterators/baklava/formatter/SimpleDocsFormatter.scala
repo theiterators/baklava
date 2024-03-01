@@ -127,6 +127,10 @@ class SimpleDocsFormatter extends Formatter {
             }
             .mkString("<br/>")}</td></tr>"),
         Some(s"<tr><td><b>STATUS CODES</b></td><td>${statusCodes.mkString("<br/>")}</td></tr>"),
+        Option.when(r.errorResponses.nonEmpty) {
+          s"<tr><td><b>ERROR RESPONSES</b></td><td>" +
+            s"${r.errorResponses.map(er => s"type: ${er.jsonData.`type`}, code: ${er.status}").mkString("<br/>")}</td></tr>"
+        },
         Option.when(r.parameters.nonEmpty) {
           s"<tr><td><b>PARAMETERS</b></td><td>" +
             s"${r.parameters.map(h => s"${h.name} [${h.scalaType}] ${Option.when(h.required)(s"<b style='color: red'>*</b>").getOrElse("")}").mkString("<br/>")}" +

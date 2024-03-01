@@ -10,6 +10,7 @@ import io.swagger.v3.oas.models.security.{SecurityRequirement, SecurityScheme}
 import pl.iterators.baklava.core.model._
 import pl.iterators.baklava.formatter.openapi.builders.{OpenApiBuilder, OperationBuilder, PathItemBuilder}
 import pl.iterators.kebs.jsonschema.JsonSchemaWrapper
+
 import scala.jdk.CollectionConverters._
 
 class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwaggerSchemaWorker) {
@@ -130,14 +131,23 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
       .foreach { case (codeOpt, desc) =>
         val code        = codeOpt.get // get is safe here
         val apiResponse = new ApiResponse()
-
         apiResponse.setDescription(desc.map(_.description).mkString("\n"))
+
         if (code.intValue >= 200 && code.intValue < 204) {
 
           val mt = routeDtoHandlerToMediaType(route.routeRepresentation.response)
           apiResponse.setContent(new Content().addMediaType("application/json", mt))
+        } else {
+          val mt = new MediaType
+          route.routeRepresentation.errorResponses.filter(er => er.status == code.intValue()).foreach { errorResponse =>
+            val example = new Example()
+            example.setValue(s"""{"type": "${errorResponse.jsonData.`type`}", "status": ${errorResponse.status}}""")
+            mt.addExamples(errorResponse.resultName, example)
+          }
+          if (Option(mt.getExamples).nonEmpty) {
+            apiResponse.setContent(new Content().addMediaType("application/json", mt))
+          }
         }
-
         apiResponses.addApiResponse(code.intValue.toString, apiResponse)
       }
     apiResponses

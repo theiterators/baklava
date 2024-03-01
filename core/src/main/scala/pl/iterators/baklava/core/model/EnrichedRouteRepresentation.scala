@@ -1,5 +1,7 @@
 package pl.iterators.baklava.core.model
 
+import scala.util.Try
+
 class EnrichedRouteRepresentation[Request, Response] private (
   val routeRepresentation: RouteRepresentation[Request, Response],
   val enrichDescriptions: Seq[EnrichedDescription]) {
@@ -50,6 +52,6 @@ object EnrichedDescription {
     description.toLowerCase
       .replace("inaccessible", "unauthorized")
       .split(" ")
-      .flatMap(s => statusCodesMap.get(s))
+      .flatMap(s => Try(s.toInt).toOption.orElse(statusCodesMap.get(s)))
       .headOption
 }
