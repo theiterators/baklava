@@ -12,6 +12,7 @@ case class RouteRepresentation[Request, Response](
   path: String,
   parameters: List[RouteParameterRepresentation[_]] = Nil,
   headers: List[RouteHeaderRepresentation] = Nil,
+  errorResponses: List[RouteErrorResponse[_]] = Nil,
   requestPredefinedValue: Option[Request] = None,
   responsePredefinedValue: Option[Response] = None,
   authentication: List[RouteSecurityGroup] = List.empty,
