@@ -34,9 +34,7 @@ case class RouteRepresentation[Request, Response](
     val parametersPath = Option
       .when(requiredParams.nonEmpty) {
         requiredParams
-          .map { param =>
-            s"${param.name}=${param.marshall}"
-          }
+          .map(_.queryString)
           .mkString("?", "&", "")
       }
       .getOrElse("")
@@ -48,9 +46,7 @@ case class RouteRepresentation[Request, Response](
     val parametersPath = Option
       .when(parameters.nonEmpty) {
         parameters
-          .map { param =>
-            s"${param.name}=${param.marshall}"
-          }
+          .map(_.queryString)
           .mkString("?", "&", "")
       }
       .getOrElse("")
@@ -63,5 +59,8 @@ case class RouteRepresentation[Request, Response](
 
   def getParamValue[T](name: String): Option[T] =
     parameters.find(_.name == name).map(_.sampleValue.asInstanceOf[T])
+
+  def getSeqParamValue[T](name: String): Option[Seq[T]] =
+    parameters.find(_.name == name).map(_.seqSampleValue.asInstanceOf[Seq[T]])
 
 }

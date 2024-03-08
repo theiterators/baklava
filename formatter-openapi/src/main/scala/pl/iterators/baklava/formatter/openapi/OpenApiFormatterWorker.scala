@@ -87,14 +87,21 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
 
   private def queryParamsToParams(parameters: List[RouteParameterRepresentation[_]]): List[Parameter] =
     parameters.map { param =>
-      val schema = new StringSchema
-      schema.setExample(param.sampleValue)
+      val itemSchema = new StringSchema
+      itemSchema.setExample(param.valueGenerator())
       param.enums.foreach { values =>
-        schema.setEnum(values.toList.asJava)
+        itemSchema.setEnum(values.toList.asJava)
       }
 
+      val schema: Schema[_] =
+        if (param.seq) {
+          val arraySchema = new ArraySchema
+          arraySchema.setItems(itemSchema)
+          arraySchema
+        } else itemSchema
+
       val p = new Parameter()
-      p.setName(param.name)
+      if (param.seq) p.setName(s"${param.name}[]") else p.setName(param.name)
       p.setIn("query")
       p.setRequired(param.required)
       p.setSchema(schema)
