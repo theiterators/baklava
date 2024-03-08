@@ -4,7 +4,6 @@ import com.github.andyglow.json.JsonFormatter
 import com.github.andyglow.jsonschema.AsValue
 import json.schema.Version.Draft07
 import pl.iterators.baklava.core.model.EnrichedRouteRepresentation
-import pl.iterators.baklava.core.utils.option.RichOptionCompanion
 
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Try
@@ -133,7 +132,13 @@ class SimpleDocsFormatter extends Formatter {
         },
         Option.when(r.parameters.nonEmpty) {
           s"<tr><td><b>PARAMETERS</b></td><td>" +
-            s"${r.parameters.map(h => s"${h.name} [${h.scalaType}] ${Option.when(h.required)(s"<b style='color: red'>*</b>").getOrElse("")}").mkString("<br/>")}" +
+            s"${r.parameters
+                .map(h =>
+                  s"${h.name}${if (h.seq) "[]" else ""}${Option.when(h.required)(s"<b style='color: red'>*</b>").getOrElse("")}: ${h.simpleType}${if (h.seq) "[]"
+                    else ""} " +
+                    s"(${h.enums.map(enums => enums.mkString("possible values: ", ", ", "")).getOrElse(s"example: ${h.valueGenerator()}")})"
+                )
+                .mkString("<br/>")}" +
             s"</td></tr>" +
             s"<tr><td><b>ROUTE WITH MINIMAL PARAMS</b></td><td>${r.routePathWithRequiredParameters}</td></tr>" +
             s"<tr><td><b>ROUTE WITH ALL PARAMS</b></td><td>${r.routePathWithAllParameters}</td></tr>"
