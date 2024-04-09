@@ -14,16 +14,22 @@ object BaklavaRoutes {
   def routes(config: com.typesafe.config.Config): Route = {
     implicit val internalConfig: BaklavaRoutes.Config = BaklavaRoutes.Config(config)
     if (internalConfig.enabled)
-      authenticateBasic("docs", basicAuthOpt) { _ =>
-        pathPrefix("docs") {
+      pathPrefix("docs") {
+        authenticateBasic("docs", basicAuthOpt) { _ =>
           pathSingleSlash {
             getFromFile(s"${internalConfig.fileSystemPath}/simple/index.html")
           } ~ getFromDirectory(s"${internalConfig.fileSystemPath}/simple")
-        } ~ path("openapi") {
+        }
+      } ~ path("openapi") {
+        authenticateBasic("docs", basicAuthOpt) { _ =>
           complete(openApiFileContent)
-        } ~ pathPrefix("swagger-ui") {
+        }
+      } ~ pathPrefix("swagger-ui") {
+        authenticateBasic("docs", basicAuthOpt) { _ =>
           swaggerWebJar
-        } ~ pathPrefix("swagger") {
+        }
+      } ~ pathPrefix("swagger") {
+        authenticateBasic("docs", basicAuthOpt) { _ =>
           get(complete(swaggerRedirectHttpResponse))
         }
       }
