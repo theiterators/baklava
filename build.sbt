@@ -8,6 +8,7 @@ ThisBuild / crossScalaVersions := supportedScalaVersions
 ThisBuild / scalaVersion := mainScalaVersion
 // ThisBuild / sonatypeCredentialHost := "oss.sonatype.org"
 // ThisBuild / sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
+ThisBuild / resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
 
 lazy val baseSettings = Seq(
   organization := "pl.iterators",
@@ -37,7 +38,7 @@ val pekkoV          = "1.0.2"
 val pekkoHttpV      = "1.0.1"
 val http4sStirV     = "0.2"
 val typesafeConfigV = "1.4.3"
-val kebsV           = "1.9.7"
+val kebsV           = "1.9.7+40-fc933b5b-SNAPSHOT"
 val reflectionsV    = "0.10.2"
 val specs2V         = "4.20.5"
 val jsonSchemaV     = "0.7.11"
