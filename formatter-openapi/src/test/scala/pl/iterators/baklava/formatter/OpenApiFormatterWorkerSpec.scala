@@ -7,7 +7,7 @@ import org.specs2.specification.Scope
 import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation, RouteSecurity}
 import pl.iterators.baklava.formatter.openapi._
 import pl.iterators.baklava.sprayjson.SprayJsonStringProvider
-import pl.iterators.kebs.json.KebsSpray
+import pl.iterators.kebs.sprayjson.KebsSprayJson
 import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
 import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
 import spray.json._
@@ -30,7 +30,7 @@ class OpenApiFormatterWorkerSpec extends Specification {
       extends Scope
       with DefaultJsonProtocol
       with SprayJsonStringProvider
-      with KebsSpray
+      with KebsSprayJson
       with KebsJsonSchema
       with KebsArbitraryPredefs
       with KebsJsonSchemaPredefs
