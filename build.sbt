@@ -1,11 +1,12 @@
 import com.jsuereth.sbtpgp.PgpKeys
 
-val scala_2_13             = "2.13.13"
+val scala_2_13             = "2.13.15"
 val mainScalaVersion       = scala_2_13
 val supportedScalaVersions = Seq(scala_2_13)
 
 ThisBuild / crossScalaVersions := supportedScalaVersions
 ThisBuild / scalaVersion := mainScalaVersion
+ThisBuild / versionScheme := Some("early-semver")
 // ThisBuild / sonatypeCredentialHost := "oss.sonatype.org"
 // ThisBuild / sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
 ThisBuild / resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
@@ -32,19 +33,19 @@ lazy val baseSettings = Seq(
   crossScalaVersions := supportedScalaVersions
 )
 
-val akkaV           = "2.6.20"
+val akkaV           = "2.6.21"
 val akkaHttpV       = "10.2.10"
-val pekkoV          = "1.0.2"
-val pekkoHttpV      = "1.0.1"
-val http4sStirV     = "0.2"
+val pekkoV          = "1.1.2"
+val pekkoHttpV      = "1.1.0"
+val http4sStirV     = "0.4.0"
 val typesafeConfigV = "1.4.3"
-val kebsV           = "1.9.7+41-daad478e-SNAPSHOT"
+val kebsV           = "2.0.0"
 val reflectionsV    = "0.10.2"
-val specs2V         = "4.20.5"
+val specs2V         = "4.20.9"
 val jsonSchemaV     = "0.7.11"
-val swaggerV        = "2.2.20"
-val scalatestV      = "3.2.18"
-val webjarsLocatorV = "0.50"
+val swaggerV        = "2.2.25"
+val scalatestV      = "3.2.19"
+val webjarsLocatorV = "0.52"
 val swaggerUiV      = "3.40.0" //unfortunately we need to stuck with this version
 
 lazy val akkahttproutes = project
