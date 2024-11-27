@@ -69,9 +69,13 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
     }
 
   override implicit def baklavaHttpProtocolToHttpProtocol(baklavaHttpProtocol: BaklavaHttpProtocol): HttpProtocol =
-    org.apache.pekko.http.scaladsl.model.HttpProtocol(
-      baklavaHttpProtocol.protocol
-    )
+    baklavaHttpProtocol.protocol match {
+      case "HTTP/1.0" => org.apache.pekko.http.scaladsl.model.HttpProtocols.`HTTP/1.0`
+      case "HTTP/1.1" => org.apache.pekko.http.scaladsl.model.HttpProtocols.`HTTP/1.1`
+      case "HTTP/2"   => org.apache.pekko.http.scaladsl.model.HttpProtocols.`HTTP/2.0`
+      case _          => throw new IllegalArgumentException(s"Unsupported protocol: ${baklavaHttpProtocol.protocol}")
+    }
+
   override implicit def httpProtocolToBaklavaHttpProtocol(protocol: HttpProtocol): BaklavaHttpProtocol = BaklavaHttpProtocol(
     protocol.value
   )

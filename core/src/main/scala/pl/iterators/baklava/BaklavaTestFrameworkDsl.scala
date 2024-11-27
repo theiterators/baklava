@@ -178,6 +178,17 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       }
   }
 
+  def onRequest: OnRequest[BaklavaEmptyBody.type, Unit, Unit] =
+    onRequest(BaklavaEmptyBody, Map.empty, None, (), ())(emptyToResponseBodyType)
+  def onRequest[RequestBody: ToRequestBodyType, PathParametersProvided, QueryParametersProvided](
+      body: RequestBody = "",
+      headers: Map[String, String] = Map.empty,
+      security: Option[Security] = None,
+      pathParameters: PathParametersProvided = (),
+      queryParameters: QueryParametersProvided = ()
+  ): OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided] =
+    OnRequest(body, headers, security, pathParameters, queryParameters)
+
   def fragmentsFromSeq(fragments: Seq[TestFrameworkFragmentType]): TestFrameworkFragmentsType
   def concatFragments(fragments: Seq[TestFrameworkFragmentsType]): TestFrameworkFragmentsType
   def pathLevelTextWithFragments(text: String, fragments: => TestFrameworkFragmentsType): TestFrameworkFragmentsType

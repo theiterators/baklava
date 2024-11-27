@@ -286,17 +286,6 @@ trait BaklavaHttpDsl[
     java.net.URLEncoder.encode(value, "UTF-8")
   }
 
-  def onRequest: OnRequest[BaklavaEmptyBody.type, Unit, Unit] =
-    onRequest(BaklavaEmptyBody, Map.empty, None, (), ())(emptyToResponseBodyType)
-  def onRequest[RequestBody: ToRequestBodyType, PathParametersProvided, QueryParametersProvided](
-      body: RequestBody = "",
-      headers: Map[String, String] = Map.empty,
-      security: Option[Security] = None,
-      pathParameters: PathParametersProvided = (),
-      queryParameters: QueryParametersProvided = ()
-  ): OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided] =
-    OnRequest(body, headers, security, pathParameters, queryParameters)
-
   def testCase[PathParameters, QueryParameters](
       s: Baklava2CaseStep[PathParameters, QueryParameters]
   ): Baklava2CaseStep[PathParameters, QueryParameters] = s

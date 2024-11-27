@@ -13,7 +13,7 @@ val Scala3   = "3.3.3"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion := Scala213
 
-lazy val root = tlCrossRootProject.aggregate(core, pekkohttp, specs2, scalatest)
+lazy val baklava = tlCrossRootProject.aggregate(core, pekkohttp, specs2, scalatest)
 
 val pekkoHttpV             = "1.1.0"
 val pekkoV                 = "1.1.2"
