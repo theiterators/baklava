@@ -14,29 +14,32 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     TestFrameworkExecutionType
   ] =>
 
-  def path(path: String)(steps: Baklava2MethodStep*): TestFrameworkFragmentsType =
+  def path(path: String)(steps: Baklava2MethodStep*): TestFrameworkFragmentsType = {
+    val ctx: Baklava2Context[Nothing, Any, Any, Any, Any] = Baklava2Context(
+      symbolicPath = path,
+      path = path,
+      method = None,
+      body = None,
+      headers = BaklavaHttpHeaders(Map.empty),
+      security = None,
+      pathParameters = (),
+      pathParametersProvided = (),
+      queryParameters = (),
+      queryParametersProvided = ()
+    )
     pathLevelTextWithFragments(
       s"$path should",
+      ctx,
       concatFragments(
         steps
           .map(
             _.apply(
-              Baklava2Context(
-                symbolicPath = path,
-                path = path,
-                method = None,
-                body = None,
-                headers = BaklavaHttpHeaders(Map.empty),
-                security = None,
-                pathParameters = (),
-                pathParametersProvided = (),
-                queryParameters = (),
-                queryParametersProvided = ()
-              )
+              ctx
             )
           )
       )
     )
+  }
 
   def supports[PathParameters, QueryParameters](
       method: BaklavaHttpMethod,
@@ -61,7 +64,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
           queryParameters = queryParameters,
           queryParametersProvided = ()
         )
-        methodLevelTextWithFragments(s"support ${method.value}" + finalDescription, fragmentsFromSeq(steps.map(_.apply(newCtx))))
+        methodLevelTextWithFragments(s"support ${method.value}" + finalDescription, newCtx, fragmentsFromSeq(steps.map(_.apply(newCtx))))
       }
     }
 
@@ -118,25 +121,27 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
             override def apply(ctx: Baklava2Context[Unit, PathParameters, Unit, QueryParameters, Unit]): TestFrameworkFragmentType = {
               val finalDescription = if (description.trim.isEmpty) "" else ": " + description.trim
               var timesCalled: Int = 0
+              val additionalHeaders = security match {
+                case Some(Bearer(payload)) => Map("Authorization" -> s"Bearer $payload")
+                case _                     => Map.empty[String, String]
+              }
+              val finalCtx =
+                ctx.copy(
+                  path = provideQueryParams.apply(
+                    ctx.queryParameters,
+                    queryParametersProvided,
+                    providePathParams.apply(ctx.pathParameters, pathParametersProvided, ctx.path)
+                  ),
+                  body = if (body != BaklavaEmptyBody) Some(body) else None,
+                  headers = BaklavaHttpHeaders(headers ++ additionalHeaders),
+                  security = security,
+                  pathParametersProvided = pathParametersProvided,
+                  queryParametersProvided = queryParametersProvided
+                )
+
               requestLevelTextWithExecution(
-                statusCode.status.toString + finalDescription, {
-                  val additionalHeaders = security match {
-                    case Some(Bearer(payload)) => Map("Authorization" -> s"Bearer $payload")
-                    case _                     => Map.empty[String, String]
-                  }
-                  val finalCtx =
-                    ctx.copy(
-                      path = provideQueryParams.apply(
-                        ctx.queryParameters,
-                        queryParametersProvided,
-                        providePathParams.apply(ctx.pathParameters, pathParametersProvided, ctx.path)
-                      ),
-                      body = if (body != BaklavaEmptyBody) Some(body) else None,
-                      headers = BaklavaHttpHeaders(headers ++ additionalHeaders),
-                      security = security,
-                      pathParametersProvided = pathParametersProvided,
-                      queryParametersProvided = queryParametersProvided
-                    )
+                statusCode.status.toString + finalDescription,
+                finalCtx, {
                   val wrappedPerformRequest = (
                       ctx: Baklava2Context[RequestBody, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided],
                       route: RouteType
@@ -191,7 +196,19 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
 
   def fragmentsFromSeq(fragments: Seq[TestFrameworkFragmentType]): TestFrameworkFragmentsType
   def concatFragments(fragments: Seq[TestFrameworkFragmentsType]): TestFrameworkFragmentsType
-  def pathLevelTextWithFragments(text: String, fragments: => TestFrameworkFragmentsType): TestFrameworkFragmentsType
-  def methodLevelTextWithFragments(text: String, fragments: => TestFrameworkFragmentsType): TestFrameworkFragmentsType
-  def requestLevelTextWithExecution[R: TestFrameworkExecutionType](text: String, r: => R): TestFrameworkFragmentType
+  def pathLevelTextWithFragments(
+      text: String,
+      context: Baklava2Context[?, ?, ?, ?, ?],
+      fragments: => TestFrameworkFragmentsType
+  ): TestFrameworkFragmentsType
+  def methodLevelTextWithFragments(
+      text: String,
+      context: Baklava2Context[?, ?, ?, ?, ?],
+      fragments: => TestFrameworkFragmentsType
+  ): TestFrameworkFragmentsType
+  def requestLevelTextWithExecution[R: TestFrameworkExecutionType](
+      text: String,
+      context: Baklava2Context[?, ?, ?, ?, ?],
+      r: => R
+  ): TestFrameworkFragmentType
 }
