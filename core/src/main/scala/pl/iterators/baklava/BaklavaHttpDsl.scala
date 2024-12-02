@@ -5,7 +5,9 @@ import pl.iterators.kebs.core.macros.ValueClassLike
 
 import scala.reflect.ClassTag
 
-case object BaklavaEmptyBody
+sealed trait EmptyBody
+
+case object EmptyBodyInstance extends EmptyBody
 
 case class BaklavaHttpMethod(value: String)
 
@@ -14,13 +16,6 @@ case class BaklavaHttpProtocol(protocol: String)
 case class BaklavaHttpStatus(status: Int)
 
 case class BaklavaHttpHeaders(headers: Map[String, String])
-
-//case class BaklavaResponseType[ResponseBody](
-//    protocol: BaklavaHttpProtocol,
-//    status: BaklavaHttpStatus,
-//    headers: BaklavaHttpHeaders,
-//    body: ResponseBody
-//)
 
 case class Baklava2Context[Body, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided](
     symbolicPath: String,
@@ -49,6 +44,11 @@ trait Security {
 case class Bearer(payload: String) extends Security {
   override val `type`: String   = "http"
   override val `scheme`: String = "bearer"
+}
+
+case class Basic(id: String, secret: String) extends Security {
+  override val `type`: String   = "http"
+  override val `scheme`: String = "basic"
 }
 
 trait BaklavaHttpDsl[
@@ -302,7 +302,9 @@ trait BaklavaHttpDsl[
       route: RouteType
   ): Baklava2ResponseContext[ResponseBody]
 
-  protected def emptyToResponseBodyType: ToRequestBodyType[BaklavaEmptyBody.type]
+  protected implicit def emptyToRequestBodyType: ToRequestBodyType[EmptyBody]
+
+  protected implicit def emptyToResponseBodyType: FromResponseBodyType[EmptyBody]
 
   implicit def statusCodeToBaklavaStatusCodes(statusCode: HttpStatusCode): BaklavaHttpStatus
   implicit def baklavaStatusCodeToStatusCode(baklavaHttpStatus: BaklavaHttpStatus): HttpStatusCode

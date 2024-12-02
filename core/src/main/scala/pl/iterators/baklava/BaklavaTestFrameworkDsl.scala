@@ -1,5 +1,6 @@
 package pl.iterators.baklava
 
+import java.util.Base64
 import scala.reflect.ClassTag
 
 trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyType[
@@ -123,7 +124,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
               var timesCalled: Int = 0
               val additionalHeaders = security match {
                 case Some(Bearer(payload)) => Map("Authorization" -> s"Bearer $payload")
-                case _                     => Map.empty[String, String]
+                case Some(Basic(id, secret)) =>
+                  Map("Authorization" -> s"Basic ${Base64.getEncoder.encodeToString(s"$id:$secret".getBytes)}")
+                case _ => Map.empty[String, String]
               }
               val finalCtx =
                 ctx.copy(
@@ -132,7 +135,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                     queryParametersProvided,
                     providePathParams.apply(ctx.pathParameters, pathParametersProvided, ctx.path)
                   ),
-                  body = if (body != BaklavaEmptyBody) Some(body) else None,
+                  body = if (body != EmptyBodyInstance) Some(body) else None,
                   headers = BaklavaHttpHeaders(headers ++ additionalHeaders),
                   security = security,
                   pathParametersProvided = pathParametersProvided,
@@ -161,7 +164,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                     timesCalled += 1
                     if (response.status != statusCode) {
                       throw new RuntimeException(
-                        s"Expected status code $statusCode, but got ${response.status}"
+                        s"Expected status code ${statusCode.status}, but got ${response.status.status}"
                       )
                     }
                     BaklavaGlobal.updateStorage(ctx, response)
@@ -183,10 +186,10 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       }
   }
 
-  def onRequest: OnRequest[BaklavaEmptyBody.type, Unit, Unit] =
-    onRequest(BaklavaEmptyBody, Map.empty, None, (), ())(emptyToResponseBodyType)
+  def onRequest: OnRequest[EmptyBody, Unit, Unit] =
+    onRequest(EmptyBodyInstance: EmptyBody, Map.empty, None, (), ())(emptyToRequestBodyType)
   def onRequest[RequestBody: ToRequestBodyType, PathParametersProvided, QueryParametersProvided](
-      body: RequestBody = "",
+      body: RequestBody = EmptyBodyInstance: EmptyBody,
       headers: Map[String, String] = Map.empty,
       security: Option[Security] = None,
       pathParameters: PathParametersProvided = (),

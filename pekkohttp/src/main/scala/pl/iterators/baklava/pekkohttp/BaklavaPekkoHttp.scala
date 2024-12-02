@@ -3,17 +3,18 @@ package pl.iterators.baklava.pekkohttp
 import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, Marshalling, ToEntityMarshaller}
 import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpHeader, MessageEntity}
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.unmarshalling.FromEntityUnmarshaller
+import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
 import pl.iterators.baklava.{
   Baklava2ResponseContext,
-  BaklavaEmptyBody,
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
   BaklavaHttpMethod,
   BaklavaHttpProtocol,
   BaklavaHttpStatus,
-  BaklavaTestFrameworkDsl
+  BaklavaTestFrameworkDsl,
+  EmptyBody,
+  EmptyBodyInstance
 }
 
 import scala.concurrent.duration.Duration
@@ -103,8 +104,11 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
     )
   }
 
-  override val emptyToResponseBodyType: ToEntityMarshaller[BaklavaEmptyBody.type] =
-    Marshaller.strict[BaklavaEmptyBody.type, MessageEntity](_ => Marshalling.Opaque(() => HttpEntity.Empty))
+  override implicit protected def emptyToRequestBodyType: ToEntityMarshaller[EmptyBody] =
+    Marshaller.strict[EmptyBody, MessageEntity](_ => Marshalling.Opaque(() => HttpEntity.Empty))
+
+  override implicit protected def emptyToResponseBodyType: FromEntityUnmarshaller[EmptyBody] =
+    Unmarshaller.strict(_ => EmptyBodyInstance)
 
   implicit val executionContext: ExecutionContext
   implicit val materializer: Materializer

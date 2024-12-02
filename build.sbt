@@ -13,7 +13,7 @@ val Scala3   = "3.3.3"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion       := Scala213
 
-lazy val baklava = tlCrossRootProject.aggregate(core, pekkohttp, specs2, scalatest, munit)
+lazy val baklava = tlCrossRootProject.aggregate(core, pekkohttp, http4s, specs2, scalatest, munit)
 
 val pekkoHttpV = "1.1.0"
 val pekkoV     = "1.1.2"
@@ -21,6 +21,7 @@ val kebsV      = "2.0.0"
 val specs2V    = "4.20.9"
 val scalatestV = "3.2.19"
 val munitV     = "1.0.2"
+val http4sV    = "0.23.29"
 
 lazy val core = project
   .in(file("core"))
@@ -40,6 +41,16 @@ lazy val pekkohttp = project
       "org.apache.pekko" %% "pekko-http"         % pekkoHttpV,
       "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV,
       "org.apache.pekko" %% "pekko-stream"       % pekkoV
+    )
+  )
+
+lazy val http4s = project
+  .in(file("http4s"))
+  .dependsOn(core)
+  .settings(
+    name := "baklava2-http4s",
+    libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-dsl" % http4sV
     )
   )
 
