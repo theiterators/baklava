@@ -1,11 +1,13 @@
 package pl.iterators.baklava.pekkohttp
 
+import org.apache.pekko.http.scaladsl.client.RequestBuilding.RequestBuilder
 import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, Marshalling, ToEntityMarshaller}
 import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpHeader, MessageEntity}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
 import pl.iterators.baklava.{
+  Baklava2Context,
   Baklava2ResponseContext,
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
@@ -42,6 +44,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
   override type HttpStatusCode = org.apache.pekko.http.scaladsl.model.StatusCode
   override type HttpMethod     = org.apache.pekko.http.scaladsl.model.HttpMethod
   override type HttpHeaders    = Seq[HttpHeader]
+  override type HttpRequest    = org.apache.pekko.http.scaladsl.model.HttpRequest
   override type HttpResponse   = org.apache.pekko.http.scaladsl.model.HttpResponse
 
   override implicit def statusCodeToBaklavaStatusCodes(statusCode: HttpStatusCode): BaklavaHttpStatus = BaklavaHttpStatus(
@@ -93,7 +96,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
     headers.map(h => h.name() -> h.value()).toMap
   )
 
-  override implicit def httpResponseToBaklavaResponseContext[T: FromEntityUnmarshaller](
+  override def httpResponseToBaklavaResponseContext[T: FromEntityUnmarshaller](
       response: HttpResponse
   ): Baklava2ResponseContext[T] = {
     Baklava2ResponseContext(
@@ -102,6 +105,23 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       response.headers,
       Await.result(implicitly[FromEntityUnmarshaller[T]].apply(response.entity), Duration.Inf)
     )
+  }
+
+  override def baklavaContextToHttpRequest[
+      RequestBody,
+      ResponseBody,
+      PathParameters,
+      PathParametersProvided,
+      QueryParameters,
+      QueryParametersProvided
+  ](
+      ctx: Baklava2Context[RequestBody, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided]
+  )(implicit
+      requestBody: ToEntityMarshaller[RequestBody],
+      responseBody: FromEntityUnmarshaller[ResponseBody]
+  ): HttpRequest = {
+    new RequestBuilder(ctx.method.get)(ctx.path, ctx.body)
+      .withHeaders(ctx.headers)
   }
 
   override implicit protected def emptyToRequestBodyType: ToEntityMarshaller[EmptyBody] =

@@ -150,7 +150,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                       route: RouteType
                   ) => {
                     val response =
-                      performRequest[
+                      baklavaPerformRequest[
                         RequestBody,
                         ResponseBody,
                         PathParameters,

@@ -2,9 +2,10 @@ package pl.iterators.baklava.http4s
 
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
-import org.http4s.{EntityDecoder, EntityEncoder, Header, Headers, HttpRoutes, HttpVersion, Method, Response, Status}
+import org.http4s.{Entity, EntityDecoder, EntityEncoder, Header, Headers, HttpRoutes, HttpVersion, Method, Request, Response, Status, Uri}
 import org.typelevel.ci.CIString
 import pl.iterators.baklava.{
+  Baklava2Context,
   Baklava2ResponseContext,
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
@@ -35,6 +36,7 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
   ] =>
 
   override type HttpResponse   = Response[IO]
+  override type HttpRequest    = Request[IO]
   override type HttpProtocol   = HttpVersion
   override type HttpStatusCode = Status
   override type HttpMethod     = Method
@@ -79,7 +81,7 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     headers.headers.map(h => h.name.toString -> h.value).toMap
   )
 
-  override implicit def httpResponseToBaklavaResponseContext[T: BaklavaHttp4s.FromEntityUnmarshaller](
+  override def httpResponseToBaklavaResponseContext[T: BaklavaHttp4s.FromEntityUnmarshaller](
       response: Response[IO]
   ): Baklava2ResponseContext[T] = Baklava2ResponseContext(
     response.httpVersion,
@@ -87,6 +89,30 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     response.headers,
     response.as[T].unsafeRunSync()
   )
+
+  override def baklavaContextToHttpRequest[
+      RequestBody,
+      ResponseBody,
+      PathParameters,
+      PathParametersProvided,
+      QueryParameters,
+      QueryParametersProvided
+  ](
+      ctx: Baklava2Context[RequestBody, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided]
+  )(implicit
+      requestBody: BaklavaHttp4s.ToEntityMarshaller[RequestBody],
+      responseBody: BaklavaHttp4s.FromEntityUnmarshaller[ResponseBody]
+  ): HttpRequest = {
+    val entityIO =
+      ctx.body.fold(Entity.empty: Entity[IO])(implicitly[BaklavaHttp4s.ToEntityMarshaller[RequestBody]].toEntity)
+
+    Request[IO](
+      method = ctx.method.get,
+      uri = Uri.fromString(ctx.path).fold(throw _, identity),
+      body = entityIO.body,
+      headers = ctx.headers
+    )
+  }
 
   implicit val runtime: IORuntime
 }
