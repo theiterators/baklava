@@ -97,20 +97,21 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
   )
 
   override def httpResponseToBaklavaResponseContext[T: FromEntityUnmarshaller](
+      request: HttpRequest,
       response: HttpResponse
-  ): BaklavaResponseContext[T, HttpResponse] = {
+  ): BaklavaResponseContext[T, HttpRequest, HttpResponse] = {
     BaklavaResponseContext(
       response.protocol,
       response.status,
       response.headers,
       Await.result(implicitly[FromEntityUnmarshaller[T]].apply(response.entity), Duration.Inf),
+      request,
       response
     )
   }
 
   override def baklavaContextToHttpRequest[
       RequestBody,
-      ResponseBody,
       PathParameters,
       PathParametersProvided,
       QueryParameters,
@@ -124,8 +125,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
         QueryParametersProvided
       ]
   )(implicit
-      requestBody: ToEntityMarshaller[RequestBody],
-      responseBody: FromEntityUnmarshaller[ResponseBody]
+      requestBody: ToEntityMarshaller[RequestBody]
   ): HttpRequest = {
     new RequestBuilder(ctx.method.get)(ctx.path, ctx.body)
       .withHeaders(ctx.headers)

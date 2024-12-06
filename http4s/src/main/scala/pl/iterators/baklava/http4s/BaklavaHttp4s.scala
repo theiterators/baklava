@@ -82,18 +82,19 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
   )
 
   override def httpResponseToBaklavaResponseContext[T: BaklavaHttp4s.FromEntityUnmarshaller](
+      request: Request[IO],
       response: Response[IO]
-  ): BaklavaResponseContext[T, Response[IO]] = BaklavaResponseContext(
+  ): BaklavaResponseContext[T, Request[IO], Response[IO]] = BaklavaResponseContext(
     response.httpVersion,
     response.status,
     response.headers,
     response.as[T].unsafeRunSync(),
+    request,
     response
   )
 
   override def baklavaContextToHttpRequest[
       RequestBody,
-      ResponseBody,
       PathParameters,
       PathParametersProvided,
       QueryParameters,
@@ -107,8 +108,7 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
         QueryParametersProvided
       ]
   )(implicit
-      requestBody: BaklavaHttp4s.ToEntityMarshaller[RequestBody],
-      responseBody: BaklavaHttp4s.FromEntityUnmarshaller[ResponseBody]
+      requestBody: BaklavaHttp4s.ToEntityMarshaller[RequestBody]
   ): HttpRequest = {
     val entityIO =
       ctx.body.fold(Entity.empty: Entity[IO])(implicitly[BaklavaHttp4s.ToEntityMarshaller[RequestBody]].toEntity)

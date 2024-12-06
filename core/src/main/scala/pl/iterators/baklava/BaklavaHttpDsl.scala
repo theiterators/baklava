@@ -31,11 +31,12 @@ case class BaklavaRequestContext[Body, PathParameters, PathParametersProvided, Q
     queryParametersProvided: QueryParametersProvided
 )
 
-case class BaklavaResponseContext[ResponseBody, ResponseType](
+case class BaklavaResponseContext[ResponseBody, RequestType, ResponseType](
     protocol: BaklavaHttpProtocol,
     status: BaklavaHttpStatus,
     headers: BaklavaHttpHeaders,
     body: ResponseBody,
+    rawRequest: RequestType,
     rawResponse: ResponseType
 )
 
@@ -133,9 +134,9 @@ trait BaklavaHttpDsl[
             QueryParametersProvided
           ],
           RouteType
-      ) => BaklavaResponseContext[ResponseBody, HttpResponse]
+      ) => BaklavaResponseContext[ResponseBody, HttpRequest, HttpResponse]
   ) {
-    def performRequest(route: RouteType): BaklavaResponseContext[ResponseBody, HttpResponse] = _performRequest(ctx, route)
+    def performRequest(route: RouteType): BaklavaResponseContext[ResponseBody, HttpRequest, HttpResponse] = _performRequest(ctx, route)
   }
 
   def q[T](name: String)(implicit tsm: ToQueryParam[T]): QueryParam[T] = QueryParam[T](name)
@@ -325,10 +326,10 @@ trait BaklavaHttpDsl[
   )(implicit
       requestBody: ToRequestBodyType[RequestBody],
       responseBody: FromResponseBodyType[ResponseBody]
-  ): BaklavaResponseContext[ResponseBody, HttpResponse] = {
-    val request: HttpRequest   = baklavaContextToHttpRequest(ctx)(requestBody, responseBody)
+  ): BaklavaResponseContext[ResponseBody, HttpRequest, HttpResponse] = {
+    val request: HttpRequest   = baklavaContextToHttpRequest(ctx)(requestBody)
     val response: HttpResponse = performRequest(route, request)
-    httpResponseToBaklavaResponseContext(response)
+    httpResponseToBaklavaResponseContext(request, response)
   }
 
   protected implicit def emptyToRequestBodyType: ToRequestBodyType[EmptyBody]
@@ -347,11 +348,13 @@ trait BaklavaHttpDsl[
   implicit def baklavaHeadersToHttpHeaders(headers: BaklavaHttpHeaders): HttpHeaders
   implicit def httpHeadersToBaklavaHeaders(headers: HttpHeaders): BaklavaHttpHeaders
 
-  def httpResponseToBaklavaResponseContext[T: FromResponseBodyType](response: HttpResponse): BaklavaResponseContext[T, HttpResponse]
+  def httpResponseToBaklavaResponseContext[T: FromResponseBodyType](
+      request: HttpRequest,
+      response: HttpResponse
+  ): BaklavaResponseContext[T, HttpRequest, HttpResponse]
 
   def baklavaContextToHttpRequest[
       RequestBody,
-      ResponseBody,
       PathParameters,
       PathParametersProvided,
       QueryParameters,
@@ -364,7 +367,7 @@ trait BaklavaHttpDsl[
         QueryParameters,
         QueryParametersProvided
       ]
-  )(implicit requestBody: ToRequestBodyType[RequestBody], responseBody: FromResponseBodyType[ResponseBody]): HttpRequest
+  )(implicit requestBody: ToRequestBodyType[RequestBody]): HttpRequest
 
   def performRequest(routes: RouteType, request: HttpRequest): HttpResponse
 }
