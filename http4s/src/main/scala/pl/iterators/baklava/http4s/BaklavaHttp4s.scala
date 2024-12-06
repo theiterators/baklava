@@ -5,7 +5,7 @@ import cats.effect.unsafe.IORuntime
 import org.http4s.{Entity, EntityDecoder, EntityEncoder, Header, Headers, HttpRoutes, HttpVersion, Method, Request, Response, Status, Uri}
 import org.typelevel.ci.CIString
 import pl.iterators.baklava.{
-  Baklava2Context,
+  Baklava2RequestContext,
   Baklava2ResponseContext,
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
@@ -83,11 +83,12 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
 
   override def httpResponseToBaklavaResponseContext[T: BaklavaHttp4s.FromEntityUnmarshaller](
       response: Response[IO]
-  ): Baklava2ResponseContext[T] = Baklava2ResponseContext(
+  ): Baklava2ResponseContext[T, Response[IO]] = Baklava2ResponseContext(
     response.httpVersion,
     response.status,
     response.headers,
-    response.as[T].unsafeRunSync()
+    response.as[T].unsafeRunSync(),
+    response
   )
 
   override def baklavaContextToHttpRequest[
@@ -98,7 +99,14 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
       QueryParameters,
       QueryParametersProvided
   ](
-      ctx: Baklava2Context[RequestBody, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided]
+      ctx: Baklava2RequestContext[
+        RequestBody,
+        PathParameters,
+        PathParametersProvided,
+        QueryParameters,
+        QueryParametersProvided,
+        HttpRequest
+      ]
   )(implicit
       requestBody: BaklavaHttp4s.ToEntityMarshaller[RequestBody],
       responseBody: BaklavaHttp4s.FromEntityUnmarshaller[ResponseBody]

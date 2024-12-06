@@ -1,7 +1,7 @@
 package pl.iterators.baklava.scalatest
 
 import org.scalatest.funspec.AnyFunSpecLike
-import pl.iterators.baklava.{Baklava2Context, BaklavaHttpDsl, BaklavaTestFrameworkDsl}
+import pl.iterators.baklava.{Baklava2RequestContext, BaklavaHttpDsl, BaklavaTestFrameworkDsl}
 
 trait BaklavaScalatest[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
     extends BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType, FromResponseBodyType, Unit, Unit, ScalatestAsExecution]
@@ -12,15 +12,15 @@ trait BaklavaScalatest[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
 
   override def concatFragments(fragments: Seq[Unit]): Unit = fragments.foreach(identity)
 
-  override def pathLevelTextWithFragments(text: String, context: Baklava2Context[?, ?, ?, ?, ?], fragments: => Unit): Unit =
+  override def pathLevelTextWithFragments(text: String, context: Baklava2RequestContext[?, ?, ?, ?, ?, ?], fragments: => Unit): Unit =
     describe(text)(fragments)
 
-  override def methodLevelTextWithFragments(text: String, context: Baklava2Context[?, ?, ?, ?, ?], fragments: => Unit): Unit =
+  override def methodLevelTextWithFragments(text: String, context: Baklava2RequestContext[?, ?, ?, ?, ?, ?], fragments: => Unit): Unit =
     describe(text)(fragments)
 
   override def requestLevelTextWithExecution[R: ScalatestAsExecution](
       text: String,
-      context: Baklava2Context[?, ?, ?, ?, ?],
+      context: Baklava2RequestContext[?, ?, ?, ?, ?, ?],
       r: => R
   ): Unit = it(text)(r)
 }

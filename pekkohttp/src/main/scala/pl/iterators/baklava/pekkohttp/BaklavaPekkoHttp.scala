@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
 import pl.iterators.baklava.{
-  Baklava2Context,
+  Baklava2RequestContext,
   Baklava2ResponseContext,
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
@@ -98,12 +98,13 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
 
   override def httpResponseToBaklavaResponseContext[T: FromEntityUnmarshaller](
       response: HttpResponse
-  ): Baklava2ResponseContext[T] = {
+  ): Baklava2ResponseContext[T, HttpResponse] = {
     Baklava2ResponseContext(
       response.protocol,
       response.status,
       response.headers,
-      Await.result(implicitly[FromEntityUnmarshaller[T]].apply(response.entity), Duration.Inf)
+      Await.result(implicitly[FromEntityUnmarshaller[T]].apply(response.entity), Duration.Inf),
+      response
     )
   }
 
@@ -115,7 +116,14 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       QueryParameters,
       QueryParametersProvided
   ](
-      ctx: Baklava2Context[RequestBody, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided]
+      ctx: Baklava2RequestContext[
+        RequestBody,
+        PathParameters,
+        PathParametersProvided,
+        QueryParameters,
+        QueryParametersProvided,
+        HttpRequest
+      ]
   )(implicit
       requestBody: ToEntityMarshaller[RequestBody],
       responseBody: FromEntityUnmarshaller[ResponseBody]

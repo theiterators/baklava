@@ -2,7 +2,7 @@ package pl.iterators.baklava.specs2
 
 import org.specs2.specification.core.{AsExecution, Fragment, Fragments}
 import org.specs2.specification.dsl.mutable.{BlockDsl, ExampleDsl}
-import pl.iterators.baklava.{Baklava2Context, BaklavaHttpDsl, BaklavaTestFrameworkDsl}
+import pl.iterators.baklava.{Baklava2RequestContext, BaklavaHttpDsl, BaklavaTestFrameworkDsl}
 
 trait BaklavaSpecs2[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
     extends BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType, FromResponseBodyType, Fragment, Fragments, AsExecution]
@@ -14,12 +14,24 @@ trait BaklavaSpecs2[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
 
   override def concatFragments(fragments: Seq[Fragments]): Fragments = fragments.reduce(_.append(_))
 
-  override def pathLevelTextWithFragments(text: String, context: Baklava2Context[?, ?, ?, ?, ?], fragments: => Fragments): Fragments =
+  override def pathLevelTextWithFragments(
+      text: String,
+      context: Baklava2RequestContext[?, ?, ?, ?, ?, ?],
+      fragments: => Fragments
+  ): Fragments =
     addFragmentsBlockWithText(text, fragments)
 
-  override def methodLevelTextWithFragments(text: String, context: Baklava2Context[?, ?, ?, ?, ?], fragments: => Fragments): Fragments =
+  override def methodLevelTextWithFragments(
+      text: String,
+      context: Baklava2RequestContext[?, ?, ?, ?, ?, ?],
+      fragments: => Fragments
+  ): Fragments =
     addFragmentsBlockWithText(text, fragments)
 
-  override def requestLevelTextWithExecution[R: AsExecution](text: String, context: Baklava2Context[?, ?, ?, ?, ?], r: => R): Fragment =
+  override def requestLevelTextWithExecution[R: AsExecution](
+      text: String,
+      context: Baklava2RequestContext[?, ?, ?, ?, ?, ?],
+      r: => R
+  ): Fragment =
     text >> r
 }

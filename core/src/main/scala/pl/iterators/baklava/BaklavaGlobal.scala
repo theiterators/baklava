@@ -1,7 +1,7 @@
 package pl.iterators.baklava
 
 object BaklavaGlobal {
-  def updateStorage(ctx: Baklava2Context[?, ?, ?, ?, ?], response: Baklava2ResponseContext[?]): Unit =
+  def updateStorage(ctx: Baklava2RequestContext[?, ?, ?, ?, ?, ?], response: Baklava2ResponseContext[?, ?]): Unit =
     synchronized {
       storage = storage :+ (ctx, response)
     }
@@ -19,5 +19,5 @@ object BaklavaGlobal {
       }
     }
 
-  @volatile private var storage: List[(Baklava2Context[?, ?, ?, ?, ?], Baklava2ResponseContext[?])] = List.empty
+  @volatile private var storage: List[(Baklava2RequestContext[?, ?, ?, ?, ?, ?], Baklava2ResponseContext[?, ?])] = List.empty
 }

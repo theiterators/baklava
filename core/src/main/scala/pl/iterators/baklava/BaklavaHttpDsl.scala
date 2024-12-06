@@ -3,6 +3,9 @@ package pl.iterators.baklava
 import pl.iterators.kebs.core.enums.EnumLike
 import pl.iterators.kebs.core.macros.ValueClassLike
 
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+
 sealed trait EmptyBody
 
 case object EmptyBodyInstance extends EmptyBody
@@ -15,7 +18,7 @@ case class BaklavaHttpStatus(status: Int)
 
 case class BaklavaHttpHeaders(headers: Map[String, String])
 
-case class Baklava2Context[Body, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided](
+case class Baklava2RequestContext[Body, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided, RequestType](
     symbolicPath: String,
     path: String,
     method: Option[BaklavaHttpMethod],
@@ -25,14 +28,16 @@ case class Baklava2Context[Body, PathParameters, PathParametersProvided, QueryPa
     pathParameters: PathParameters,
     pathParametersProvided: PathParametersProvided,
     queryParameters: QueryParameters,
-    queryParametersProvided: QueryParametersProvided
+    queryParametersProvided: QueryParametersProvided,
+    rawRequest: Option[RequestType]
 )
 
-case class Baklava2ResponseContext[ResponseBody](
+case class Baklava2ResponseContext[ResponseBody, ResponseType](
     protocol: BaklavaHttpProtocol,
     status: BaklavaHttpStatus,
     headers: BaklavaHttpHeaders,
-    body: ResponseBody
+    body: ResponseBody,
+    rawResponse: ResponseType
 )
 
 trait Security {
@@ -113,13 +118,27 @@ trait BaklavaHttpDsl[
       QueryParameters,
       QueryParametersProvided
   ](
-      ctx: Baklava2Context[RequestBody, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided],
+      ctx: Baklava2RequestContext[
+        RequestBody,
+        PathParameters,
+        PathParametersProvided,
+        QueryParameters,
+        QueryParametersProvided,
+        HttpRequest
+      ],
       _performRequest: (
-          Baklava2Context[RequestBody, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided],
+          Baklava2RequestContext[
+            RequestBody,
+            PathParameters,
+            PathParametersProvided,
+            QueryParameters,
+            QueryParametersProvided,
+            HttpRequest
+          ],
           RouteType
-      ) => Baklava2ResponseContext[ResponseBody]
+      ) => Baklava2ResponseContext[ResponseBody, HttpResponse]
   ) {
-    def performRequest(route: RouteType): Baklava2ResponseContext[ResponseBody] = _performRequest(ctx, route)
+    def performRequest(route: RouteType): Baklava2ResponseContext[ResponseBody, HttpResponse] = _performRequest(ctx, route)
   }
 
   def q[T](name: String)(implicit tsm: ToQueryParam[T]): QueryParam[T] = QueryParam[T](name)
@@ -183,7 +202,8 @@ trait BaklavaHttpDsl[
         pathParams: PathParam[T],
         pathParamsProvided: T,
         uri: String
-    ): String = uri.replace(s"{${pathParams.name}}", pathParams.tsm(pathParamsProvided))
+    ): String =
+      uri.replace(s"{${pathParams.name}}", URLEncoder.encode(pathParams.tsm(pathParamsProvided), StandardCharsets.UTF_8.toString))
   }
 
   implicit def provideQueryParamsByUnit[T]: ProvideQueryParams[T, Unit] = new ProvideQueryParams[T, Unit] {
@@ -297,15 +317,22 @@ trait BaklavaHttpDsl[
       QueryParameters,
       QueryParametersProvided
   ](
-      ctx: Baklava2Context[RequestBody, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided],
+      ctx: Baklava2RequestContext[
+        RequestBody,
+        PathParameters,
+        PathParametersProvided,
+        QueryParameters,
+        QueryParametersProvided,
+        HttpRequest
+      ],
       route: RouteType
   )(implicit
       requestBody: ToRequestBodyType[RequestBody],
       responseBody: FromResponseBodyType[ResponseBody]
-  ): Baklava2ResponseContext[ResponseBody] = {
+  ): (HttpRequest, Baklava2ResponseContext[ResponseBody, HttpResponse]) = {
     val request: HttpRequest   = baklavaContextToHttpRequest(ctx)(requestBody, responseBody)
     val response: HttpResponse = performRequest(route, request)
-    httpResponseToBaklavaResponseContext(response)
+    (request, httpResponseToBaklavaResponseContext(response))
   }
 
   protected implicit def emptyToRequestBodyType: ToRequestBodyType[EmptyBody]
@@ -324,7 +351,7 @@ trait BaklavaHttpDsl[
   implicit def baklavaHeadersToHttpHeaders(headers: BaklavaHttpHeaders): HttpHeaders
   implicit def httpHeadersToBaklavaHeaders(headers: HttpHeaders): BaklavaHttpHeaders
 
-  def httpResponseToBaklavaResponseContext[T: FromResponseBodyType](response: HttpResponse): Baklava2ResponseContext[T]
+  def httpResponseToBaklavaResponseContext[T: FromResponseBodyType](response: HttpResponse): Baklava2ResponseContext[T, HttpResponse]
 
   def baklavaContextToHttpRequest[
       RequestBody,
@@ -334,7 +361,14 @@ trait BaklavaHttpDsl[
       QueryParameters,
       QueryParametersProvided
   ](
-      ctx: Baklava2Context[RequestBody, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided]
+      ctx: Baklava2RequestContext[
+        RequestBody,
+        PathParameters,
+        PathParametersProvided,
+        QueryParameters,
+        QueryParametersProvided,
+        HttpRequest
+      ]
   )(implicit requestBody: ToRequestBodyType[RequestBody], responseBody: FromResponseBodyType[ResponseBody]): HttpRequest
 
   def performRequest(routes: RouteType, request: HttpRequest): HttpResponse

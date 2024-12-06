@@ -1,7 +1,7 @@
 package pl.iterators.baklava.munit
 
 import munit.FunSuite
-import pl.iterators.baklava.{Baklava2Context, BaklavaHttpDsl, BaklavaTestFrameworkDsl}
+import pl.iterators.baklava.{Baklava2RequestContext, BaklavaHttpDsl, BaklavaTestFrameworkDsl}
 
 trait BaklavaMunit[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
     extends FunSuite
@@ -12,11 +12,17 @@ trait BaklavaMunit[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
 
   override def concatFragments(fragments: Seq[Unit]): Unit = fragments.foreach(identity)
 
-  override def pathLevelTextWithFragments(text: String, context: Baklava2Context[?, ?, ?, ?, ?], fragments: => Unit): Unit = fragments
+  override def pathLevelTextWithFragments(text: String, context: Baklava2RequestContext[?, ?, ?, ?, ?, ?], fragments: => Unit): Unit =
+    fragments
 
-  override def methodLevelTextWithFragments(text: String, context: Baklava2Context[?, ?, ?, ?, ?], fragments: => Unit): Unit = fragments
+  override def methodLevelTextWithFragments(text: String, context: Baklava2RequestContext[?, ?, ?, ?, ?, ?], fragments: => Unit): Unit =
+    fragments
 
-  override def requestLevelTextWithExecution[R: MunitAsExecution](text: String, context: Baklava2Context[?, ?, ?, ?, ?], r: => R): Unit =
+  override def requestLevelTextWithExecution[R: MunitAsExecution](
+      text: String,
+      context: Baklava2RequestContext[?, ?, ?, ?, ?, ?],
+      r: => R
+  ): Unit =
     test(s"${context.method.get.value} ${context.symbolicPath} should respond with -> " + text)(r)
 }
 
