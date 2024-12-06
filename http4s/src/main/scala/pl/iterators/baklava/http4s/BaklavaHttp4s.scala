@@ -5,8 +5,8 @@ import cats.effect.unsafe.IORuntime
 import org.http4s.{Entity, EntityDecoder, EntityEncoder, Header, Headers, HttpRoutes, HttpVersion, Method, Request, Response, Status, Uri}
 import org.typelevel.ci.CIString
 import pl.iterators.baklava.{
-  Baklava2RequestContext,
-  Baklava2ResponseContext,
+  BaklavaRequestContext,
+  BaklavaResponseContext,
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
   BaklavaHttpMethod,
@@ -83,7 +83,7 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
 
   override def httpResponseToBaklavaResponseContext[T: BaklavaHttp4s.FromEntityUnmarshaller](
       response: Response[IO]
-  ): Baklava2ResponseContext[T, Response[IO]] = Baklava2ResponseContext(
+  ): BaklavaResponseContext[T, Response[IO]] = BaklavaResponseContext(
     response.httpVersion,
     response.status,
     response.headers,
@@ -99,13 +99,12 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
       QueryParameters,
       QueryParametersProvided
   ](
-      ctx: Baklava2RequestContext[
+      ctx: BaklavaRequestContext[
         RequestBody,
         PathParameters,
         PathParametersProvided,
         QueryParameters,
-        QueryParametersProvided,
-        HttpRequest
+        QueryParametersProvided
       ]
   )(implicit
       requestBody: BaklavaHttp4s.ToEntityMarshaller[RequestBody],

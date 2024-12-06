@@ -14,8 +14,8 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     TestFrameworkExecutionType
   ] =>
 
-  def path(path: String)(steps: Baklava2MethodStep*): TestFrameworkFragmentsType = {
-    val ctx: Baklava2RequestContext[Nothing, Any, Any, Any, Any, HttpRequest] = Baklava2RequestContext(
+  def path(path: String)(steps: BaklavaMethodDefinition*): TestFrameworkFragmentsType = {
+    val ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any] = BaklavaRequestContext(
       symbolicPath = path,
       path = path,
       method = None,
@@ -25,8 +25,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       pathParameters = (),
       pathParametersProvided = (),
       queryParameters = (),
-      queryParametersProvided = (),
-      rawRequest = None
+      queryParametersProvided = ()
     )
     pathLevelTextWithFragments(
       s"$path should",
@@ -48,12 +47,12 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       queryParameters: QueryParameters = (),
       description: String = ""
   )(
-      steps: Baklava2CaseStep[PathParameters, QueryParameters]*
-  ): Baklava2MethodStep =
-    new Baklava2MethodStep {
-      override def apply(ctx: Baklava2RequestContext[Nothing, Any, Any, Any, Any, HttpRequest]): TestFrameworkFragmentsType = {
+      steps: BaklavaIntermediateTestCase[PathParameters, QueryParameters]*
+  ): BaklavaMethodDefinition =
+    new BaklavaMethodDefinition {
+      override def apply(ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any]): TestFrameworkFragmentsType = {
         val finalDescription = if (description.trim.isEmpty) "" else ": " + description.trim
-        val newCtx = Baklava2RequestContext[Unit, PathParameters, Unit, QueryParameters, Unit, HttpRequest](
+        val newCtx = BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit](
           symbolicPath = ctx.symbolicPath,
           path = ctx.path,
           method = Some(method),
@@ -63,24 +62,23 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
           pathParameters = pathParameters,
           pathParametersProvided = (),
           queryParameters = queryParameters,
-          queryParametersProvided = (),
-          rawRequest = None
+          queryParametersProvided = ()
         )
         methodLevelTextWithFragments(s"support ${method.value}" + finalDescription, newCtx, fragmentsFromSeq(steps.map(_.apply(newCtx))))
       }
     }
 
-  trait Baklava2MethodStep {
-    def apply(ctx: Baklava2RequestContext[Nothing, Any, Any, Any, Any, HttpRequest]): TestFrameworkFragmentsType
+  trait BaklavaMethodDefinition {
+    def apply(ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any]): TestFrameworkFragmentsType
   }
 
-  trait Baklava2CaseStep[PathParameters, QueryParameters] {
-    def apply(ctx: Baklava2RequestContext[Unit, PathParameters, Unit, QueryParameters, Unit, HttpRequest]): TestFrameworkFragmentType
+  trait BaklavaIntermediateTestCase[PathParameters, QueryParameters] {
+    def apply(ctx: BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit]): TestFrameworkFragmentType
   }
 
-  trait Baklava2SimpleCaseStep[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided] {
+  trait BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided] {
     def assert[R: TestFrameworkExecutionType, PathParameters, QueryParameters](
-        r: Baklava2CaseContext[
+        r: BaklavaCaseContext[
           RequestBody,
           ResponseBody,
           PathParameters,
@@ -91,7 +89,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     )(implicit
         providePathParams: ProvidePathParams[PathParameters, PathParametersProvided],
         provideQueryParams: ProvideQueryParams[QueryParameters, QueryParametersProvided]
-    ): Baklava2CaseStep[PathParameters, QueryParameters]
+    ): BaklavaIntermediateTestCase[PathParameters, QueryParameters]
   }
 
   case class OnRequest[RequestBody: ToRequestBodyType, PathParametersProvided, QueryParametersProvided](
@@ -104,10 +102,10 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     def respondsWith[ResponseBody: FromResponseBodyType](
         statusCode: BaklavaHttpStatus,
         description: String = ""
-    ): Baklava2SimpleCaseStep[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided] =
-      new Baklava2SimpleCaseStep[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided] {
+    ): BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided] =
+      new BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided] {
         override def assert[R: TestFrameworkExecutionType, PathParameters, QueryParameters](
-            r: Baklava2CaseContext[
+            r: BaklavaCaseContext[
               RequestBody,
               ResponseBody,
               PathParameters,
@@ -118,10 +116,10 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
         )(implicit
             providePathParams: ProvidePathParams[PathParameters, PathParametersProvided],
             provideQueryParams: ProvideQueryParams[QueryParameters, QueryParametersProvided]
-        ): Baklava2CaseStep[PathParameters, QueryParameters] =
-          new Baklava2CaseStep[PathParameters, QueryParameters] {
+        ): BaklavaIntermediateTestCase[PathParameters, QueryParameters] =
+          new BaklavaIntermediateTestCase[PathParameters, QueryParameters] {
             override def apply(
-                requestContext: Baklava2RequestContext[Unit, PathParameters, Unit, QueryParameters, Unit, HttpRequest]
+                requestContext: BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit]
             ): TestFrameworkFragmentType = {
               val finalDescription = if (description.trim.isEmpty) "" else ": " + description.trim
               var timesCalled: Int = 0
@@ -149,17 +147,16 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                 statusCode.status.toString + finalDescription,
                 finalRequestCtx, {
                   val wrappedPerformRequest = (
-                      ctx: Baklava2RequestContext[
+                      requestContext: BaklavaRequestContext[
                         RequestBody,
                         PathParameters,
                         PathParametersProvided,
                         QueryParameters,
-                        QueryParametersProvided,
-                        HttpRequest
+                        QueryParametersProvided
                       ],
                       route: RouteType
                   ) => {
-                    val (request, response) =
+                    val responseContext =
                       baklavaPerformRequest[
                         RequestBody,
                         ResponseBody,
@@ -168,19 +165,20 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                         QueryParameters,
                         QueryParametersProvided
                       ](
-                        ctx,
+                        requestContext,
                         route
                       )
                     timesCalled += 1
-                    if (response.status != statusCode) {
+
+                    if (responseContext.status != statusCode) {
                       throw new RuntimeException(
-                        s"Expected status code ${statusCode.status}, but got ${response.status.status}"
+                        s"Expected status code ${statusCode.status}, but got ${responseContext.status.status}"
                       )
                     }
-                    BaklavaGlobal.updateStorage(ctx, response)
-                    response
+                    BaklavaGlobal.updateStorage(requestContext, responseContext)
+                    responseContext
                   }
-                  val baklava2CaseContext = Baklava2CaseContext(finalRequestCtx, wrappedPerformRequest)
+                  val baklava2CaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
                   r.andThen { x =>
                     if (timesCalled == 0) {
                       throw new RuntimeException("oi, mate! performRequest was not called")
@@ -211,17 +209,17 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
   def concatFragments(fragments: Seq[TestFrameworkFragmentsType]): TestFrameworkFragmentsType
   def pathLevelTextWithFragments(
       text: String,
-      context: Baklava2RequestContext[?, ?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?],
       fragments: => TestFrameworkFragmentsType
   ): TestFrameworkFragmentsType
   def methodLevelTextWithFragments(
       text: String,
-      context: Baklava2RequestContext[?, ?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?],
       fragments: => TestFrameworkFragmentsType
   ): TestFrameworkFragmentsType
   def requestLevelTextWithExecution[R: TestFrameworkExecutionType](
       text: String,
-      context: Baklava2RequestContext[?, ?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?],
       r: => R
   ): TestFrameworkFragmentType
 }
