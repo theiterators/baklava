@@ -7,20 +7,20 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
 import pl.iterators.baklava.{
-  BaklavaRequestContext,
-  BaklavaResponseContext,
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
   BaklavaHttpMethod,
   BaklavaHttpProtocol,
   BaklavaHttpStatus,
+  BaklavaRequestContext,
+  BaklavaResponseContext,
   BaklavaTestFrameworkDsl,
   EmptyBody,
   EmptyBodyInstance
 }
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestFrameworkExecutionType[_]]
     extends BaklavaHttpDsl[

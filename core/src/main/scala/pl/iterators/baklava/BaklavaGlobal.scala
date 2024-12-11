@@ -1,14 +1,16 @@
 package pl.iterators.baklava
 
+import java.util.concurrent.atomic.AtomicReference
+
 object BaklavaGlobal {
   def updateStorage(ctx: BaklavaRequestContext[?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit =
-    synchronized {
-      storage = storage :+ (ctx, response)
-    }
+    storage.getAndUpdate(_ :+ (ctx -> response))
 
-  def print(): Unit =
+  def get: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])] = storage.get
+
+  def print(): Unit = {
     // println in openapi like format - mock
-    storage.groupBy(_._1.symbolicPath).foreach { case (path, responses) =>
+    storage.get.groupBy(_._1.symbolicPath).foreach { case (path, responses) =>
       println(s"Path: $path")
       responses.groupBy(_._1.method).foreach { case (method, responses) =>
         println(s"  Method: ${method.get.value}")
@@ -18,6 +20,8 @@ object BaklavaGlobal {
         }
       }
     }
+  }
 
-  @volatile private var storage: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])] = List.empty
+  private val storage: AtomicReference[List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]] =
+    new AtomicReference(List.empty)
 }

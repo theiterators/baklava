@@ -13,8 +13,9 @@ val Scala3   = "3.3.3"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion       := Scala213
 
-lazy val baklava = tlCrossRootProject.aggregate(core, pekkohttp, http4s, specs2, scalatest, munit)
+lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, http4s, specs2, scalatest, munit)
 
+val swaggerV   = "2.2.27"
 val pekkoHttpV = "1.1.0"
 val pekkoV     = "1.1.2"
 val kebsV      = "2.0.0"
@@ -23,12 +24,29 @@ val scalatestV = "3.2.19"
 val munitV     = "1.0.2"
 val http4sV    = "0.23.29"
 
+val enumeratumV    = "1.7.5"
+val pekkoHttpJsonV = "3.0.0"
+
 lazy val core = project
   .in(file("core"))
   .settings(
     name := "baklava2-core",
     libraryDependencies ++= Seq(
       "pl.iterators" %% "kebs-core" % kebsV
+    )
+  )
+
+lazy val openapi = project
+  .in(file("openapi"))
+  .dependsOn(core, pekkohttp % "test", specs2 % "test")
+  .settings(
+    name := "baklava2-openapi",
+    libraryDependencies ++= Seq(
+      "io.swagger.core.v3"    % "swagger-core"     % swaggerV,
+      "com.beachape"         %% "enumeratum"       % enumeratumV    % "test",
+      "pl.iterators"         %% "kebs-enumeratum"  % kebsV          % "test",
+      "pl.iterators"         %% "kebs-circe"       % kebsV          % "test",
+      "com.github.pjfanning" %% "pekko-http-circe" % pekkoHttpJsonV % "test"
     )
   )
 

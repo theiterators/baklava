@@ -21,14 +21,21 @@ case class BaklavaHttpHeaders(headers: Map[String, String])
 case class BaklavaRequestContext[Body, PathParameters, PathParametersProvided, QueryParameters, QueryParametersProvided](
     symbolicPath: String,
     path: String,
+    pathDescription: Option[String],
+    pathSummary: Option[String],
     method: Option[BaklavaHttpMethod],
+    operationDescription: Option[String],
+    operationSummary: Option[String],
+    operationId: Option[String],
+    operationTags: Seq[String],
     body: Option[Body],
     headers: BaklavaHttpHeaders,
     security: Option[Security],
     pathParameters: PathParameters,
     pathParametersProvided: PathParametersProvided,
     queryParameters: QueryParameters,
-    queryParametersProvided: QueryParametersProvided
+    queryParametersProvided: QueryParametersProvided,
+    responseDescription: Option[String]
 )
 
 case class BaklavaResponseContext[ResponseBody, RequestType, ResponseType](

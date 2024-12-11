@@ -14,18 +14,25 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     TestFrameworkExecutionType
   ] =>
 
-  def path(path: String)(steps: BaklavaMethodDefinition*): TestFrameworkFragmentsType = {
+  def path(path: String, description: String = "", summary: String = "")(steps: BaklavaMethodDefinition*): TestFrameworkFragmentsType = {
     val ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any] = BaklavaRequestContext(
       symbolicPath = path,
       path = path,
+      pathDescription = if (description.trim.isEmpty) None else Some(description.trim),
+      pathSummary = if (summary.trim.isEmpty) None else Some(summary.trim),
       method = None,
+      operationDescription = None,
+      operationSummary = None,
+      operationId = None,
+      operationTags = Seq.empty,
       body = None,
       headers = BaklavaHttpHeaders(Map.empty),
       security = None,
       pathParameters = (),
       pathParametersProvided = (),
       queryParameters = (),
-      queryParametersProvided = ()
+      queryParametersProvided = (),
+      responseDescription = None
     )
     pathLevelTextWithFragments(
       s"$path should",
@@ -45,26 +52,36 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       method: BaklavaHttpMethod,
       pathParameters: PathParameters = (),
       queryParameters: QueryParameters = (),
-      description: String = ""
+      description: String = "",
+      summary: String = "",
+      operationId: String = "",
+      tags: Seq[String] = Seq.empty
   )(
       steps: BaklavaIntermediateTestCase[PathParameters, QueryParameters]*
   ): BaklavaMethodDefinition =
     new BaklavaMethodDefinition {
       override def apply(ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any]): TestFrameworkFragmentsType = {
-        val finalDescription = if (description.trim.isEmpty) "" else ": " + description.trim
+        val finalSummary = if (summary.trim.isEmpty) "" else ": " + summary.trim
         val newCtx = BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit](
           symbolicPath = ctx.symbolicPath,
           path = ctx.path,
+          pathDescription = ctx.pathDescription,
+          pathSummary = ctx.pathSummary,
           method = Some(method),
+          operationDescription = if (description.trim.isEmpty) None else Some(description.trim),
+          operationSummary = if (summary.trim.isEmpty) None else Some(summary.trim),
+          operationId = if (operationId.trim.isEmpty) None else Some(operationId.trim),
+          operationTags = tags,
           body = None,
           headers = ctx.headers,
           security = None,
           pathParameters = pathParameters,
           pathParametersProvided = (),
           queryParameters = queryParameters,
-          queryParametersProvided = ()
+          queryParametersProvided = (),
+          responseDescription = None
         )
-        methodLevelTextWithFragments(s"support ${method.value}" + finalDescription, newCtx, fragmentsFromSeq(steps.map(_.apply(newCtx))))
+        methodLevelTextWithFragments(s"support ${method.value}" + finalSummary, newCtx, fragmentsFromSeq(steps.map(_.apply(newCtx))))
       }
     }
 
@@ -140,7 +157,8 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                   headers = BaklavaHttpHeaders(headers ++ additionalHeaders),
                   security = security,
                   pathParametersProvided = pathParametersProvided,
-                  queryParametersProvided = queryParametersProvided
+                  queryParametersProvided = queryParametersProvided,
+                  responseDescription = if (description.trim.isEmpty) None else Some(description.trim)
                 )
 
               requestLevelTextWithExecution(
