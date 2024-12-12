@@ -1,3 +1,5 @@
+import sbt.internal.util.Attributed.data
+
 ThisBuild / tlBaseVersion    := "2.0"
 ThisBuild / versionScheme    := Some("early-semver")
 ThisBuild / organization     := "pl.iterators"
@@ -15,14 +17,15 @@ ThisBuild / scalaVersion       := Scala213
 
 lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, http4s, specs2, scalatest, munit)
 
-val swaggerV   = "2.2.27"
-val pekkoHttpV = "1.1.0"
-val pekkoV     = "1.1.2"
-val kebsV      = "2.0.0"
-val specs2V    = "4.20.9"
-val scalatestV = "3.2.19"
-val munitV     = "1.0.2"
-val http4sV    = "0.23.29"
+val reflectionsV = "0.10.2"
+val swaggerV     = "2.2.27"
+val pekkoHttpV   = "1.1.0"
+val pekkoV       = "1.1.2"
+val kebsV        = "2.0.0"
+val specs2V      = "4.20.9"
+val scalatestV   = "3.2.19"
+val munitV       = "1.0.2"
+val http4sV      = "0.23.29"
 
 val enumeratumV    = "1.7.5"
 val pekkoHttpJsonV = "3.0.0"
@@ -32,7 +35,8 @@ lazy val core = project
   .settings(
     name := "baklava2-core",
     libraryDependencies ++= Seq(
-      "pl.iterators" %% "kebs-core" % kebsV
+      "pl.iterators"   %% "kebs-core"   % kebsV,
+      "org.reflections" % "reflections" % reflectionsV
     )
   )
 
@@ -47,7 +51,17 @@ lazy val openapi = project
       "pl.iterators"         %% "kebs-enumeratum"  % kebsV          % "test",
       "pl.iterators"         %% "kebs-circe"       % kebsV          % "test",
       "com.github.pjfanning" %% "pekko-http-circe" % pekkoHttpJsonV % "test"
-    )
+    ),
+    Test / testOptions += Tests.Cleanup { () => //to trzeba bedzie dodac autopluginem - i tylko to - ale to tak czy siak nei powinno byc w tym repo i jest tylko dla wygody testow
+      //poza tym do dyskusji czy to robic tak (bo to rzuca warny w tkaiej postaci, czy jednak osobnym taskiem baklavaGenerate (wtedy nie rzuca))
+      println(s"Executing cleanup - baklava generate")
+      val clazz = "pl.iterators.baklava.BaklavaGenerate"
+
+      val configurationClassPath = (fullClasspath in Test).value
+      val r                      = (runner in (Test, run)).value
+      val s                      = streams.value
+      r.run(clazz, data(configurationClassPath), Nil, s.log).get
+    }
   )
 
 lazy val pekkohttp = project

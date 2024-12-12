@@ -1,6 +1,9 @@
 package pl.iterators.baklava
 
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicReference
+import org.reflections.Reflections
+import scala.jdk.CollectionConverters._
 
 trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyType[
     _
@@ -193,7 +196,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                         s"Expected status code ${statusCode.status}, but got ${responseContext.status.status}"
                       )
                     }
-                    BaklavaGlobal.updateStorage(requestContext, responseContext)
+                    updateStorage(requestContext, responseContext)
                     responseContext
                   }
                   val baklava2CaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
@@ -240,4 +243,19 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       context: BaklavaRequestContext[?, ?, ?, ?, ?],
       r: => R
   ): TestFrameworkFragmentType
+
+  private def updateStorage(ctx: BaklavaRequestContext[?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit =
+    storage.getAndUpdate(_ :+ (ctx -> response))
+
+  def storeResult(): Unit = {
+    storage
+      .get()
+      .groupBy(_._1.symbolicPath)
+      .foreach { group =>
+        BaklavaDslFormatter.formatters.foreach(f => f.createChunk(group._2))
+      }
+  }
+
+  private val storage: AtomicReference[List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]] =
+    new AtomicReference(List.empty)
 }

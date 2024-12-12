@@ -1,12 +1,14 @@
 package pl.iterators.baklava.specs2
 
+import org.specs2.specification.AfterAll
 import org.specs2.specification.core.{AsExecution, Fragment, Fragments}
 import org.specs2.specification.dsl.mutable.{BlockDsl, ExampleDsl}
-import pl.iterators.baklava.{BaklavaRequestContext, BaklavaHttpDsl, BaklavaTestFrameworkDsl}
+import pl.iterators.baklava.{BaklavaHttpDsl, BaklavaRequestContext, BaklavaTestFrameworkDsl}
 
 trait BaklavaSpecs2[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
     extends BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType, FromResponseBodyType, Fragment, Fragments, AsExecution]
     with BlockDsl
+    with AfterAll
     with ExampleDsl {
   this: BaklavaHttpDsl[RouteType, ToRequestBodyType, FromResponseBodyType, Fragment, Fragments, AsExecution] =>
 
@@ -34,4 +36,8 @@ trait BaklavaSpecs2[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
       r: => R
   ): Fragment =
     text >> r
+
+  override def afterAll(): Unit = {
+    storeResult()
+  }
 }

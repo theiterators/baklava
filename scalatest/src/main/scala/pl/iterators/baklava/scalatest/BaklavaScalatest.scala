@@ -1,10 +1,12 @@
 package pl.iterators.baklava.scalatest
 
+import org.scalatest.BeforeAndAfter
 import org.scalatest.funspec.AnyFunSpecLike
-import pl.iterators.baklava.{BaklavaRequestContext, BaklavaHttpDsl, BaklavaTestFrameworkDsl}
+import pl.iterators.baklava.{BaklavaHttpDsl, BaklavaRequestContext, BaklavaTestFrameworkDsl}
 
 trait BaklavaScalatest[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
     extends BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType, FromResponseBodyType, Unit, Unit, ScalatestAsExecution]
+      with BeforeAndAfter //todo
     with AnyFunSpecLike {
   this: BaklavaHttpDsl[RouteType, ToRequestBodyType, FromResponseBodyType, Unit, Unit, ScalatestAsExecution] =>
 
