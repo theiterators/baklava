@@ -20,7 +20,7 @@ import pl.iterators.baklava.{
 }
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext}
 
 trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestFrameworkExecutionType[_]]
     extends BaklavaHttpDsl[
@@ -106,7 +106,13 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       response.headers,
       Await.result(implicitly[FromEntityUnmarshaller[T]].apply(response.entity), Duration.Inf),
       request,
-      response
+      response,
+      Option.when(response.entity.contentType != HttpEntity.Empty.contentType)(
+        response.entity.contentType.value
+      ),
+      Option.when(response.entity.contentType != HttpEntity.Empty.contentType)(
+        response.entity.contentType.value
+      )
     )
   }
 

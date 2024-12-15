@@ -23,6 +23,8 @@ val specs2V    = "4.20.9"
 val scalatestV = "3.2.19"
 val munitV     = "1.0.2"
 val http4sV    = "0.23.29"
+val magnoliaS2V = "1.1.10"
+val magnoliaS3V = "1.3.8"
 
 val enumeratumV    = "1.7.5"
 val pekkoHttpJsonV = "3.0.0"
@@ -32,7 +34,8 @@ lazy val core = project
   .settings(
     name := "baklava2-core",
     libraryDependencies ++= Seq(
-      "pl.iterators" %% "kebs-core" % kebsV
+      "pl.iterators" %% "kebs-core" % kebsV,
+      if (scalaVersion.value.startsWith("3")) "com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaS3V else "com.softwaremill.magnolia1_2" %% "magnolia" % magnoliaS2V
     )
   )
 

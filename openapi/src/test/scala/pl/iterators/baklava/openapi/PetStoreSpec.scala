@@ -2,9 +2,9 @@ package pl.iterators.baklava.openapi
 
 import enumeratum.EnumEntry.Lowercase
 import enumeratum.{Enum, EnumEntry}
-import io.circe.{Json, JsonNumber, JsonObject}
 import org.apache.pekko.http.scaladsl.model.HttpMethods.POST
 import org.apache.pekko.http.scaladsl.model.StatusCodes.*
+import pl.iterators.baklava.EmptyBody
 
 sealed trait Status extends EnumEntry with Lowercase
 object Status extends Enum[Status] {
@@ -36,11 +36,11 @@ class PetStoreSpec extends PetStoreItSpec {
       operationId = "addPet",
       tags = Seq("pet")
     )(
-      onRequest(body = examplePet).respondsWith(OK, description = "Successful operation").assert { ctx =>
+      onRequest(body = examplePet).respondsWith[EmptyBody](OK, description = "Successful operation").assert { ctx =>
         ctx.performRequest(routes)
         ok
       },
-      onRequest.respondsWith(UnsupportedMediaType, description = "Invalid input").assert { ctx =>
+      onRequest.respondsWith[EmptyBody](UnsupportedMediaType, description = "Invalid input").assert { ctx =>
         ctx.performRequest(routes)
         ok
       }

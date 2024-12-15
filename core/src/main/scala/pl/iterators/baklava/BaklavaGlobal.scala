@@ -15,8 +15,8 @@ object BaklavaGlobal {
       responses.groupBy(_._1.method).foreach { case (method, responses) =>
         println(s"  Method: ${method.get.value}")
         responses.foreach { case (ctx, response) =>
-          println(s"    Request: ${ctx.method.get} ${ctx.path} ${ctx.headers.headers.mkString(", ")} ${ctx.body}")
-          println(s"    Response: ${response.status.status} ${response.headers.headers} ${response.body}")
+          println(s"    Request: ${ctx.method.get} ${ctx.path} ${ctx.headers.headers.mkString(", ")} ${ctx.bodySchema.get}")
+          println(s"    Response: ${response.status.status} ${response.headers.headers} ${response.bodySchema.get}")
         }
       }
     }

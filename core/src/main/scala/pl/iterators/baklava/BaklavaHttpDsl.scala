@@ -29,6 +29,7 @@ case class BaklavaRequestContext[Body, PathParameters, PathParametersProvided, Q
     operationId: Option[String],
     operationTags: Seq[String],
     body: Option[Body],
+    bodySchema: Option[Schema[Body]],
     headers: BaklavaHttpHeaders,
     security: Option[Security],
     pathParameters: PathParameters,
@@ -44,7 +45,10 @@ case class BaklavaResponseContext[ResponseBody, RequestType, ResponseType](
     headers: BaklavaHttpHeaders,
     body: ResponseBody,
     rawRequest: RequestType,
-    rawResponse: ResponseType
+    rawResponse: ResponseType,
+    requestContentType: Option[String],
+    responseContentType: Option[String],
+    bodySchema: Option[Schema[ResponseBody]] = None
 )
 
 trait Security {
