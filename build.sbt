@@ -17,15 +17,18 @@ ThisBuild / scalaVersion       := Scala213
 
 lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, http4s, specs2, scalatest, munit)
 
-val reflectionsV = "0.10.2"
-val swaggerV     = "2.2.27"
-val pekkoHttpV   = "1.1.0"
-val pekkoV       = "1.1.2"
-val kebsV        = "2.0.0"
-val specs2V      = "4.20.9"
-val scalatestV   = "3.2.19"
-val munitV       = "1.0.2"
-val http4sV      = "0.23.29"
+val swaggerV       = "2.2.27"
+val swaggerParserV = "2.1.24"
+val pekkoHttpV     = "1.1.0"
+val pekkoV         = "1.1.2"
+val kebsV          = "2.0.0"
+val specs2V        = "4.20.9"
+val scalatestV     = "3.2.19"
+val munitV         = "1.0.2"
+val http4sV        = "0.23.29"
+val reflectionsV   = "0.10.2"
+val magnoliaS2V    = "1.1.10"
+val magnoliaS3V    = "1.3.8"
 
 val enumeratumV    = "1.7.5"
 val pekkoHttpJsonV = "3.0.0"
@@ -36,9 +39,16 @@ lazy val core = project
     name := "baklava2-core",
     libraryDependencies ++= Seq(
       "pl.iterators"   %% "kebs-core"   % kebsV,
-      "org.reflections" % "reflections" % reflectionsV
+      "org.reflections" % "reflections" % reflectionsV,
+      if (scalaVersion.value.startsWith("3")) "com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaS3V
+      else "com.softwaremill.magnolia1_2"                                    %% "magnolia" % magnoliaS2V
     )
   )
+
+// todo this should not be here but in baklava-plugin. here only for test reason
+val baklavaGenerate = taskKey[Unit]("Generate documentation using baklava")
+val baklavaClean    = taskKey[Unit]("Clean artifacts created by baklava")
+val clazz           = "pl.iterators.baklava.BaklavaGenerate"
 
 lazy val openapi = project
   .in(file("openapi"))
@@ -47,19 +57,36 @@ lazy val openapi = project
     name := "baklava2-openapi",
     libraryDependencies ++= Seq(
       "io.swagger.core.v3"    % "swagger-core"     % swaggerV,
+      "io.swagger.parser.v3"  % "swagger-parser"   % swaggerParserV,
       "com.beachape"         %% "enumeratum"       % enumeratumV    % "test",
       "pl.iterators"         %% "kebs-enumeratum"  % kebsV          % "test",
       "pl.iterators"         %% "kebs-circe"       % kebsV          % "test",
       "com.github.pjfanning" %% "pekko-http-circe" % pekkoHttpJsonV % "test"
     ),
-    Test / testOptions += Tests.Cleanup { () => //to trzeba bedzie dodac autopluginem - i tylko to - ale to tak czy siak nei powinno byc w tym repo i jest tylko dla wygody testow
-      //poza tym do dyskusji czy to robic tak (bo to rzuca warny w tkaiej postaci, czy jednak osobnym taskiem baklavaGenerate (wtedy nie rzuca))
-      println(s"Executing cleanup - baklava generate")
-      val clazz = "pl.iterators.baklava.BaklavaGenerate"
-
-      val configurationClassPath = (fullClasspath in Test).value
-      val r                      = (runner in (Test, run)).value
+    baklavaGenerate := { // todo move to plugin
+      val configurationClassPath = (Test / fullClasspath).value
+      val r                      = (Test / run / runner).value
       val s                      = streams.value
+
+      s.log.log(Level.Info, "Running baklava generate")
+      r.run(clazz, data(configurationClassPath), Nil, s.log).get
+    },
+    baklavaClean := { // todo move to plugin
+      val s = streams.value
+      s.log.log(Level.Info, "Running baklava cleanup")
+      val baklavaDir = new File("target/baklava")
+
+      if (baklavaDir.exists()) {
+        IO.delete(baklavaDir)
+      }
+
+    },
+    Test / testOptions += Tests.Cleanup { () =>
+      val configurationClassPath = (Test / fullClasspath).value
+      val r                      = (Test / run / runner).value
+      val s                      = streams.value
+      // todo check if its possible to execute code of BaklavaGenerate directly here if in plugin
+      s.log.log(Level.Info, "Running baklava generate")
       r.run(clazz, data(configurationClassPath), Nil, s.log).get
     }
   )

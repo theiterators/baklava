@@ -5,7 +5,7 @@ import org.reflections.Reflections
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 trait BaklavaDslFormatter {
-  def createChunk(pathRepresentation: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): Unit
+  def createChunk(name: String, pathRepresentation: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): Unit
 
   def mergeChunks(): Unit
 }
@@ -19,7 +19,7 @@ object BaklavaDslFormatter {
         specClazz.getConstructor().newInstance()
       }
       .toSeq
-    println(inner)
+
     if (inner.isEmpty) {
       // todo better message and probably only warn or info or debug or delete it at all
       sys.error(s"Unable to find class formatters")

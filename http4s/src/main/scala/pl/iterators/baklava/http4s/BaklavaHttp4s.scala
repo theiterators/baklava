@@ -2,16 +2,16 @@ package pl.iterators.baklava.http4s
 
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
-import org.http4s.{Entity, EntityDecoder, EntityEncoder, Header, Headers, HttpRoutes, HttpVersion, Method, Request, Response, Status, Uri}
+import org.http4s.{EntityDecoder, EntityEncoder, Header, Headers, HttpRoutes, HttpVersion, Method, Request, Response, Status, Uri, headers}
 import org.typelevel.ci.CIString
 import pl.iterators.baklava.{
-  BaklavaRequestContext,
-  BaklavaResponseContext,
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
   BaklavaHttpMethod,
   BaklavaHttpProtocol,
   BaklavaHttpStatus,
+  BaklavaRequestContext,
+  BaklavaResponseContext,
   BaklavaTestFrameworkDsl,
   EmptyBody,
   EmptyBodyInstance
@@ -90,7 +90,9 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     response.headers,
     response.as[T].unsafeRunSync(),
     request,
-    response
+    response,
+    request.headers.get[headers.`Content-Type`].map(_.mediaType.toString()),
+    response.headers.get[headers.`Content-Type`].map(_.mediaType.toString())
   )
 
   override def baklavaContextToHttpRequest[
@@ -110,15 +112,20 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
   )(implicit
       requestBody: BaklavaHttp4s.ToEntityMarshaller[RequestBody]
   ): HttpRequest = {
-    val entityIO =
-      ctx.body.fold(Entity.empty: Entity[IO])(implicitly[BaklavaHttp4s.ToEntityMarshaller[RequestBody]].toEntity)
-
-    Request[IO](
-      method = ctx.method.get,
-      uri = Uri.fromString(ctx.path).fold(throw _, identity),
-      body = entityIO.body,
-      headers = ctx.headers
-    )
+    ctx.body match {
+      case Some(body) =>
+        Request[IO](
+          method = ctx.method.get,
+          uri = Uri.fromString(ctx.path).fold(throw _, identity),
+          headers = ctx.headers
+        ).withEntity(body)
+      case None =>
+        Request[IO](
+          method = ctx.method.get,
+          uri = Uri.fromString(ctx.path).fold(throw _, identity),
+          headers = ctx.headers
+        )
+    }
   }
 
   implicit val runtime: IORuntime

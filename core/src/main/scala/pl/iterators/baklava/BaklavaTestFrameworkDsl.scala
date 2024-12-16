@@ -2,8 +2,6 @@ package pl.iterators.baklava
 
 import java.util.Base64
 import java.util.concurrent.atomic.AtomicReference
-import org.reflections.Reflections
-import scala.jdk.CollectionConverters._
 
 trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyType[
     _
@@ -29,6 +27,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       operationId = None,
       operationTags = Seq.empty,
       body = None,
+      bodySchema = None,
       headers = BaklavaHttpHeaders(Map.empty),
       security = None,
       pathParameters = (),
@@ -76,6 +75,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
           operationId = if (operationId.trim.isEmpty) None else Some(operationId.trim),
           operationTags = tags,
           body = None,
+          bodySchema = None,
           headers = ctx.headers,
           security = None,
           pathParameters = pathParameters,
@@ -112,14 +112,14 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     ): BaklavaIntermediateTestCase[PathParameters, QueryParameters]
   }
 
-  case class OnRequest[RequestBody: ToRequestBodyType, PathParametersProvided, QueryParametersProvided](
+  case class OnRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided](
       body: RequestBody,
       headers: Map[String, String],
       security: Option[Security],
       pathParametersProvided: PathParametersProvided,
       queryParametersProvided: QueryParametersProvided
   ) {
-    def respondsWith[ResponseBody: FromResponseBodyType](
+    def respondsWith[ResponseBody: FromResponseBodyType: Schema](
         statusCode: BaklavaHttpStatus,
         description: String = ""
     ): BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided] =
@@ -157,6 +157,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                     providePathParams.apply(requestContext.pathParameters, pathParametersProvided, requestContext.path)
                   ),
                   body = if (body != EmptyBodyInstance) Some(body) else None,
+                  bodySchema = Some(implicitly[Schema[RequestBody]]),
                   headers = BaklavaHttpHeaders(headers ++ additionalHeaders),
                   security = security,
                   pathParametersProvided = pathParametersProvided,
@@ -196,7 +197,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                         s"Expected status code ${statusCode.status}, but got ${responseContext.status.status}"
                       )
                     }
-                    updateStorage(requestContext, responseContext)
+                    updateStorage(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
                     responseContext
                   }
                   val baklava2CaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
@@ -216,8 +217,8 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
   }
 
   def onRequest: OnRequest[EmptyBody, Unit, Unit] =
-    onRequest(EmptyBodyInstance: EmptyBody, Map.empty, None, (), ())(emptyToRequestBodyType)
-  def onRequest[RequestBody: ToRequestBodyType, PathParametersProvided, QueryParametersProvided](
+    onRequest(EmptyBodyInstance: EmptyBody, Map.empty, None, (), ())(emptyToRequestBodyType, Schema.emptyBodySchema)
+  def onRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided](
       body: RequestBody = EmptyBodyInstance: EmptyBody,
       headers: Map[String, String] = Map.empty,
       security: Option[Security] = None,
@@ -244,16 +245,13 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       r: => R
   ): TestFrameworkFragmentType
 
-  private def updateStorage(ctx: BaklavaRequestContext[?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit =
+  private def updateStorage(ctx: BaklavaRequestContext[?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
     storage.getAndUpdate(_ :+ (ctx -> response))
+    ()
+  }
 
   def storeResult(): Unit = {
-    storage
-      .get()
-      .groupBy(_._1.symbolicPath)
-      .foreach { group =>
-        BaklavaDslFormatter.formatters.foreach(f => f.createChunk(group._2))
-      }
+    BaklavaDslFormatter.formatters.foreach(_.createChunk(getClass.getCanonicalName, storage.get()))
   }
 
   private val storage: AtomicReference[List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]] =
