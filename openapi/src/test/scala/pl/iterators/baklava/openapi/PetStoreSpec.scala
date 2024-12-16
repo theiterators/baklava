@@ -1,10 +1,10 @@
 package pl.iterators.baklava.openapi
 
-import enumeratum.EnumEntry.Lowercase
 import enumeratum.{Enum, EnumEntry}
+import enumeratum.EnumEntry.Lowercase
 import org.apache.pekko.http.scaladsl.model.HttpMethods.POST
 import org.apache.pekko.http.scaladsl.model.StatusCodes.*
-import pl.iterators.baklava.EmptyBody
+import pl.iterators.baklava.{EmptyBody, Schema, SchemaType}
 
 sealed trait Status extends EnumEntry with Lowercase
 object Status extends Enum[Status] {
@@ -12,7 +12,20 @@ object Status extends Enum[Status] {
   case object Pending   extends Status
   case object Sold      extends Status
 
-  val values: IndexedSeq[Status] = findValues
+  def values: IndexedSeq[Status] = findValues
+
+  implicit val schema: Schema[Status] = new Schema[Status] {
+    val `type`: SchemaType                 = SchemaType.StringType
+    val className: String                  = "Status"
+    val format: Option[String]             = None
+    val properties: Map[String, Schema[?]] = Map.empty
+    val `enum`: Option[Set[String]]        = Some(Status.values.map(_.entryName.toLowerCase).toSet)
+    val items: Option[Schema[_]]           = None
+    val required: Boolean                  = true
+    val additionalProperties: Boolean      = false
+    val default: Option[Status]            = None
+    val description: Option[String]        = Some("Pet status in the store")
+  }
 }
 
 case class Tag(id: Option[Long], name: Option[String])

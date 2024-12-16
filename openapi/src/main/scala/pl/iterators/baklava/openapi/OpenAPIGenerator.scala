@@ -2,19 +2,8 @@ package pl.iterators.baklava.openapi
 
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.media.{Content, Schema}
-import pl.iterators.baklava.{
-  ArrayType,
-  BaklavaRequestContext,
-  BaklavaResponseContext,
-  BooleanType,
-  EmptyBodyInstance,
-  IntegerType,
-  NullType,
-  NumberType,
-  ObjectType,
-  StringType,
-  Schema as BaklavaSchema
-}
+import pl.iterators.baklava.*
+import pl.iterators.baklava.Schema as BaklavaSchema
 
 import scala.jdk.CollectionConverters.*
 
@@ -111,13 +100,13 @@ object OpenAPIGenerator {
     val schema = new Schema[String]()
     schema.set$id(baklavaSchema.className)
     baklavaSchema.`type` match {
-      case NullType    => schema.setType("null")
-      case StringType  => schema.setType("string")
-      case BooleanType => schema.setType("boolean")
-      case IntegerType => schema.setType("integer")
-      case NumberType  => schema.setType("number")
-      case ArrayType   => schema.setType("array")
-      case ObjectType  => schema.setType("object")
+      case SchemaType.NullType    => schema.setType("null")
+      case SchemaType.StringType  => schema.setType("string")
+      case SchemaType.BooleanType => schema.setType("boolean")
+      case SchemaType.IntegerType => schema.setType("integer")
+      case SchemaType.NumberType  => schema.setType("number")
+      case SchemaType.ArrayType   => schema.setType("array")
+      case SchemaType.ObjectType  => schema.setType("object")
     }
     baklavaSchema.description.foreach(schema.setDescription)
     baklavaSchema.format.foreach(schema.setFormat)

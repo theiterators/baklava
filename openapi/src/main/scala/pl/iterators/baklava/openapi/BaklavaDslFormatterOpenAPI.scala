@@ -37,7 +37,7 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
   override def mergeChunks(): Unit = {
     println("running merge chunks")
     val chunks = Option(dirFile.listFiles())
-      .getOrElse(Array.empty)
+      .getOrElse(Array.empty[File])
       .filter(_.getName.endsWith(chunkExtension))
       .flatMap { file =>
         Using(new FileInputStream(file)) { chunkInputStream =>

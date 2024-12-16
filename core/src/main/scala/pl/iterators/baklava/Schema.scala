@@ -1,19 +1,21 @@
 package pl.iterators.baklava
 
-import pl.iterators.kebs.core.enums.{EnumLike, ValueEnumLike, ValueEnumLikeEntry}
-import pl.iterators.kebs.core.macros.ValueClassLike
-
-import scala.annotation.unused
-import scala.reflect.ClassTag
-
 sealed trait SchemaType
-case object NullType    extends SchemaType
-case object StringType  extends SchemaType
-case object BooleanType extends SchemaType
-case object IntegerType extends SchemaType
-case object NumberType  extends SchemaType
-case object ArrayType   extends SchemaType
-case object ObjectType  extends SchemaType
+object SchemaType {
+  case object NullType extends SchemaType
+
+  case object StringType extends SchemaType
+
+  case object BooleanType extends SchemaType
+
+  case object IntegerType extends SchemaType
+
+  case object NumberType extends SchemaType
+
+  case object ArrayType extends SchemaType
+
+  case object ObjectType extends SchemaType
+}
 
 trait Schema[T] {
   val className: String
@@ -55,14 +57,14 @@ trait Schema[T] {
 
   override def toString: String = {
     `type` match {
-      case _ if `enum`.isDefined => s"enum(${`enum`.get.mkString(", ")})"
-      case NullType              => "null"
-      case StringType            => "string"
-      case BooleanType           => "boolean"
-      case IntegerType           => "integer"
-      case NumberType            => "number"
-      case ArrayType             => s"array(${items.getOrElse("unknown")})"
-      case ObjectType =>
+      case _ if `enum`.isDefined  => s"enum(${`enum`.get.mkString(", ")})"
+      case SchemaType.NullType    => "null"
+      case SchemaType.StringType  => "string"
+      case SchemaType.BooleanType => "boolean"
+      case SchemaType.IntegerType => "integer"
+      case SchemaType.NumberType  => "number"
+      case SchemaType.ArrayType   => s"array(${items.getOrElse("unknown")})"
+      case SchemaType.ObjectType =>
         s"object(${properties.map { case (k, v) => k + (if (v.required) "*" else "") + ": " + v.toString }.mkString(", ")})"
     }
   }
@@ -71,7 +73,7 @@ trait Schema[T] {
 object Schema extends SchemaDerivation {
   implicit val emptyBodySchema: Schema[EmptyBody] = new Schema[EmptyBody] {
     val className: String                  = "EmptyBody"
-    val `type`: SchemaType                 = NullType
+    val `type`: SchemaType                 = SchemaType.NullType
     val format: Option[String]             = None
     val properties: Map[String, Schema[?]] = Map.empty
     val items: Option[Schema[?]]           = None
@@ -81,17 +83,17 @@ object Schema extends SchemaDerivation {
     val default: Option[EmptyBody]         = None
     val description: Option[String]        = None
   }
-  implicit val intSchema: PrimitiveSchema[Int]               = PrimitiveSchema[Int]("Int", IntegerType, Some("int32"))
-  implicit val longSchema: PrimitiveSchema[Long]             = PrimitiveSchema[Long]("Long", IntegerType, Some("int64"))
-  implicit val floatSchema: PrimitiveSchema[Float]           = PrimitiveSchema[Float]("Float", NumberType, Some("float"))
-  implicit val doubleSchema: PrimitiveSchema[Double]         = PrimitiveSchema[Double]("Double", NumberType, Some("double"))
-  implicit val stringSchema: PrimitiveSchema[String]         = PrimitiveSchema[String]("String", StringType, None)
-  implicit val byteSchema: PrimitiveSchema[Byte]             = PrimitiveSchema[Byte]("Byte", IntegerType, None)
-  implicit val shortSchema: PrimitiveSchema[Short]           = PrimitiveSchema[Short]("Short", IntegerType, None)
-  implicit val booleanSchema: PrimitiveSchema[Boolean]       = PrimitiveSchema[Boolean]("Boolean", BooleanType, None)
-  implicit val nullSchema: PrimitiveSchema[Null]             = PrimitiveSchema[Null]("Null", NullType, None)
-  implicit val unitSchema: PrimitiveSchema[Unit]             = PrimitiveSchema[Unit]("Unit", NullType, None)
-  implicit val bigDecimalSchema: PrimitiveSchema[BigDecimal] = PrimitiveSchema[BigDecimal]("BigDecimal", NumberType, None)
+  implicit val intSchema: PrimitiveSchema[Int]               = PrimitiveSchema[Int]("Int", SchemaType.IntegerType, Some("int32"))
+  implicit val longSchema: PrimitiveSchema[Long]             = PrimitiveSchema[Long]("Long", SchemaType.IntegerType, Some("int64"))
+  implicit val floatSchema: PrimitiveSchema[Float]           = PrimitiveSchema[Float]("Float", SchemaType.NumberType, Some("float"))
+  implicit val doubleSchema: PrimitiveSchema[Double]         = PrimitiveSchema[Double]("Double", SchemaType.NumberType, Some("double"))
+  implicit val stringSchema: PrimitiveSchema[String]         = PrimitiveSchema[String]("String", SchemaType.StringType, None)
+  implicit val byteSchema: PrimitiveSchema[Byte]             = PrimitiveSchema[Byte]("Byte", SchemaType.IntegerType, None)
+  implicit val shortSchema: PrimitiveSchema[Short]           = PrimitiveSchema[Short]("Short", SchemaType.IntegerType, None)
+  implicit val booleanSchema: PrimitiveSchema[Boolean]       = PrimitiveSchema[Boolean]("Boolean", SchemaType.BooleanType, None)
+  implicit val nullSchema: PrimitiveSchema[Null]             = PrimitiveSchema[Null]("Null", SchemaType.NullType, None)
+  implicit val unitSchema: PrimitiveSchema[Unit]             = PrimitiveSchema[Unit]("Unit", SchemaType.NullType, None)
+  implicit val bigDecimalSchema: PrimitiveSchema[BigDecimal] = PrimitiveSchema[BigDecimal]("BigDecimal", SchemaType.NumberType, None)
   implicit def optionSchema[T](implicit schema: Schema[T]): Schema[Option[T]] = new Schema[Option[T]] {
     val className: String                  = schema.className
     val `type`: SchemaType                 = schema.`type`
@@ -106,7 +108,7 @@ object Schema extends SchemaDerivation {
   }
   implicit def seqSchema[T](implicit schema: Schema[T]): Schema[Seq[T]] = new Schema[Seq[T]] {
     val className: String                  = schema.className
-    val `type`: SchemaType                 = ArrayType
+    val `type`: SchemaType                 = SchemaType.ArrayType
     val format: Option[String]             = None
     val properties: Map[String, Schema[?]] = Map.empty
     val items: Option[Schema[?]]           = Some(schema)
@@ -118,7 +120,7 @@ object Schema extends SchemaDerivation {
   }
   implicit def listSchema[T](implicit schema: Schema[T]): Schema[List[T]] = new Schema[List[T]] {
     val className: String                  = schema.className
-    val `type`: SchemaType                 = ArrayType
+    val `type`: SchemaType                 = SchemaType.ArrayType
     val format: Option[String]             = None
     val properties: Map[String, Schema[?]] = Map.empty
     val items: Option[Schema[?]]           = Some(schema)
@@ -130,7 +132,7 @@ object Schema extends SchemaDerivation {
   }
   implicit def stringMapSchema[T](implicit schema: Schema[T]): Schema[Map[String, T]] = new Schema[Map[String, T]] {
     val className: String                  = "Map[String, " + schema.className + "]"
-    val `type`: SchemaType                 = ObjectType
+    val `type`: SchemaType                 = SchemaType.ObjectType
     val format: Option[String]             = None
     val properties: Map[String, Schema[?]] = Map.empty
     val items: Option[Schema[?]]           = None
@@ -140,61 +142,10 @@ object Schema extends SchemaDerivation {
     val default: Option[Map[String, T]]    = None
     val description: Option[String]        = None
   }
-  implicit def uuidSchema: PrimitiveSchema[java.util.UUID] = PrimitiveSchema[java.util.UUID]("UUID", StringType, Some("uuid"))
+  implicit def uuidSchema: PrimitiveSchema[java.util.UUID] = PrimitiveSchema[java.util.UUID]("UUID", SchemaType.StringType, Some("uuid"))
   // TODO: java.time.*
   // TODO: java.util.*
-}
-
-trait KebsBaklavaSchema {
-  implicit def valueClassLikeSchema[T, A](implicit
-      @unused valueClassLike: ValueClassLike[T, A],
-      schema: Schema[A],
-      cls: ClassTag[T]
-  ): Schema[T] = {
-    new Schema[T] {
-      val className: String                  = cls.runtimeClass.getName
-      val `type`: SchemaType                 = schema.`type`
-      val format: Option[String]             = schema.format
-      val properties: Map[String, Schema[?]] = schema.properties
-      val items: Option[Schema[?]]           = schema.items
-      val `enum`: Option[Set[String]]        = schema.`enum`
-      val required: Boolean                  = schema.required
-      val additionalProperties: Boolean      = schema.additionalProperties
-      val default: Option[T]                 = None
-      val description: Option[String]        = schema.description
-    }
-  }
-  implicit def enumLikeSchema[T](implicit enumLike: EnumLike[T], cls: ClassTag[T]): Schema[T] =
-    new Schema[T] { // TODO: add traits with lower/uppercase variants
-      val className: String                  = cls.runtimeClass.getName
-      val `type`: SchemaType                 = StringType
-      val format: Option[String]             = None
-      val properties: Map[String, Schema[?]] = Map.empty
-      val items: Option[Schema[?]]           = None
-      val `enum`: Option[Set[String]]        = Some(enumLike.values.map(_.toString).toSet)
-      val required: Boolean                  = true
-      val additionalProperties: Boolean      = false
-      val default: Option[T]                 = None
-      val description: Option[String]        = None
-    }
-  implicit def valueEnumLikeSchema[T, V <: ValueEnumLikeEntry[T]](implicit
-      valueEnumLike: ValueEnumLike[T, V],
-      schema: Schema[V],
-      cls: ClassTag[T]
-  ): Schema[T] = {
-    new Schema[T] {
-      val className: String                  = cls.runtimeClass.getName
-      val `type`: SchemaType                 = schema.`type`
-      val format: Option[String]             = schema.format
-      val properties: Map[String, Schema[?]] = schema.properties
-      val items: Option[Schema[?]]           = schema.items
-      val `enum`: Option[Set[String]]        = Some(valueEnumLike.values.map(_.toString).toSet)
-      val required: Boolean                  = schema.required
-      val additionalProperties: Boolean      = schema.additionalProperties
-      val default: Option[T]                 = None
-      val description: Option[String]        = schema.description
-    }
-  }
+  // TODO: arrays, collections
 }
 
 case class PrimitiveSchema[T](
@@ -212,7 +163,7 @@ case class PrimitiveSchema[T](
 }
 
 case class FreeFormSchema[T](className: String) extends Schema[T] {
-  val `type`: SchemaType                 = ObjectType
+  val `type`: SchemaType                 = SchemaType.ObjectType
   val format: Option[String]             = None
   val properties: Map[String, Schema[?]] = Map.empty
   val items: Option[Schema[?]]           = None

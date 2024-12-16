@@ -12,7 +12,6 @@ import org.apache.pekko.stream.Materializer
 import org.specs2.mutable.SpecificationLike
 import org.specs2.specification.AfterAll
 import org.specs2.specification.core.{AsExecution, Fragment, Fragments}
-import pl.iterators.baklava.KebsBaklavaSchema
 import pl.iterators.baklava.pekkohttp.BaklavaPekkoHttp
 import pl.iterators.baklava.specs2.BaklavaSpecs2
 import pl.iterators.kebs.circe.KebsCirce
@@ -30,8 +29,7 @@ trait PetStoreItSpec
     with FailFastCirceSupport
     with KebsCirce
     with KebsCirceEnumsLowercase
-    with KebsEnumeratum
-    with KebsBaklavaSchema {
+    with KebsEnumeratum {
 
   private implicit val system: ActorSystem        = ActorSystem()
   implicit val executionContext: ExecutionContext = system.dispatcher

@@ -15,6 +15,8 @@ val Scala3   = "3.3.3"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion       := Scala213
 
+// TODO: add -Yretain-trees to scalacOptions to enable magnolia features
+
 lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, http4s, specs2, scalatest, munit)
 
 val swaggerV       = "2.2.27"

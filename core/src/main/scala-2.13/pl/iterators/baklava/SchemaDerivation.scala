@@ -1,13 +1,13 @@
 package pl.iterators.baklava
 
-import language.experimental.macros, magnolia1._
+import magnolia1.*
 
 trait SchemaDerivation {
   type Typeclass[T] = Schema[T]
 
   def join[T](ctx: CaseClass[Schema, T]): Schema[T] = new Schema[T] {
     val className: String      = ctx.typeName.short
-    val `type`: SchemaType     = ObjectType
+    val `type`: SchemaType     = SchemaType.ObjectType
     val format: Option[String] = None
     val properties: Map[String, Schema[?]] = ctx.parameters.map { p =>
       p.default match {
@@ -25,7 +25,7 @@ trait SchemaDerivation {
 
   def split[T](ctx: SealedTrait[Schema, T]): Schema[T] = new Schema[T] {
     val className: String                     = ctx.typeName.short
-    val `type`: SchemaType                    = StringType
+    val `type`: SchemaType                    = SchemaType.StringType
     val format: Option[String]                = None
     val properties: Map[String, Typeclass[?]] = Map.empty
     val items: Option[Typeclass[?]]           = None
