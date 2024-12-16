@@ -1,6 +1,7 @@
 package pl.iterators.baklava.openapi
 
 import io.swagger.v3.oas.models.OpenAPI
+import io.swagger.v3.oas.models.media.{Content, Schema}
 import pl.iterators.baklava.{
   ArrayType,
   BaklavaRequestContext,
@@ -14,12 +15,39 @@ import pl.iterators.baklava.{
   StringType,
   Schema as BaklavaSchema
 }
-import io.swagger.v3.oas.models.media.{Content, Schema}
 
 import scala.jdk.CollectionConverters.*
 
 object OpenAPIGenerator {
-  def from(openAPI: OpenAPI, context: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): OpenAPI = {
+  def merge(chunks: List[OpenAPI]): OpenAPI = {
+    val openAPI = new OpenAPI()
+      .info(
+        new io.swagger.v3.oas.models.info.Info()
+          .title("Swagger Petstore")
+          .version("1.0.7")
+          .description(
+            "This is a sample server Petstore server.  You can find out more about Swagger at [http://swagger.io](http://swagger.io) or on [irc.freenode.net, #swagger](http://swagger.io/irc/).  For this sample, you can use the api key `special-key` to test the authorization filters."
+          )
+          .termsOfService("http://swagger.io/terms/")
+          .contact(new io.swagger.v3.oas.models.info.Contact().email("apiteam@swagger.io"))
+          .license(
+            new io.swagger.v3.oas.models.info.License().name("Apache 2.0").url("http://www.apache.org/licenses/LICENSE-2.0.html")
+          )
+      )
+      .addServersItem(new io.swagger.v3.oas.models.servers.Server().url("https://petstore.swagger.io/v2"))
+
+    chunks.foreach { chunk =>
+      val chunkPaths = chunk.getPaths
+      chunkPaths.keySet().asScala.foreach { chunkPathKey =>
+        openAPI.path(chunkPathKey, chunkPaths.get(chunkPathKey))
+      }
+    }
+
+    openAPI
+  }
+
+  def chunk(context: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): OpenAPI = {
+    val openAPI = new OpenAPI()
     context.groupBy(_._1.symbolicPath).foreach { case (path, responses) =>
       val pathItem = new io.swagger.v3.oas.models.PathItem()
       responses.groupBy(_._1.method).foreach { case (method, responses) =>

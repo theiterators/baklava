@@ -1,11 +1,13 @@
 package pl.iterators.baklava.scalatest
 
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funspec.AnyFunSpecLike
-import pl.iterators.baklava.{BaklavaRequestContext, BaklavaHttpDsl, BaklavaTestFrameworkDsl}
+import pl.iterators.baklava.{BaklavaHttpDsl, BaklavaRequestContext, BaklavaTestFrameworkDsl}
 
 trait BaklavaScalatest[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
     extends BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType, FromResponseBodyType, Unit, Unit, ScalatestAsExecution]
-    with AnyFunSpecLike {
+    with AnyFunSpecLike
+    with BeforeAndAfterAll {
   this: BaklavaHttpDsl[RouteType, ToRequestBodyType, FromResponseBodyType, Unit, Unit, ScalatestAsExecution] =>
 
   override def fragmentsFromSeq(fragments: Seq[Unit]): Unit = fragments.foreach(identity)
@@ -23,6 +25,10 @@ trait BaklavaScalatest[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
       context: BaklavaRequestContext[?, ?, ?, ?, ?],
       r: => R
   ): Unit = it(text)(r)
+
+  override def afterAll(): Unit = {
+    storeResult()
+  }
 }
 
 trait ScalatestAsExecution[T]

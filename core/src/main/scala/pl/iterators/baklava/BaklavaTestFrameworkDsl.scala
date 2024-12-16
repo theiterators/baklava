@@ -1,6 +1,7 @@
 package pl.iterators.baklava
 
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicReference
 
 trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyType[
     _
@@ -196,7 +197,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                         s"Expected status code ${statusCode.status}, but got ${responseContext.status.status}"
                       )
                     }
-                    BaklavaGlobal.updateStorage(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
+                    updateStorage(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
                     responseContext
                   }
                   val baklava2CaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
@@ -243,4 +244,16 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       context: BaklavaRequestContext[?, ?, ?, ?, ?],
       r: => R
   ): TestFrameworkFragmentType
+
+  private def updateStorage(ctx: BaklavaRequestContext[?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
+    storage.getAndUpdate(_ :+ (ctx -> response))
+    ()
+  }
+
+  def storeResult(): Unit = {
+    BaklavaDslFormatter.formatters.foreach(_.createChunk(getClass.getCanonicalName, storage.get()))
+  }
+
+  private val storage: AtomicReference[List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]] =
+    new AtomicReference(List.empty)
 }
