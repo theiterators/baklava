@@ -90,9 +90,11 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     response.headers,
     response.as[T].unsafeRunSync(),
     request,
+    request.as[String].unsafeRunSync(),
     response,
-    request.headers.get[headers.`Content-Type`].map(_.mediaType.toString()),
-    response.headers.get[headers.`Content-Type`].map(_.mediaType.toString())
+    response.as[String].unsafeRunSync(),
+    request.headers.get[headers.`Content-Type`].map(ct => s"${ct.mediaType.mainType}/${ct.mediaType.subType}"),
+    response.headers.get[headers.`Content-Type`].map(ct => s"${ct.mediaType.mainType}/${ct.mediaType.subType}")
   )
 
   override def baklavaContextToHttpRequest[

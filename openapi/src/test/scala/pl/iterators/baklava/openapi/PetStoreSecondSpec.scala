@@ -1,10 +1,12 @@
 package pl.iterators.baklava.openapi
 
-import org.apache.pekko.http.scaladsl.model.HttpMethods.POST
-import org.apache.pekko.http.scaladsl.model.StatusCodes.*
+import org.http4s.Method.*
+import org.http4s.Status.*
 import pl.iterators.baklava.EmptyBody
+import org.http4s.circe.CirceEntityDecoder.*
+import org.http4s.circe.CirceEntityEncoder.*
 
-class PetStoreSecondSpec extends PetStoreItSpec {
+class PetStoreSecondSpec extends PetStoreHttp4sItSpec {
   val examplePet = Pet(
     id = Some(1),
     name = "cat",
@@ -21,11 +23,11 @@ class PetStoreSecondSpec extends PetStoreItSpec {
       operationId = "addPetS",
       tags = Seq("pet")
     )(
-      onRequest(body = examplePet).respondsWith[EmptyBody](OK, description = "Successful operation").assert { ctx =>
+      onRequest(body = examplePet).respondsWith[Pet](Ok, description = "Successful operation").assert { ctx =>
         ctx.performRequest(routes)
         ok
       },
-      onRequest.respondsWith[EmptyBody](UnsupportedMediaType, description = "Invalid input").assert { ctx =>
+      onRequest.respondsWith[Error](UnsupportedMediaType, description = "Invalid input").assert { ctx =>
         ctx.performRequest(routes)
         ok
       }

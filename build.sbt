@@ -54,16 +54,18 @@ val clazz           = "pl.iterators.baklava.BaklavaGenerate"
 
 lazy val openapi = project
   .in(file("openapi"))
-  .dependsOn(core, pekkohttp % "test", specs2 % "test")
+  .dependsOn(core, pekkohttp % "test", http4s % "test", specs2 % "test")
   .settings(
     name := "baklava2-openapi",
     libraryDependencies ++= Seq(
-      "io.swagger.core.v3"    % "swagger-core"     % swaggerV,
-      "io.swagger.parser.v3"  % "swagger-parser"   % swaggerParserV,
-      "com.beachape"         %% "enumeratum"       % enumeratumV    % "test",
-      "pl.iterators"         %% "kebs-enumeratum"  % kebsV          % "test",
-      "pl.iterators"         %% "kebs-circe"       % kebsV          % "test",
-      "com.github.pjfanning" %% "pekko-http-circe" % pekkoHttpJsonV % "test"
+      "io.swagger.core.v3"    % "swagger-core"        % swaggerV,
+      "io.swagger.parser.v3"  % "swagger-parser"      % swaggerParserV,
+      "com.beachape"         %% "enumeratum"          % enumeratumV    % "test",
+      "pl.iterators"         %% "kebs-enumeratum"     % kebsV          % "test",
+      "pl.iterators"         %% "kebs-circe"          % kebsV          % "test",
+      "com.github.pjfanning" %% "pekko-http-circe"    % pekkoHttpJsonV % "test",
+      "org.http4s"           %% "http4s-ember-client" % http4sV        % "test",
+      "org.http4s"           %% "http4s-circe"        % http4sV        % "test"
     ),
     baklavaGenerate := { // todo move to plugin
       val configurationClassPath = (Test / fullClasspath).value

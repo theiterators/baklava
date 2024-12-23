@@ -32,7 +32,9 @@ case class Tag(id: Option[Long], name: Option[String])
 case class Category(id: Option[Long], name: Option[String])
 case class Pet(id: Option[Long], name: String, photoUrls: Seq[String], tags: Option[Seq[Tag]], status: Option[Status])
 
-class PetStoreSpec extends PetStoreItSpec {
+case class Error(code: Int, `type`: String, message: String)
+
+class PetStoreSpec extends PetStorePekkoItSpec {
   val examplePet = Pet(
     id = Some(1),
     name = "doggie",
@@ -49,11 +51,11 @@ class PetStoreSpec extends PetStoreItSpec {
       operationId = "addPet",
       tags = Seq("pet")
     )(
-      onRequest(body = examplePet).respondsWith[EmptyBody](OK, description = "Successful operation").assert { ctx =>
+      onRequest(body = examplePet).respondsWith[Pet](OK, description = "Successful operation").assert { ctx =>
         ctx.performRequest(routes)
         ok
       },
-      onRequest.respondsWith[EmptyBody](UnsupportedMediaType, description = "Invalid input").assert { ctx =>
+      onRequest.respondsWith[Error](UnsupportedMediaType, description = "Invalid input").assert { ctx =>
         ctx.performRequest(routes)
         ok
       }

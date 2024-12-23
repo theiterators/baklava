@@ -197,6 +197,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                         s"Expected status code ${statusCode.status}, but got ${responseContext.status.status}"
                       )
                     }
+                    if (responseContext.responseBodyString.nonEmpty && implicitly[Schema[ResponseBody]] == Schema.emptyBodySchema) {
+                      throw new RuntimeException("Expected empty response body, but got: " + responseContext.responseBodyString)
+                    }
                     updateStorage(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
                     responseContext
                   }

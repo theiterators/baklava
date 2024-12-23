@@ -9,7 +9,7 @@ import scala.jdk.CollectionConverters.*
 
 object OpenAPIGenerator {
   def merge(chunks: List[OpenAPI]): OpenAPI = {
-    val openAPI = new OpenAPI()
+    val openAPI = new OpenAPI() // TODO: this needs to be providable somehow by the end user
       .info(
         new io.swagger.v3.oas.models.info.Info()
           .title("Swagger Petstore")
@@ -44,9 +44,22 @@ object OpenAPIGenerator {
         val operationResponses = new io.swagger.v3.oas.models.responses.ApiResponses()
         responses.foreach { case (ctx, response) =>
           val r = new io.swagger.v3.oas.models.responses.ApiResponse()
+          response.bodySchema.filterNot(_ == BaklavaSchema.emptyBodySchema).foreach { baklavaSchema =>
+            val schema = baklavaSchemaToOpenAPISchema(baklavaSchema)
+            schema.setExample(response.responseBodyString)
+            r.setContent(
+              new Content()
+                .addMediaType(
+                  response.responseContentType.getOrElse("application/octet-stream"),
+                  new io.swagger.v3.oas.models.media.MediaType().schema(schema)
+                )
+            )
+          }
+
           ctx.responseDescription.foreach(r.setDescription)
           response.headers.headers.filterNot { case (name, _) => name.toLowerCase == "content-type" }.foreach { case (name, header) =>
             val h = new io.swagger.v3.oas.models.headers.Header()
+            h.schema(new Schema[String]().`type`("string"))
             h.example(header)
             r.addHeaderObject(name, h)
           }
@@ -64,7 +77,7 @@ object OpenAPIGenerator {
               val requestBody = new io.swagger.v3.oas.models.parameters.RequestBody()
               val content     = new Content()
               val schema      = baklavaSchemaToOpenAPISchema(baklavaSchema)
-              schema.setExample(ctx.body.toString) // TODO: string
+              schema.setExample(response.requestBodyString)
               content.addMediaType(
                 response.requestContentType.getOrElse("application/octet-stream"),
                 new io.swagger.v3.oas.models.media.MediaType().schema(schema)
@@ -75,13 +88,6 @@ object OpenAPIGenerator {
           }
         }
 
-//        if (responses.head.)
-//
-//        operation.requestBody(
-//          new io.swagger.v3.oas.models.parameters.RequestBody().content(
-//            new Content().addMediaType()
-//          )
-//        )
         responses.head._1.operationId.foreach(operation.setOperationId)
         responses.head._1.operationSummary.foreach(operation.setSummary)
         responses.head._1.operationDescription.foreach(operation.setDescription)

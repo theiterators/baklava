@@ -21,7 +21,7 @@ import pl.iterators.kebs.enumeratum.KebsEnumeratum
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext}
 
-trait PetStoreItSpec
+trait PetStorePekkoItSpec
     extends SpecificationLike
     with AfterAll
     with BaklavaPekkoHttp[Fragment, Fragments, AsExecution]

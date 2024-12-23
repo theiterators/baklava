@@ -2,10 +2,12 @@ package pl.iterators.baklava.pekkohttp
 
 import org.apache.pekko.http.scaladsl.client.RequestBuilding.RequestBuilder
 import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, Marshalling, ToEntityMarshaller}
-import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpHeader, MessageEntity}
+import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpHeader, MessageEntity, ResponseEntity}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{BroadcastHub, Keep, Sink}
+import org.apache.pekko.util.ByteString
 import pl.iterators.baklava.{
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
@@ -100,13 +102,25 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       request: HttpRequest,
       response: HttpResponse
   ): BaklavaResponseContext[T, HttpRequest, HttpResponse] = {
+    val dataBytes = Await.result(response.entity.dataBytes.runWith(Sink.fold(ByteString.empty)(_ ++ _)), Duration.Inf)
+    val firstResponseEntity = HttpEntity.apply(
+      response.entity.contentType,
+      dataBytes
+    )
+    val secondResponseEntity = HttpEntity.apply(
+      response.entity.contentType,
+      dataBytes
+    )
+
     BaklavaResponseContext(
       response.protocol,
       response.status,
       response.headers,
-      Await.result(implicitly[FromEntityUnmarshaller[T]].apply(response.entity), Duration.Inf),
+      Await.result(implicitly[FromEntityUnmarshaller[T]].apply(firstResponseEntity), Duration.Inf),
       request,
+      Await.result(implicitly[FromEntityUnmarshaller[String]].apply(request.entity), Duration.Inf),
       response,
+      Await.result(implicitly[FromEntityUnmarshaller[String]].apply(secondResponseEntity), Duration.Inf),
       Option.when(response.entity.contentType != HttpEntity.Empty.contentType)(
         response.entity.contentType.value
       ),

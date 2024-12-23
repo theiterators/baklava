@@ -45,7 +45,9 @@ case class BaklavaResponseContext[ResponseBody, RequestType, ResponseType](
     headers: BaklavaHttpHeaders,
     body: ResponseBody,
     rawRequest: RequestType,
+    requestBodyString: String,
     rawResponse: ResponseType,
+    responseBodyString: String,
     requestContentType: Option[String],
     responseContentType: Option[String],
     bodySchema: Option[Schema[ResponseBody]] = None
