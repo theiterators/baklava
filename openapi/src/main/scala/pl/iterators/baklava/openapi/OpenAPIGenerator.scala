@@ -42,51 +42,83 @@ object OpenAPIGenerator {
       responses.groupBy(_._1.method).foreach { case (method, responses) =>
         val operation          = new io.swagger.v3.oas.models.Operation()
         val operationResponses = new io.swagger.v3.oas.models.responses.ApiResponses()
-        responses.foreach { case (ctx, response) =>
-          val r = new io.swagger.v3.oas.models.responses.ApiResponse()
-          response.bodySchema.filterNot(_ == BaklavaSchema.emptyBodySchema).foreach { baklavaSchema =>
-            val schema = baklavaSchemaToOpenAPISchema(baklavaSchema)
-            schema.setExample(response.responseBodyString)
-            r.setContent(
-              new Content()
-                .addMediaType(
-                  response.responseContentType.getOrElse("application/octet-stream"),
-                  new io.swagger.v3.oas.models.media.MediaType().schema(schema)
-                )
-            )
+//        responses.foreach { case (ctx, response) =>
+//          val r = new io.swagger.v3.oas.models.responses.ApiResponse()
+//          response.bodySchema.filterNot(_ == BaklavaSchema.emptyBodySchema).foreach { baklavaSchema =>
+//            val schema = baklavaSchemaToOpenAPISchema(baklavaSchema)
+//            schema.setExample(response.responseBodyString)
+//            r.setContent(
+//              new Content()
+//                .addMediaType(
+//                  response.responseContentType.getOrElse("application/octet-stream"),
+//                  new io.swagger.v3.oas.models.media.MediaType().schema(schema)
+//                )
+//            )
+//          }
+//
+//          ctx.responseDescription.foreach(r.setDescription)
+//          response.headers.headers.filterNot { case (name, _) => name.toLowerCase == "content-type" }.foreach { case (name, header) =>
+//            val h = new io.swagger.v3.oas.models.headers.Header()
+//            h.schema(new Schema[String]().`type`("string"))
+//            h.example(header)
+//            r.addHeaderObject(name, h)
+//          }
+//          operationResponses
+//            .addApiResponse(response.status.status.toString, r)
+//        }
+        responses.groupBy(_._2.status).foreach { case (status, commonStatusResponses) =>
+          commonStatusResponses.groupBy(_._2.responseContentType).foreach { case (contentType, commonContentTypeResponses) =>
+            val r           = new io.swagger.v3.oas.models.responses.ApiResponse()
+            val content     = new Content()
+            val mediaType   = new io.swagger.v3.oas.models.media.MediaType()
+            val firstSchema = commonContentTypeResponses.flatMap(_._1.bodySchema).find(_ != BaklavaSchema.emptyBodySchema)
+            firstSchema.foreach { schema =>
+              mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
+            }
+            commonContentTypeResponses.zipWithIndex.foreach { case ((ctx, response), idx) =>
+              mediaType.addExamples(
+                ctx.responseDescription.getOrElse(s"Example $idx"),
+                new io.swagger.v3.oas.models.examples.Example().value(response.responseBodyString)
+              )
+            }
+            commonStatusResponses.head._1.responseDescription.foreach(r.setDescription)
+            commonContentTypeResponses.head._2.headers.headers.filterNot { case (name, _) => name.toLowerCase == "content-type" }.foreach {
+              case (name, header) =>
+                val h = new io.swagger.v3.oas.models.headers.Header()
+                h.schema(new Schema[String]().`type`("string"))
+                h.example(header)
+                r.addHeaderObject(name, h)
+            }
+            content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
+            r.setContent(content)
+            operationResponses.addApiResponse(status.status.toString, r)
           }
-
-          ctx.responseDescription.foreach(r.setDescription)
-          response.headers.headers.filterNot { case (name, _) => name.toLowerCase == "content-type" }.foreach { case (name, header) =>
-            val h = new io.swagger.v3.oas.models.headers.Header()
-            h.schema(new Schema[String]().`type`("string"))
-            h.example(header)
-            r.addHeaderObject(name, h)
-          }
-          operationResponses
-            .addApiResponse(response.status.status.toString, r)
         }
         operation.responses(operationResponses)
 
         // TODO: are we sure? bodyRequest could be moved to METHOD-level as it's defined on the `operation` level in OpenAPI but
         // this would make the DSL less intuitive
-        val bestRequestBody = responses.filter(_._2.status.status / 100 == 2).sortBy(_._2.status.status).headOption
-        bestRequestBody.foreach { case (ctx, response) =>
-          ctx.body.filterNot(_ == EmptyBodyInstance).foreach { _ =>
-            ctx.bodySchema.foreach { baklavaSchema =>
-              val requestBody = new io.swagger.v3.oas.models.parameters.RequestBody()
-              val content     = new Content()
-              val schema      = baklavaSchemaToOpenAPISchema(baklavaSchema)
-              schema.setExample(response.requestBodyString)
-              content.addMediaType(
-                response.requestContentType.getOrElse("application/octet-stream"),
-                new io.swagger.v3.oas.models.media.MediaType().schema(schema)
-              )
-              requestBody.setContent(content)
-              operation.setRequestBody(requestBody)
-            }
+        val requestBody = new io.swagger.v3.oas.models.parameters.RequestBody()
+        val content     = new Content()
+
+        val successfulResponses = responses.filter(_._2.status.status / 100 == 2).sortBy(_._2.status.status)
+        successfulResponses.groupBy(_._2.requestContentType).foreach { case (contentType, responses) =>
+          val mediaType   = new io.swagger.v3.oas.models.media.MediaType()
+          val firstSchema = responses.flatMap(_._1.bodySchema).find(_ != BaklavaSchema.emptyBodySchema)
+          firstSchema.foreach { schema =>
+            mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
           }
+
+          responses.zipWithIndex.foreach { case ((ctx, response), idx) =>
+            mediaType.addExamples(
+              ctx.responseDescription.getOrElse(s"Example $idx"),
+              new io.swagger.v3.oas.models.examples.Example().value(response.requestBodyString)
+            )
+          }
+          content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
         }
+        requestBody.setContent(content)
+        operation.setRequestBody(requestBody)
 
         responses.head._1.operationId.foreach(operation.setOperationId)
         responses.head._1.operationSummary.foreach(operation.setSummary)

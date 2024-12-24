@@ -55,6 +55,10 @@ class PetStoreSpec extends PetStorePekkoItSpec {
         ctx.performRequest(routes)
         ok
       },
+      onRequest(body = examplePet.copy(name = "doggo")).respondsWith[Pet](OK, description = "Another successful operation").assert { ctx =>
+        ctx.performRequest(routes)
+        ok
+      },
       onRequest.respondsWith[Error](UnsupportedMediaType, description = "Invalid input").assert { ctx =>
         ctx.performRequest(routes)
         ok
