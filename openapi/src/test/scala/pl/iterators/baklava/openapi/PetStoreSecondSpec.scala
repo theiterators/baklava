@@ -2,32 +2,41 @@ package pl.iterators.baklava.openapi
 
 import org.http4s.Method.*
 import org.http4s.Status.*
-import pl.iterators.baklava.EmptyBody
 import org.http4s.circe.CirceEntityDecoder.*
 import org.http4s.circe.CirceEntityEncoder.*
 
+case class User(
+    id: Option[Int],
+    username: Option[String],
+    firstName: Option[String],
+    lastName: Option[String],
+    email: Option[String],
+    password: Option[String],
+    phone: Option[String],
+    userStatus: Option[Int]
+)
+
 class PetStoreSecondSpec extends PetStoreHttp4sItSpec {
-  val examplePet = Pet(
-    id = Some(1),
-    name = "cat",
-    photoUrls = Seq("url1", "url2"),
-    tags = Some(Seq(Tag(id = Some(1), name = Some("tag1")))),
-    status = Some(Status.Available)
+  val exampleUser = User(
+    id = Some(10),
+    username = Some("theUser"),
+    firstName = Some("John"),
+    lastName = Some("James"),
+    email = Some("john@email.com"),
+    password = Some("12345"),
+    phone = Some("12345"),
+    userStatus = Some(1)
   )
 
-  path("/pet")(
+  path("/user")(
     supports(
       POST,
-      summary = "Add a new pet to the store",
-      description = "Add a new pet to the store",
-      operationId = "addPetS",
-      tags = Seq("pet")
+      summary = "Create user",
+      description = "This can only be done by the logged in user.",
+      operationId = "createUser",
+      tags = Seq("user")
     )(
-      onRequest(body = examplePet).respondsWith[Pet](Ok, description = "Successful operation").assert { ctx =>
-        ctx.performRequest(routes)
-        ok
-      },
-      onRequest.respondsWith[Error](UnsupportedMediaType, description = "Invalid input").assert { ctx =>
+      onRequest(body = exampleUser).respondsWith[Error](InternalServerError, description = "this is just broken").assert { ctx =>
         ctx.performRequest(routes)
         ok
       }

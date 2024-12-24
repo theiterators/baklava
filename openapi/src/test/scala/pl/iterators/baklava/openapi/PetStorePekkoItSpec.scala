@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.marshalling.ToEntityMarshaller
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives.complete
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.unmarshalling.FromEntityUnmarshaller
+import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
 import org.specs2.mutable.SpecificationLike
 import org.specs2.specification.AfterAll
@@ -37,8 +37,12 @@ trait PetStorePekkoItSpec
 
   val routes: Route = complete(StatusCodes.OK)
 
+  // needed to override circe's always-JSON unmarshaller
+  implicit val stringUnmarshaller: FromEntityUnmarshaller[String] = Unmarshaller.stringUnmarshaller
+
   override def performRequest(routes: Route, request: HttpRequest): HttpResponse = {
-    val fixedRequest = request.withUri("https://petstore.swagger.io/v2" + request.uri.path.toString())
+    val fixedRequest = request.withUri("https://petstore3.swagger.io/api/v3" + request.uri.path.toString())
+
     Await.result(Http().singleRequest(fixedRequest), Duration.Inf)
   }
 }

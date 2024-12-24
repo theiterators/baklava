@@ -2,9 +2,9 @@ package pl.iterators.baklava.openapi
 
 import enumeratum.{Enum, EnumEntry}
 import enumeratum.EnumEntry.Lowercase
-import org.apache.pekko.http.scaladsl.model.HttpMethods.POST
+import org.apache.pekko.http.scaladsl.model.HttpMethods.*
 import org.apache.pekko.http.scaladsl.model.StatusCodes.*
-import pl.iterators.baklava.{EmptyBody, Schema, SchemaType}
+import pl.iterators.baklava.{Schema, SchemaType}
 
 sealed trait Status extends EnumEntry with Lowercase
 object Status extends Enum[Status] {
@@ -32,10 +32,10 @@ case class Tag(id: Option[Long], name: Option[String])
 case class Category(id: Option[Long], name: Option[String])
 case class Pet(id: Option[Long], name: String, photoUrls: Seq[String], tags: Option[Seq[Tag]], status: Option[Status])
 
-case class Error(code: Int, `type`: String, message: String)
+case class Error(code: Int, message: String)
 
 class PetStoreSpec extends PetStorePekkoItSpec {
-  val examplePet = Pet(
+  private val examplePet = Pet(
     id = Some(1),
     name = "doggie",
     photoUrls = Seq("url1", "url2"),
@@ -43,7 +43,35 @@ class PetStoreSpec extends PetStorePekkoItSpec {
     status = Some(Status.Available)
   )
 
+  private val nonExistentPet = Pet(
+    id = Some(-1000),
+    name = "doggie",
+    photoUrls = Seq("string"),
+    tags = Some(Seq(Tag(id = Some(0), name = Some("string")))),
+    status = Some(Status.Available)
+  )
+
   path("/pet")(
+    supports(
+      PUT,
+      summary = "Update an existing pet",
+      description = "Update an existing pet by Id",
+      operationId = "updatePet",
+      tags = Seq("pet")
+    )(
+      onRequest(body = examplePet, headers = Map("Accept" -> "application/json"))
+        .respondsWith[Pet](OK, description = "Update an existent pet in the store")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        },
+      onRequest(body = nonExistentPet, headers = Map("Accept" -> "application/json"))
+        .respondsWith[String](NotFound, description = "Pet not found")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        }
+    ),
     supports(
       POST,
       summary = "Add a new pet to the store",
@@ -51,15 +79,19 @@ class PetStoreSpec extends PetStorePekkoItSpec {
       operationId = "addPet",
       tags = Seq("pet")
     )(
-      onRequest(body = examplePet).respondsWith[Pet](OK, description = "Successful operation").assert { ctx =>
-        ctx.performRequest(routes)
-        ok
-      },
-      onRequest(body = examplePet.copy(name = "doggo")).respondsWith[Pet](OK, description = "Another successful operation").assert { ctx =>
-        ctx.performRequest(routes)
-        ok
-      },
-      onRequest.respondsWith[Error](UnsupportedMediaType, description = "Invalid input").assert { ctx =>
+      onRequest(body = examplePet, headers = Map("Accept" -> "application/json"))
+        .respondsWith[Pet](OK, description = "Successful operation")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        },
+      onRequest(body = examplePet.copy(name = "doggo", id = Some(2)), headers = Map("Accept" -> "application/json"))
+        .respondsWith[Pet](OK, description = "Another successful operation")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        },
+      onRequest.respondsWith[Error](BadRequest, description = "Invalid input").assert { ctx =>
         ctx.performRequest(routes)
         ok
       }

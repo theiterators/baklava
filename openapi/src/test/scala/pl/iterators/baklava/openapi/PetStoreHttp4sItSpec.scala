@@ -35,10 +35,14 @@ trait PetStoreHttp4sItSpec
       .build
       .use { client =>
         client
-          .run(request.withUri(Uri.unsafeFromString(s"https://petstore.swagger.io/v2${request.uri.path}")))
-          .use(IO.pure)
+          .run(request.withUri(Uri.unsafeFromString(s"https://petstore3.swagger.io/api/v3${request.uri.path}")))
+          .use { response =>
+            // fixing for unsafeRunSync
+            response.body.compile.toList.flatMap { bodyBytes =>
+              IO.pure(response.copy(body = fs2.Stream.emits(bodyBytes)))
+            }
+          }
       }
       .unsafeRunSync()
-
   }
 }

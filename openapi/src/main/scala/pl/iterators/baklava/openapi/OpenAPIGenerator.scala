@@ -23,7 +23,7 @@ object OpenAPIGenerator {
             new io.swagger.v3.oas.models.info.License().name("Apache 2.0").url("http://www.apache.org/licenses/LICENSE-2.0.html")
           )
       )
-      .addServersItem(new io.swagger.v3.oas.models.servers.Server().url("https://petstore.swagger.io/v2"))
+      .addServersItem(new io.swagger.v3.oas.models.servers.Server().url("https://petstore3.swagger.io/api/v3"))
 
     chunks.foreach { chunk =>
       val chunkPaths = chunk.getPaths
@@ -42,36 +42,12 @@ object OpenAPIGenerator {
       responses.groupBy(_._1.method).foreach { case (method, responses) =>
         val operation          = new io.swagger.v3.oas.models.Operation()
         val operationResponses = new io.swagger.v3.oas.models.responses.ApiResponses()
-//        responses.foreach { case (ctx, response) =>
-//          val r = new io.swagger.v3.oas.models.responses.ApiResponse()
-//          response.bodySchema.filterNot(_ == BaklavaSchema.emptyBodySchema).foreach { baklavaSchema =>
-//            val schema = baklavaSchemaToOpenAPISchema(baklavaSchema)
-//            schema.setExample(response.responseBodyString)
-//            r.setContent(
-//              new Content()
-//                .addMediaType(
-//                  response.responseContentType.getOrElse("application/octet-stream"),
-//                  new io.swagger.v3.oas.models.media.MediaType().schema(schema)
-//                )
-//            )
-//          }
-//
-//          ctx.responseDescription.foreach(r.setDescription)
-//          response.headers.headers.filterNot { case (name, _) => name.toLowerCase == "content-type" }.foreach { case (name, header) =>
-//            val h = new io.swagger.v3.oas.models.headers.Header()
-//            h.schema(new Schema[String]().`type`("string"))
-//            h.example(header)
-//            r.addHeaderObject(name, h)
-//          }
-//          operationResponses
-//            .addApiResponse(response.status.status.toString, r)
-//        }
         responses.groupBy(_._2.status).foreach { case (status, commonStatusResponses) =>
           commonStatusResponses.groupBy(_._2.responseContentType).foreach { case (contentType, commonContentTypeResponses) =>
             val r           = new io.swagger.v3.oas.models.responses.ApiResponse()
             val content     = new Content()
             val mediaType   = new io.swagger.v3.oas.models.media.MediaType()
-            val firstSchema = commonContentTypeResponses.flatMap(_._1.bodySchema).find(_ != BaklavaSchema.emptyBodySchema)
+            val firstSchema = commonContentTypeResponses.flatMap(_._2.bodySchema).find(_ != BaklavaSchema.emptyBodySchema)
             firstSchema.foreach { schema =>
               mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
             }
@@ -102,7 +78,8 @@ object OpenAPIGenerator {
         val content     = new Content()
 
         val successfulResponses = responses.filter(_._2.status.status / 100 == 2).sortBy(_._2.status.status)
-        successfulResponses.groupBy(_._2.requestContentType).foreach { case (contentType, responses) =>
+        val responsesToProcess  = if (successfulResponses.isEmpty) responses else successfulResponses // sometimes there are no successful responses
+        responsesToProcess.groupBy(_._2.requestContentType).foreach { case (contentType, responses) =>
           val mediaType   = new io.swagger.v3.oas.models.media.MediaType()
           val firstSchema = responses.flatMap(_._1.bodySchema).find(_ != BaklavaSchema.emptyBodySchema)
           firstSchema.foreach { schema =>

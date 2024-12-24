@@ -84,18 +84,27 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
   override def httpResponseToBaklavaResponseContext[T: BaklavaHttp4s.FromEntityUnmarshaller](
       request: Request[IO],
       response: Response[IO]
-  ): BaklavaResponseContext[T, Request[IO], Response[IO]] = BaklavaResponseContext(
-    response.httpVersion,
-    response.status,
-    response.headers,
-    response.as[T].unsafeRunSync(),
-    request,
-    request.as[String].unsafeRunSync(),
-    response,
-    response.as[String].unsafeRunSync(),
-    request.headers.get[headers.`Content-Type`].map(ct => s"${ct.mediaType.mainType}/${ct.mediaType.subType}"),
-    response.headers.get[headers.`Content-Type`].map(ct => s"${ct.mediaType.mainType}/${ct.mediaType.subType}")
-  )
+  ): BaklavaResponseContext[T, Request[IO], Response[IO]] = {
+    val requestBytes   = request.body.compile.toVector.unsafeRunSync()
+    val requestString  = new String(requestBytes.toArray, "UTF-8")
+    val newRequest     = request.withBodyStream(fs2.Stream.emits(requestBytes))
+    val responseBytes  = response.body.compile.toVector.unsafeRunSync()
+    val responseString = new String(responseBytes.toArray, "UTF-8")
+    val newResponse    = response.withBodyStream(fs2.Stream.emits(responseBytes))
+
+    BaklavaResponseContext(
+      response.httpVersion,
+      response.status,
+      response.headers,
+      newResponse.as[T].unsafeRunSync(),
+      newRequest,
+      requestString,
+      newResponse,
+      responseString,
+      request.headers.get[headers.`Content-Type`].map(ct => s"${ct.mediaType.mainType}/${ct.mediaType.subType}"),
+      response.headers.get[headers.`Content-Type`].map(ct => s"${ct.mediaType.mainType}/${ct.mediaType.subType}")
+    )
+  }
 
   override def baklavaContextToHttpRequest[
       RequestBody,
