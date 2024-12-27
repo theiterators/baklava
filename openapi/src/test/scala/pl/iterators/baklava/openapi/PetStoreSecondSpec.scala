@@ -36,7 +36,7 @@ class PetStoreSecondSpec extends PetStoreHttp4sItSpec {
       operationId = "createUser",
       tags = Seq("user")
     )(
-      onRequest(body = exampleUser).respondsWith[Error](InternalServerError, description = "this is just broken").assert { ctx =>
+      onRequest(body = exampleUser).respondsWith[User](Ok, description = "successful operation").assert { ctx =>
         ctx.performRequest(routes)
         ok
       }

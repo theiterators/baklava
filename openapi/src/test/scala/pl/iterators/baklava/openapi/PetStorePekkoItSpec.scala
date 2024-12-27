@@ -41,8 +41,7 @@ trait PetStorePekkoItSpec
   implicit val stringUnmarshaller: FromEntityUnmarshaller[String] = Unmarshaller.stringUnmarshaller
 
   override def performRequest(routes: Route, request: HttpRequest): HttpResponse = {
-    val fixedRequest = request.withUri("https://petstore3.swagger.io/api/v3" + request.uri.path.toString())
-
+    val fixedRequest = request.withUri("https://petstore3.swagger.io/api/v3" + request.uri.toString())
     Await.result(Http().singleRequest(fixedRequest), Duration.Inf)
   }
 }

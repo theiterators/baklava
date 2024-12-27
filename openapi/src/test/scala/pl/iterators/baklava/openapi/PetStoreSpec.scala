@@ -4,7 +4,7 @@ import enumeratum.{Enum, EnumEntry}
 import enumeratum.EnumEntry.Lowercase
 import org.apache.pekko.http.scaladsl.model.HttpMethods.*
 import org.apache.pekko.http.scaladsl.model.StatusCodes.*
-import pl.iterators.baklava.{Schema, SchemaType}
+import pl.iterators.baklava.{Schema, SchemaType, ToQueryParam}
 
 sealed trait Status extends EnumEntry with Lowercase
 object Status extends Enum[Status] {
@@ -19,12 +19,16 @@ object Status extends Enum[Status] {
     val className: String                  = "Status"
     val format: Option[String]             = None
     val properties: Map[String, Schema[?]] = Map.empty
-    val `enum`: Option[Set[String]]        = Some(Status.values.map(_.entryName.toLowerCase).toSet)
+    val `enum`: Option[Set[String]]        = Some(Status.values.map(_.entryName).toSet)
     val items: Option[Schema[_]]           = None
     val required: Boolean                  = true
     val additionalProperties: Boolean      = false
     val default: Option[Status]            = None
     val description: Option[String]        = Some("Pet status in the store")
+  }
+
+  implicit val toQueryParam: ToQueryParam[Status] = new ToQueryParam[Status] {
+    def apply(t: Status): Seq[String] = Seq(t.entryName)
   }
 }
 
@@ -95,6 +99,30 @@ class PetStoreSpec extends PetStorePekkoItSpec {
         ctx.performRequest(routes)
         ok
       }
+    )
+  )
+
+  path("/pet/findByStatus")(
+    supports(
+      GET,
+      queryParameters = q[Status]("status"),
+      summary = "Finds Pets by status",
+      description = "Multiple status values can be provided with comma separated strings",
+      operationId = "findPetsByStatus",
+      tags = Seq("pet")
+    )(
+      onRequest(queryParameters = Status.Available, headers = Map("Accept" -> "application/json"))
+        .respondsWith[Seq[Pet]](OK, description = "Successful operation")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        },
+      onRequest(headers = Map("Accept" -> "application/json"))
+        .respondsWith[String](BadRequest, description = "Invalid status value")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        }
     )
   )
 }

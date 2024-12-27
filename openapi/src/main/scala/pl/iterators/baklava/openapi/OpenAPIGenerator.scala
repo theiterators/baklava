@@ -78,29 +78,41 @@ object OpenAPIGenerator {
         val content     = new Content()
 
         val successfulResponses = responses.filter(_._2.status.status / 100 == 2).sortBy(_._2.status.status)
-        val responsesToProcess  = if (successfulResponses.isEmpty) responses else successfulResponses // sometimes there are no successful responses
+        val responsesToProcess =
+          if (successfulResponses.isEmpty) responses else successfulResponses // sometimes there are no successful responses
         responsesToProcess.groupBy(_._2.requestContentType).foreach { case (contentType, responses) =>
           val mediaType   = new io.swagger.v3.oas.models.media.MediaType()
           val firstSchema = responses.flatMap(_._1.bodySchema).find(_ != BaklavaSchema.emptyBodySchema)
           firstSchema.foreach { schema =>
             mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
+            responses.zipWithIndex.foreach { case ((ctx, response), idx) =>
+              mediaType.addExamples(
+                ctx.responseDescription.getOrElse(s"Example $idx"),
+                new io.swagger.v3.oas.models.examples.Example().value(response.requestBodyString)
+              )
+            }
+            content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
           }
-
-          responses.zipWithIndex.foreach { case ((ctx, response), idx) =>
-            mediaType.addExamples(
-              ctx.responseDescription.getOrElse(s"Example $idx"),
-              new io.swagger.v3.oas.models.examples.Example().value(response.requestBodyString)
-            )
-          }
-          content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
         }
         requestBody.setContent(content)
-        operation.setRequestBody(requestBody)
+        if (!content.isEmpty) operation.setRequestBody(requestBody)
 
         responses.head._1.operationId.foreach(operation.setOperationId)
         responses.head._1.operationSummary.foreach(operation.setSummary)
         responses.head._1.operationDescription.foreach(operation.setDescription)
         operation.setTags(responses.head._1.operationTags.asJava)
+
+        operation.setParameters(responses.head._1.queryParametersSeq.map { queryParam =>
+          val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
+          parameter.setName(queryParam.name)
+          parameter.setIn("query")
+          parameter.setRequired(queryParam.schema.required)
+          parameter.setExplode(true) // I guess this is default?
+          parameter.setSchema(baklavaSchemaToOpenAPISchema(queryParam.schema))
+          queryParam.description.foreach(parameter.setDescription)
+          // TODO: we could add example best on provided in test case :shrug:
+          parameter
+        }.asJava)
 
         pathItem.operation(io.swagger.v3.oas.models.PathItem.HttpMethod.valueOf(method.get.value.toUpperCase), operation)
         responses.head._1.pathSummary.foreach(pathItem.setSummary)

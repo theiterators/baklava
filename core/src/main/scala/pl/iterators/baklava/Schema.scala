@@ -89,6 +89,7 @@ object Schema extends SchemaDerivation {
   implicit val doubleSchema: PrimitiveSchema[Double]         = PrimitiveSchema[Double]("Double", SchemaType.NumberType, Some("double"))
   implicit val stringSchema: PrimitiveSchema[String]         = PrimitiveSchema[String]("String", SchemaType.StringType, None)
   implicit val byteSchema: PrimitiveSchema[Byte]             = PrimitiveSchema[Byte]("Byte", SchemaType.IntegerType, None)
+  implicit val charSchema: PrimitiveSchema[Char]             = PrimitiveSchema[Char]("Char", SchemaType.StringType, None)
   implicit val shortSchema: PrimitiveSchema[Short]           = PrimitiveSchema[Short]("Short", SchemaType.IntegerType, None)
   implicit val booleanSchema: PrimitiveSchema[Boolean]       = PrimitiveSchema[Boolean]("Boolean", SchemaType.BooleanType, None)
   implicit val nullSchema: PrimitiveSchema[Null]             = PrimitiveSchema[Null]("Null", SchemaType.NullType, None)
@@ -143,8 +144,6 @@ object Schema extends SchemaDerivation {
     val description: Option[String]        = None
   }
   implicit def uuidSchema: PrimitiveSchema[java.util.UUID] = PrimitiveSchema[java.util.UUID]("UUID", SchemaType.StringType, Some("uuid"))
-  // TODO: java.time.*
-  // TODO: java.util.*
   // TODO: arrays, collections
 }
 

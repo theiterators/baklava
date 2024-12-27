@@ -34,6 +34,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       pathParametersProvided = (),
       queryParameters = (),
       queryParametersProvided = (),
+      queryParametersSeq = Seq.empty,
       responseDescription = None
     )
     pathLevelTextWithFragments(
@@ -60,7 +61,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       tags: Seq[String] = Seq.empty
   )(
       steps: BaklavaIntermediateTestCase[PathParameters, QueryParameters]*
-  ): BaklavaMethodDefinition =
+  )(implicit toQueryParamSeq: ToQueryParamSeq[QueryParameters]): BaklavaMethodDefinition =
     new BaklavaMethodDefinition {
       override def apply(ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any]): TestFrameworkFragmentsType = {
         val finalSummary = if (summary.trim.isEmpty) "" else ": " + summary.trim
@@ -82,6 +83,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
           pathParametersProvided = (),
           queryParameters = queryParameters,
           queryParametersProvided = (),
+          queryParametersSeq = toQueryParamSeq.apply(queryParameters),
           responseDescription = None
         )
         methodLevelTextWithFragments(s"support ${method.value}" + finalSummary, newCtx, fragmentsFromSeq(steps.map(_.apply(newCtx))))

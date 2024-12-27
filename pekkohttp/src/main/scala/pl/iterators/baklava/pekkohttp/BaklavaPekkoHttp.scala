@@ -2,11 +2,11 @@ package pl.iterators.baklava.pekkohttp
 
 import org.apache.pekko.http.scaladsl.client.RequestBuilding.RequestBuilder
 import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, Marshalling, ToEntityMarshaller}
-import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpHeader, MessageEntity, ResponseEntity}
+import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpHeader, MessageEntity}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.{BroadcastHub, Keep, Sink}
+import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.util.ByteString
 import pl.iterators.baklava.{
   BaklavaHttpDsl,
@@ -121,7 +121,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       Await.result(implicitly[FromEntityUnmarshaller[String]].apply(request.entity), Duration.Inf),
       response,
       Await.result(implicitly[FromEntityUnmarshaller[String]].apply(secondResponseEntity), Duration.Inf),
-      Option.when(response.entity.contentType != HttpEntity.Empty.contentType)(
+      Option.when(request.entity.contentType != HttpEntity.Empty.contentType)(
         response.entity.contentType.value
       ),
       Option.when(response.entity.contentType != HttpEntity.Empty.contentType)(
