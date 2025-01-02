@@ -52,6 +52,9 @@ val baklavaGenerate = taskKey[Unit]("Generate documentation using baklava")
 val baklavaClean    = taskKey[Unit]("Clean artifacts created by baklava")
 val clazz           = "pl.iterators.baklava.BaklavaGenerate"
 
+//todo default value
+val baklavaGenerateConfigs = taskKey[Map[String, String]]("Options for baklava generate")
+
 lazy val openapi = project
   .in(file("openapi"))
   .dependsOn(core, pekkohttp % "test", http4s % "test", specs2 % "test")
@@ -67,13 +70,39 @@ lazy val openapi = project
       "org.http4s"           %% "http4s-ember-client" % http4sV        % "test",
       "org.http4s"           %% "http4s-circe"        % http4sV        % "test"
     ),
+    baklavaGenerateConfigs := Map(
+      "openapi_header" ->
+        """
+          |{
+          |  "openapi" : "3.0.1",
+          |  "info" : {
+          |    "title" : "Swagger Petstore",
+          |    "description" : "This is a sample server Petstore server.",
+          |    "termsOfService" : "http://swagger.io/terms/",
+          |    "contact" : {
+          |      "email" : "apiteam@swagger.io"
+          |    },
+          |    "license" : {
+          |      "name" : "Apache 2.0",
+          |      "url" : "http://www.apache.org/licenses/LICENSE-2.0.html"
+          |    },
+          |    "version" : "1.0.7"
+          |  },
+          |  "servers" : [ {
+          |    "url" : "https://petstore.swagger.io/v2"
+          |  } ]
+          |}
+          |""".stripMargin
+    ),
     baklavaGenerate := { // todo move to plugin
       val configurationClassPath = (Test / fullClasspath).value
       val r                      = (Test / run / runner).value
       val s                      = streams.value
+      val config = baklavaGenerateConfigs.value
+      val serializedConfig = config.map { case (key, value) => s"$key=$value" }.toList
 
       s.log.log(Level.Info, "Running baklava generate")
-      r.run(clazz, data(configurationClassPath), Nil, s.log).get
+      r.run(clazz, data(configurationClassPath), serializedConfig, s.log).get
     },
     baklavaClean := { // todo move to plugin
       val s = streams.value
@@ -89,9 +118,11 @@ lazy val openapi = project
       val configurationClassPath = (Test / fullClasspath).value
       val r                      = (Test / run / runner).value
       val s                      = streams.value
+      val config = baklavaGenerateConfigs.value
+      val serializedConfig = config.map { case (key, value) => s"$key=$value" }.toList
       // todo check if its possible to execute code of BaklavaGenerate directly here if in plugin
       s.log.log(Level.Info, "Running baklava generate")
-      r.run(clazz, data(configurationClassPath), Nil, s.log).get
+      r.run(clazz, data(configurationClassPath), serializedConfig, s.log).get
     }
   )
 

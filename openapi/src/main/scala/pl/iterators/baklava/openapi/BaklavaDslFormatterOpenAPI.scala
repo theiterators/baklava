@@ -1,12 +1,13 @@
 package pl.iterators.baklava.openapi
 
 import io.swagger.v3.core.util.Json
+import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.parser.OpenAPIV3Parser
 import pl.iterators.baklava.{BaklavaDslFormatter, BaklavaRequestContext, BaklavaResponseContext}
 
 import java.io.{File, FileInputStream, FileOutputStream}
 import java.net.URLEncoder
-import scala.util.Using
+import scala.util.{Try, Using}
 
 //todo
 class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
@@ -34,8 +35,8 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
     ()
   }
 
-  override def mergeChunks(): Unit = {
-    println("running merge chunks")
+  override def mergeChunks(config: Map[String, String]): Unit = {
+    println(s"running merge chunks")
     val chunks = Option(dirFile.listFiles())
       .getOrElse(Array.empty[File])
       .filter(_.getName.endsWith(chunkExtension))
@@ -56,8 +57,14 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
     val finalFile = new File(s"$dirName/baklava.openapi")
 
     Using(new FileOutputStream(finalFile)) { outputStream =>
-
-      val jsonString = Json.pretty(OpenAPIGenerator.merge(chunks))
+      val parser = new OpenAPIV3Parser
+      val openApiHeaderChunk = config
+        .get("openapi_header")
+        .flatMap { openApiHeader =>
+          Option(parser.readContents(openApiHeader, null, null).getOpenAPI)
+        }
+        .getOrElse(new OpenAPI())
+      val jsonString = Json.pretty(OpenAPIGenerator.merge(openApiHeaderChunk, chunks))
 
       outputStream.write(jsonString.getBytes)
     }.recover { case e: Exception =>
