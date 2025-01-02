@@ -25,7 +25,7 @@ object OpenAPIGenerator {
       }
     openAPI.components(new io.swagger.v3.oas.models.Components().securitySchemes(securitySchemesMerged.asJava))
 
-    openAPI
+    BaklavaOpenApiPostProcessor.postProcessors.foldLeft(openAPI) { case (openAPI, processor) => processor.process(openAPI) }
   }
 
   def chunk(context: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): OpenAPI = {
@@ -155,7 +155,7 @@ object OpenAPIGenerator {
           securityScheme.setFlows(oauthFlows)
         case NoopSecurity =>
       }
-    scheme.name -> securityScheme
+      scheme.name -> securityScheme
     }
     openAPI.components(new io.swagger.v3.oas.models.Components().securitySchemes(securitySchemes.toMap.asJava))
 

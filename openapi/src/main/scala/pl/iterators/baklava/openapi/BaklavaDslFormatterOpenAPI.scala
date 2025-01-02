@@ -7,9 +7,8 @@ import pl.iterators.baklava.{BaklavaDslFormatter, BaklavaRequestContext, Baklava
 
 import java.io.{File, FileInputStream, FileOutputStream}
 import java.net.URLEncoder
-import scala.util.{Try, Using}
+import scala.util.Using
 
-//todo
 class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
 //todo names - check if its possible to read the target name from context or something like thath
   private val dirName        = "target/baklava"
@@ -36,13 +35,11 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
   }
 
   override def mergeChunks(config: Map[String, String]): Unit = {
-    println(s"running merge chunks")
     val chunks = Option(dirFile.listFiles())
       .getOrElse(Array.empty[File])
       .filter(_.getName.endsWith(chunkExtension))
       .flatMap { file =>
         Using(new FileInputStream(file)) { chunkInputStream =>
-          // todo
           val byteArray = new Array[Byte](file.length().toInt)
           chunkInputStream.read(byteArray)
 
@@ -59,11 +56,13 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
     Using(new FileOutputStream(finalFile)) { outputStream =>
       val parser = new OpenAPIV3Parser
       val openApiHeaderChunk = config
-        .get("openapi_header")
+        .get("openapi-info")
         .flatMap { openApiHeader =>
           Option(parser.readContents(openApiHeader, null, null).getOpenAPI)
         }
         .getOrElse(new OpenAPI())
+
+      //todo change to yml version
       val jsonString = Json.pretty(OpenAPIGenerator.merge(openApiHeaderChunk, chunks))
 
       outputStream.write(jsonString.getBytes)

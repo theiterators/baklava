@@ -17,7 +17,7 @@ ThisBuild / scalaVersion       := Scala213
 
 // TODO: add -Yretain-trees to scalacOptions to enable magnolia features
 
-lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, http4s, specs2, scalatest, munit)
+lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, http4s, specs2, scalatest, munit, sbtplugin)
 
 val swaggerV       = "2.2.27"
 val swaggerParserV = "2.1.24"
@@ -47,14 +47,6 @@ lazy val core = project
     )
   )
 
-// todo this should not be here but in baklava-plugin. here only for test reason
-val baklavaGenerate = taskKey[Unit]("Generate documentation using baklava")
-val baklavaClean    = taskKey[Unit]("Clean artifacts created by baklava")
-val clazz           = "pl.iterators.baklava.BaklavaGenerate"
-
-//todo default value
-val baklavaGenerateConfigs = taskKey[Map[String, String]]("Options for baklava generate")
-
 lazy val openapi = project
   .in(file("openapi"))
   .dependsOn(core, pekkohttp % "test", http4s % "test", specs2 % "test")
@@ -69,61 +61,7 @@ lazy val openapi = project
       "com.github.pjfanning" %% "pekko-http-circe"    % pekkoHttpJsonV % "test",
       "org.http4s"           %% "http4s-ember-client" % http4sV        % "test",
       "org.http4s"           %% "http4s-circe"        % http4sV        % "test"
-    ),
-    baklavaGenerateConfigs := Map(
-      "openapi_header" ->
-        """
-          |{
-          |  "openapi" : "3.0.1",
-          |  "info" : {
-          |    "title" : "Swagger Petstore",
-          |    "description" : "This is a sample server Petstore server.",
-          |    "termsOfService" : "http://swagger.io/terms/",
-          |    "contact" : {
-          |      "email" : "apiteam@swagger.io"
-          |    },
-          |    "license" : {
-          |      "name" : "Apache 2.0",
-          |      "url" : "http://www.apache.org/licenses/LICENSE-2.0.html"
-          |    },
-          |    "version" : "1.0.7"
-          |  },
-          |  "servers" : [ {
-          |    "url" : "https://petstore.swagger.io/v2"
-          |  } ]
-          |}
-          |""".stripMargin
-    ),
-    baklavaGenerate := { // todo move to plugin
-      val configurationClassPath = (Test / fullClasspath).value
-      val r                      = (Test / run / runner).value
-      val s                      = streams.value
-      val config = baklavaGenerateConfigs.value
-      val serializedConfig = config.map { case (key, value) => s"$key=$value" }.toList
-
-      s.log.log(Level.Info, "Running baklava generate")
-      r.run(clazz, data(configurationClassPath), serializedConfig, s.log).get
-    },
-    baklavaClean := { // todo move to plugin
-      val s = streams.value
-      s.log.log(Level.Info, "Running baklava cleanup")
-      val baklavaDir = new File("target/baklava")
-
-      if (baklavaDir.exists()) {
-        IO.delete(baklavaDir)
-      }
-
-    },
-    Test / testOptions += Tests.Cleanup { () =>
-      val configurationClassPath = (Test / fullClasspath).value
-      val r                      = (Test / run / runner).value
-      val s                      = streams.value
-      val config = baklavaGenerateConfigs.value
-      val serializedConfig = config.map { case (key, value) => s"$key=$value" }.toList
-      // todo check if its possible to execute code of BaklavaGenerate directly here if in plugin
-      s.log.log(Level.Info, "Running baklava generate")
-      r.run(clazz, data(configurationClassPath), serializedConfig, s.log).get
-    }
+    )
   )
 
 lazy val pekkohttp = project
@@ -176,6 +114,20 @@ lazy val munit = project
     libraryDependencies ++= Seq(
       "org.scalameta" %% "munit" % munitV
     )
+  )
+
+lazy val sbtplugin = project
+  .in(file("sbtplugin"))
+  .enablePlugins(SbtPlugin)
+  .settings(
+    name               := "baklava2-sbt-plugin",
+    scalaVersion       := "2.12.17",
+    crossScalaVersions := Seq("2.12.17"),
+    pluginCrossBuild / sbtVersion := {
+      scalaBinaryVersion.value match {
+        case "2.12" => "1.3.10" // set minimum sbt version
+      }
+    }
   )
 
 Test / scalafmtOnCompile      := true
