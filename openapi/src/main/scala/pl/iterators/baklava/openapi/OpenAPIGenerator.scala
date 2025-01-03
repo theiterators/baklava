@@ -114,6 +114,17 @@ object OpenAPIGenerator {
           parameter
         }.asJava)
 
+        operation.setParameters(responses.head._1.pathParametersSeq.map { pathParam =>
+          val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
+          parameter.setName(pathParam.name)
+          parameter.setIn("path")
+          parameter.setRequired(pathParam.schema.required)
+          parameter.setSchema(baklavaSchemaToOpenAPISchema(pathParam.schema))
+          pathParam.description.foreach(parameter.setDescription)
+          // TODO: we could add example best on provided in test case :shrug:
+          parameter
+        }.asJava)
+
         pathItem.operation(io.swagger.v3.oas.models.PathItem.HttpMethod.valueOf(method.get.value.toUpperCase), operation)
         responses.head._1.pathSummary.foreach(pathItem.setSummary)
         responses.head._1.pathDescription.foreach(pathItem.setDescription)

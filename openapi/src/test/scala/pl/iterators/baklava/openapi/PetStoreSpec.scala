@@ -34,14 +34,14 @@ object Status extends Enum[Status] {
 
 case class Tag(id: Option[Long], name: Option[String])
 case class Category(id: Option[Long], name: Option[String])
-case class Pet(id: Option[Long], name: String, photoUrls: Seq[String], tags: Option[Seq[Tag]], status: Option[Status])
+case class Pet(id: Option[Long], name: Option[String], photoUrls: Seq[String], tags: Option[Seq[Tag]], status: Option[Status])
 
 case class Error(code: Int, message: String)
 
 class PetStoreSpec extends PetStorePekkoItSpec {
   private val examplePet = Pet(
     id = Some(1),
-    name = "doggie",
+    name = Some("doggie"),
     photoUrls = Seq("url1", "url2"),
     tags = Some(Seq(Tag(id = Some(1), name = Some("tag1")))),
     status = Some(Status.Available)
@@ -49,7 +49,7 @@ class PetStoreSpec extends PetStorePekkoItSpec {
 
   private val nonExistentPet = Pet(
     id = Some(-1000),
-    name = "doggie",
+    name = Some("doggie"),
     photoUrls = Seq("string"),
     tags = Some(Seq(Tag(id = Some(0), name = Some("string")))),
     status = Some(Status.Available)
@@ -89,7 +89,7 @@ class PetStoreSpec extends PetStorePekkoItSpec {
           ctx.performRequest(routes)
           ok
         },
-      onRequest(body = examplePet.copy(name = "doggo", id = Some(2)), headers = Map("Accept" -> "application/json"))
+      onRequest(body = examplePet.copy(name = Some("doggo"), id = Some(2)), headers = Map("Accept" -> "application/json"))
         .respondsWith[Pet](OK, description = "Another successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
@@ -119,6 +119,54 @@ class PetStoreSpec extends PetStorePekkoItSpec {
         },
       onRequest(headers = Map("Accept" -> "application/json"))
         .respondsWith[String](BadRequest, description = "Invalid status value")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        }
+    )
+  )
+
+  path("/pet/findByTags")(
+    supports(
+      GET,
+      queryParameters = q[Seq[String]]("tags"),
+      summary = "Finds Pets by tag",
+      description = "Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing.",
+      operationId = "findPetsByTag",
+      tags = Seq("pet")
+    )(
+      onRequest(queryParameters = Seq("tag1", "tag2"), headers = Map("Accept" -> "application/json"))
+        .respondsWith[Seq[Pet]](OK, description = "Successful operation")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        },
+      onRequest(headers = Map("Accept" -> "application/json"))
+        .respondsWith[String](BadRequest, description = "Invalid tag value")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        }
+    )
+  )
+
+  path("/pet/{petId}")(
+    supports(
+      GET,
+      pathParameters = p[Int]("petId"),
+      summary = "Find pet by ID",
+      description = "Returns a single pet",
+      operationId = "getPetById",
+      tags = Seq("pet")
+    )(
+      onRequest(pathParameters = 1, headers = Map("Accept" -> "application/json"))
+        .respondsWith[Pet](OK, description = "Successful operation")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        },
+      onRequest(pathParameters = -2137, headers = Map("Accept" -> "application/json"))
+        .respondsWith[String](NotFound, description = "Pet not found")
         .assert { ctx =>
           ctx.performRequest(routes)
           ok

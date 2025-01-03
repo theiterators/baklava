@@ -1,8 +1,5 @@
 package pl.iterators.baklava
 
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-
 sealed trait EmptyBody
 
 case object EmptyBodyInstance extends EmptyBody
@@ -31,6 +28,7 @@ case class BaklavaRequestContext[Body, PathParameters, PathParametersProvided, Q
     security: Option[Security],
     pathParameters: PathParameters,
     pathParametersProvided: PathParametersProvided,
+    pathParametersSeq: Seq[PathParam[?]],
     queryParameters: QueryParameters,
     queryParametersProvided: QueryParametersProvided,
     queryParametersSeq: Seq[QueryParam[?]],
@@ -65,22 +63,6 @@ case class Basic(id: String, secret: String) extends Security {
   override val `scheme`: String = "basic"
 }
 
-trait ToPathParam[T] {
-  def apply(t: T): String
-}
-
-case class PathParam[T](name: String)(implicit val tsm: ToPathParam[T], val schema: Schema[T]) {
-  type Underlying = T
-}
-
-trait ProvidePathParams[T, U] {
-  def apply(
-      pathParams: T,
-      pathParamsProvided: U,
-      uri: String
-  ): String
-}
-
 trait BaklavaHttpDsl[
     RouteType,
     ToRequestBodyType[_],
@@ -88,7 +70,8 @@ trait BaklavaHttpDsl[
     TestFrameworkFragmentType,
     TestFrameworkFragmentsType,
     TestFrameworkExecutionType[_]
-] extends BaklavaQueryParams {
+] extends BaklavaQueryParams
+    with BaklavaPathParams {
   this: BaklavaTestFrameworkDsl[
     RouteType,
     ToRequestBodyType,
@@ -132,33 +115,6 @@ trait BaklavaHttpDsl[
       ) => BaklavaResponseContext[ResponseBody, HttpRequest, HttpResponse]
   ) {
     def performRequest(route: RouteType): BaklavaResponseContext[ResponseBody, HttpRequest, HttpResponse] = _performRequest(ctx, route)
-  }
-
-  def p[T](name: String)(implicit tsm: ToPathParam[T], schema: Schema[T]): PathParam[T] = PathParam[T](name)
-
-  implicit val toPathParamString: ToPathParam[String] = new ToPathParam[String] {
-    override def apply(t: String): String = t
-  }
-
-  implicit val toPathParamUUID: ToPathParam[java.util.UUID] = new ToPathParam[java.util.UUID] {
-    override def apply(t: java.util.UUID): String = t.toString
-  }
-
-  implicit val providePathParamsUnit: ProvidePathParams[Unit, Unit] = new ProvidePathParams[Unit, Unit] {
-    override def apply(
-        pathParams: Unit,
-        pathParamsProvided: Unit,
-        uri: String
-    ): String = uri
-  }
-
-  implicit def providePathParamsSingleValue[T]: ProvidePathParams[PathParam[T], T] = new ProvidePathParams[PathParam[T], T] {
-    override def apply(
-        pathParams: PathParam[T],
-        pathParamsProvided: T,
-        uri: String
-    ): String =
-      uri.replace(s"{${pathParams.name}}", URLEncoder.encode(pathParams.tsm(pathParamsProvided), StandardCharsets.UTF_8.toString))
   }
 
   def testCase[PathParameters, QueryParameters](
