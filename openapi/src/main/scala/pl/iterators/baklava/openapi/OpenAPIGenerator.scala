@@ -32,11 +32,149 @@ object OpenAPIGenerator {
       }
     }
 
+    val securitySchemesMerged = chunks
+      .map { chunk =>
+        Option(chunk.getComponents).flatMap(c => Option(c.getSecuritySchemes)).map(_.asScala).getOrElse(Map.empty)
+      }
+      .foldLeft(Map.empty[String, io.swagger.v3.oas.models.security.SecurityScheme]) { (acc, securitySchemes) =>
+        acc ++ securitySchemes
+      }
+    openAPI.components(new io.swagger.v3.oas.models.Components().securitySchemes(securitySchemesMerged.asJava))
+
     openAPI
   }
 
   def chunk(context: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): OpenAPI = {
     val openAPI = new OpenAPI()
+
+    val securitySchemes = context.flatMap(_._1.securitySchemes).distinctBy(_.name).map { scheme =>
+      // TODO: massive repetition and boilerplate ahead, to be refactored
+      val securityScheme = new io.swagger.v3.oas.models.security.SecurityScheme()
+      scheme.security.descriptionParsed.foreach(securityScheme.setDescription)
+      scheme.security match {
+        case HttpBearer(bearerFormat, _) =>
+          securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.HTTP)
+          securityScheme.setScheme("bearer")
+          securityScheme.setBearerFormat(bearerFormat)
+        case HttpBasic(_) =>
+          securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.HTTP)
+          securityScheme.setScheme("basic")
+        case ApiKeyInHeader(name, _) =>
+          securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.APIKEY)
+          securityScheme.setIn(io.swagger.v3.oas.models.security.SecurityScheme.In.HEADER)
+          securityScheme.setName(name)
+        case ApiKeyInQuery(name, _) =>
+          securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.APIKEY)
+          securityScheme.setIn(io.swagger.v3.oas.models.security.SecurityScheme.In.QUERY)
+          securityScheme.setName(name)
+        case ApiKeyInCookie(name, _) =>
+          securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.APIKEY)
+          securityScheme.setIn(io.swagger.v3.oas.models.security.SecurityScheme.In.COOKIE)
+          securityScheme.setName(name)
+        case MutualTls(_) =>
+          securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.MUTUALTLS)
+        case OpenIdConnectInBearer(openIdConnectUrl, _) =>
+          securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OPENIDCONNECT)
+          securityScheme.setOpenIdConnectUrl(openIdConnectUrl.toString)
+        case OpenIdConnectInCookie(openIdConnectUrl, _) =>
+          securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OPENIDCONNECT)
+          securityScheme.setOpenIdConnectUrl(openIdConnectUrl.toString)
+        case OAuth2InBearer(flows, _) =>
+          securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OAUTH2)
+          val oauthFlows = new io.swagger.v3.oas.models.security.OAuthFlows()
+          flows.implicitFlow.foreach { implicitFlow =>
+            val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+            flow.setAuthorizationUrl(implicitFlow.authorizationUrl.toString)
+            val scopes = new io.swagger.v3.oas.models.security.Scopes()
+            implicitFlow.scopes.foreach { case (name, description) =>
+              scopes.addString(name, description)
+            }
+            flow.setScopes(scopes)
+            oauthFlows.setImplicit(flow)
+          }
+          flows.passwordFlow.foreach { passwordFlow =>
+            val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+            flow.setTokenUrl(passwordFlow.tokenUrl.toString)
+            val scopes = new io.swagger.v3.oas.models.security.Scopes()
+            passwordFlow.scopes.foreach { case (name, description) =>
+              scopes.addString(name, description)
+            }
+            flow.setScopes(scopes)
+            oauthFlows.setPassword(flow)
+          }
+          flows.authorizationCodeFlow.foreach { authorizationCodeFlow =>
+            val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+            flow.setAuthorizationUrl(authorizationCodeFlow.authorizationUrl.toString)
+            flow.setTokenUrl(authorizationCodeFlow.tokenUrl.toString)
+            val scopes = new io.swagger.v3.oas.models.security.Scopes()
+            authorizationCodeFlow.scopes.foreach { case (name, description) =>
+              scopes.addString(name, description)
+            }
+            flow.setScopes(scopes)
+            oauthFlows.setAuthorizationCode(flow)
+          }
+          flows.clientCredentialsFlow.foreach { clientCredentialsFlow =>
+            val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+            flow.setTokenUrl(clientCredentialsFlow.tokenUrl.toString)
+            val scopes = new io.swagger.v3.oas.models.security.Scopes()
+            clientCredentialsFlow.scopes.foreach { case (name, description) =>
+              scopes.addString(name, description)
+            }
+            flow.setScopes(scopes)
+            oauthFlows.setClientCredentials(flow)
+          }
+          securityScheme.setFlows(oauthFlows)
+        case OAuth2InCookie(flows, _) =>
+          securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OAUTH2)
+          val oauthFlows = new io.swagger.v3.oas.models.security.OAuthFlows()
+          flows.implicitFlow.foreach { implicitFlow =>
+            val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+            flow.setAuthorizationUrl(implicitFlow.authorizationUrl.toString)
+            val scopes = new io.swagger.v3.oas.models.security.Scopes()
+            implicitFlow.scopes.foreach { case (name, description) =>
+              scopes.addString(name, description)
+            }
+            flow.setScopes(scopes)
+            oauthFlows.setImplicit(flow)
+          }
+          flows.passwordFlow.foreach { passwordFlow =>
+            val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+            flow.setTokenUrl(passwordFlow.tokenUrl.toString)
+            val scopes = new io.swagger.v3.oas.models.security.Scopes()
+            passwordFlow.scopes.foreach { case (name, description) =>
+              scopes.addString(name, description)
+            }
+            flow.setScopes(scopes)
+            oauthFlows.setPassword(flow)
+          }
+          flows.authorizationCodeFlow.foreach { authorizationCodeFlow =>
+            val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+            flow.setAuthorizationUrl(authorizationCodeFlow.authorizationUrl.toString)
+            flow.setTokenUrl(authorizationCodeFlow.tokenUrl.toString)
+            val scopes = new io.swagger.v3.oas.models.security.Scopes()
+            authorizationCodeFlow.scopes.foreach { case (name, description) =>
+              scopes.addString(name, description)
+            }
+            flow.setScopes(scopes)
+            oauthFlows.setAuthorizationCode(flow)
+          }
+          flows.clientCredentialsFlow.foreach { clientCredentialsFlow =>
+            val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+            flow.setTokenUrl(clientCredentialsFlow.tokenUrl.toString)
+            val scopes = new io.swagger.v3.oas.models.security.Scopes()
+            clientCredentialsFlow.scopes.foreach { case (name, description) =>
+              scopes.addString(name, description)
+            }
+            flow.setScopes(scopes)
+            oauthFlows.setClientCredentials(flow)
+          }
+          securityScheme.setFlows(oauthFlows)
+        case NoopSecurity =>
+      }
+    scheme.name -> securityScheme
+    }
+    openAPI.components(new io.swagger.v3.oas.models.Components().securitySchemes(securitySchemes.toMap.asJava))
+
     context.groupBy(_._1.symbolicPath).foreach { case (path, responses) =>
       val pathItem = new io.swagger.v3.oas.models.PathItem()
       responses.groupBy(_._1.method).foreach { case (method, responses) =>
@@ -101,6 +239,29 @@ object OpenAPIGenerator {
         responses.head._1.operationSummary.foreach(operation.setSummary)
         responses.head._1.operationDescription.foreach(operation.setDescription)
         operation.setTags(responses.head._1.operationTags.asJava)
+
+        operation.setSecurity(responses.head._1.securitySchemes.map { ss =>
+          val scopes = ss.security match {
+            case NoopSecurity                => Seq.empty
+            case HttpBearer(_, _)            => Seq.empty
+            case HttpBasic(_)                => Seq.empty
+            case ApiKeyInHeader(_, _)        => Seq.empty
+            case ApiKeyInQuery(_, _)         => Seq.empty
+            case ApiKeyInCookie(_, _)        => Seq.empty
+            case MutualTls(_)                => Seq.empty
+            case OpenIdConnectInBearer(_, _) => Seq.empty
+            case OpenIdConnectInCookie(_, _) => Seq.empty
+            case OAuth2InBearer(flows, _) =>
+              (flows.implicitFlow.toList.flatMap(_.scopes.keys) ++ flows.passwordFlow.toList
+                .flatMap(_.scopes.keys) ++ flows.authorizationCodeFlow.toList.flatMap(_.scopes.keys) ++ flows.clientCredentialsFlow.toList
+                .flatMap(_.scopes.keys)).distinct
+            case OAuth2InCookie(flows, _) =>
+              (flows.implicitFlow.toList.flatMap(_.scopes.keys) ++ flows.passwordFlow.toList
+                .flatMap(_.scopes.keys) ++ flows.authorizationCodeFlow.toList.flatMap(_.scopes.keys) ++ flows.clientCredentialsFlow.toList
+                .flatMap(_.scopes.keys)).distinct
+          }
+          new io.swagger.v3.oas.models.security.SecurityRequirement().addList(ss.name, scopes.asJava)
+        }.asJava)
 
         operation.setParameters(responses.head._1.queryParametersSeq.map { queryParam =>
           val parameter = new io.swagger.v3.oas.models.parameters.Parameter()

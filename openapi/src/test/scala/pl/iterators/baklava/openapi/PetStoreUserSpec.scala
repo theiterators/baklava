@@ -16,7 +16,7 @@ case class User(
     userStatus: Option[Int]
 )
 
-class PetStoreSecondSpec extends PetStoreHttp4sItSpec {
+class PetStoreUserSpec extends PetStoreHttp4sItSpec {
   val exampleUser = User(
     id = Some(10),
     username = Some("theUser"),

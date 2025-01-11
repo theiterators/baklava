@@ -1,5 +1,7 @@
 package pl.iterators.baklava
 
+import java.net.URI
+
 sealed trait EmptyBody
 
 case object EmptyBodyInstance extends EmptyBody
@@ -22,10 +24,11 @@ case class BaklavaRequestContext[Body, PathParameters, PathParametersProvided, Q
     operationSummary: Option[String],
     operationId: Option[String],
     operationTags: Seq[String],
+    securitySchemes: Seq[SecurityScheme],
     body: Option[Body],
     bodySchema: Option[Schema[Body]],
     headers: BaklavaHttpHeaders,
-    security: Option[Security],
+    security: AppliedSecurity,
     pathParameters: PathParameters,
     pathParametersProvided: PathParametersProvided,
     pathParametersSeq: Seq[PathParam[?]],
@@ -49,19 +52,118 @@ case class BaklavaResponseContext[ResponseBody, RequestType, ResponseType](
     bodySchema: Option[Schema[ResponseBody]] = None
 )
 
-trait Security {
+sealed trait Security {
   val `type`: String
-  val `scheme`: String
-}
-case class Bearer(payload: String) extends Security {
-  override val `type`: String   = "http"
-  override val `scheme`: String = "bearer"
+  val description: String
+  def descriptionParsed: Option[String] = if (description.trim.isEmpty) None else Some(description.trim)
 }
 
-case class Basic(id: String, secret: String) extends Security {
-  override val `type`: String   = "http"
-  override val `scheme`: String = "basic"
+case class SecurityScheme(name: String, security: Security)
+
+case class AppliedSecurity(security: Security, params: Map[String, String])
+
+private[baklava] case object NoopSecurity extends Security {
+  override val `type`: String      = "noop"
+  override val description: String = "this should never be rendered"
 }
+
+case class HttpBearer(bearerFormat: String = "", description: String = "") extends Security {
+  override val `type`: String = "http"
+  val `scheme`: String        = "bearer"
+
+  def apply(token: String): AppliedSecurity = AppliedSecurity(this, Map("token" -> token))
+}
+
+case class HttpBasic(description: String = "") extends Security {
+  override val `type`: String = "http"
+  val `scheme`: String        = "basic"
+
+  def apply(id: String, secret: String): AppliedSecurity = AppliedSecurity(this, Map("id" -> id, "secret" -> secret))
+}
+
+// TODO: support other schemes?
+
+case class ApiKeyInHeader(name: String, description: String = "") extends Security {
+  override val `type`: String = "apiKey"
+
+  def apply(apiKey: String): AppliedSecurity = AppliedSecurity(this, Map("apiKey" -> apiKey))
+}
+
+case class ApiKeyInQuery(name: String, description: String = "") extends Security {
+  override val `type`: String = "apiKey"
+
+  def apply(apiKey: String): AppliedSecurity = AppliedSecurity(this, Map("apiKey" -> apiKey))
+}
+
+case class ApiKeyInCookie(name: String, description: String = "") extends Security {
+  override val `type`: String = "apiKey"
+
+  def apply(apiKey: String): AppliedSecurity = AppliedSecurity(this, Map("apiKey" -> apiKey))
+}
+
+case class MutualTls(description: String = "") extends Security {
+  override val `type`: String = "mutualTLS"
+
+  def apply(): AppliedSecurity = AppliedSecurity(this, Map.empty)
+}
+
+case class OpenIdConnectInBearer(openIdConnectUrl: URI, description: String = "") extends Security {
+  override val `type`: String = "openIdConnect"
+
+  def apply(token: String): AppliedSecurity = AppliedSecurity(this, Map("token" -> token))
+}
+
+case class OpenIdConnectInCookie(openIdConnectUrl: URI, description: String = "") extends Security {
+  override val `type`: String = "openIdConnect"
+
+  def apply(name: String, token: String): AppliedSecurity = AppliedSecurity(this, Map("name" -> name, "token" -> token))
+}
+
+case class OAuth2InBearer(flows: OAuthFlows, description: String = "") extends Security {
+  override val `type`: String = "oauth2"
+
+  def apply(token: String): AppliedSecurity = AppliedSecurity(this, Map("token" -> token))
+}
+
+case class OAuth2InCookie(flows: OAuthFlows, description: String = "") extends Security {
+  override val `type`: String = "oauth2"
+
+  def apply(name: String, token: String): AppliedSecurity = AppliedSecurity(this, Map("name" -> name, "token" -> token))
+}
+
+// TODO: OpenIdConnect, OAuth2 can provide token in query, customer header, POST-form, etc.
+
+case class OAuthFlows(
+    implicitFlow: Option[OAuthImplicitFlow] = None,
+    passwordFlow: Option[OAuthPasswordFlow] = None,
+    clientCredentialsFlow: Option[OAuthClientCredentialsFlow] = None,
+    authorizationCodeFlow: Option[OAuthAuthorizationCodeFlow] = None
+)
+
+case class OAuthImplicitFlow(
+    authorizationUrl: URI,
+    refreshUrl: Option[URI] = None,
+    scopes: Map[String, String] = Map.empty
+)
+
+case class OAuthPasswordFlow(
+    tokenUrl: URI,
+    refreshUrl: Option[URI] = None,
+    scopes: Map[String, String] = Map.empty
+)
+
+case class OAuthClientCredentialsFlow(
+    tokenUrl: URI,
+    refreshUrl: Option[URI] = None,
+    scopes: Map[String, String] = Map.empty
+)
+
+case class OAuthAuthorizationCodeFlow(
+    authorizationUrl: URI,
+    tokenUrl: URI,
+    refreshUrl: Option[URI] = None,
+    scopes: Map[String, String] = Map.empty
+)
 
 trait BaklavaHttpDsl[
     RouteType,

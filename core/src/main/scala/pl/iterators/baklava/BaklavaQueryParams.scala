@@ -181,7 +181,7 @@ trait BaklavaQueryParams {
   // TODO: more tuples
 
   // TODO: created by chatgpt, check later
-  private def addQueryParametersToUri(uri: String, queryParameters: Map[String, Seq[String]]): String = {
+  def addQueryParametersToUri(uri: String, queryParameters: Map[String, Seq[String]]): String = {
     if (queryParameters.isEmpty) {
       uri
     } else {
