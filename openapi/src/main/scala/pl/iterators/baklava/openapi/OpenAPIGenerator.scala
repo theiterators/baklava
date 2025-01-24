@@ -8,26 +8,10 @@ import pl.iterators.baklava.Schema as BaklavaSchema
 import scala.jdk.CollectionConverters.*
 
 object OpenAPIGenerator {
-  def merge(chunks: List[OpenAPI]): OpenAPI = {
-    val openAPI = new OpenAPI() // TODO: this needs to be providable somehow by the end user
-      .info(
-        new io.swagger.v3.oas.models.info.Info()
-          .title("Swagger Petstore")
-          .version("1.0.7")
-          .description(
-            "This is a sample server Petstore server.  You can find out more about Swagger at [http://swagger.io](http://swagger.io) or on [irc.freenode.net, #swagger](http://swagger.io/irc/).  For this sample, you can use the api key `special-key` to test the authorization filters."
-          )
-          .termsOfService("http://swagger.io/terms/")
-          .contact(new io.swagger.v3.oas.models.info.Contact().email("apiteam@swagger.io"))
-          .license(
-            new io.swagger.v3.oas.models.info.License().name("Apache 2.0").url("http://www.apache.org/licenses/LICENSE-2.0.html")
-          )
-      )
-      .addServersItem(new io.swagger.v3.oas.models.servers.Server().url("https://petstore3.swagger.io/api/v3"))
-
+  def merge(openAPI: OpenAPI, chunks: List[OpenAPI]): OpenAPI = {
     chunks.foreach { chunk =>
       val chunkPaths = chunk.getPaths
-      chunkPaths.keySet().asScala.foreach { chunkPathKey =>
+      Option(chunk.getPaths).map(_.keySet().asScala).getOrElse(Set.empty).foreach { chunkPathKey =>
         openAPI.path(chunkPathKey, chunkPaths.get(chunkPathKey))
       }
     }
@@ -41,7 +25,7 @@ object OpenAPIGenerator {
       }
     openAPI.components(new io.swagger.v3.oas.models.Components().securitySchemes(securitySchemesMerged.asJava))
 
-    openAPI
+    BaklavaOpenApiPostProcessor.postProcessors.foldLeft(openAPI) { case (openAPI, processor) => processor.process(openAPI) }
   }
 
   def chunk(context: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): OpenAPI = {
@@ -171,7 +155,7 @@ object OpenAPIGenerator {
           securityScheme.setFlows(oauthFlows)
         case NoopSecurity =>
       }
-    scheme.name -> securityScheme
+      scheme.name -> securityScheme
     }
     openAPI.components(new io.swagger.v3.oas.models.Components().securitySchemes(securitySchemes.toMap.asJava))
 

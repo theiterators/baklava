@@ -7,7 +7,7 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 trait BaklavaDslFormatter {
   def createChunk(name: String, pathRepresentation: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): Unit
 
-  def mergeChunks(): Unit
+  def mergeChunks(config: Map[String, String]): Unit
 }
 
 object BaklavaDslFormatter {
