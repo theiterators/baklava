@@ -1,6 +1,6 @@
 package pl.iterators.baklava.openapi
 
-import io.swagger.v3.core.util.Json
+import io.swagger.v3.core.util.{Json, Yaml}
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.parser.OpenAPIV3Parser
 import pl.iterators.baklava.{BaklavaDslFormatter, BaklavaRequestContext, BaklavaResponseContext}
@@ -62,10 +62,9 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
         }
         .getOrElse(new OpenAPI())
 
-      //todo change to yml version
-      val jsonString = Json.pretty(OpenAPIGenerator.merge(openApiHeaderChunk, chunks))
+      val ymlString = Yaml.pretty(OpenAPIGenerator.merge(openApiHeaderChunk, chunks))
 
-      outputStream.write(jsonString.getBytes)
+      outputStream.write(ymlString.getBytes)
     }.recover { case e: Exception =>
       // todo
       println(s"Failed to write to file: $e")
