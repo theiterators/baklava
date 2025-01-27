@@ -56,12 +56,13 @@ object BaklavaSbtPlugin extends AutoPlugin {
 
       },
       Test / testOptions += Tests.Cleanup { () =>
+        // Here we got copy paster code from baklavaGenerate task. I do not know how to use baklavaGenerate task here.
+        // If I paste directly baklavaGenerate.value its invoked before the test.
         val configurationClassPath = (Test / fullClasspath).value
         val r                      = (Test / run / runner).value
         val s                      = streams.value
         val config                 = baklavaGenerateConfigs.value
         val serializedConfig       = config.map { case (key, value) => s"$key=$value" }.toList
-        // todo check if its possible to execute code of BaklavaGenerate directly here if in plugin
         s.log.log(Level.Info, "Running baklava generate")
         r.run(clazz, data(configurationClassPath), serializedConfig, s.log).get
       }
