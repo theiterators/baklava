@@ -18,21 +18,21 @@ trait BaklavaSpecs2[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
 
   override def pathLevelTextWithFragments(
       text: String,
-      context: BaklavaRequestContext[?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       fragments: => Fragments
   ): Fragments =
     addFragmentsBlockWithText(text, fragments)
 
   override def methodLevelTextWithFragments(
       text: String,
-      context: BaklavaRequestContext[?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       fragments: => Fragments
   ): Fragments =
     addFragmentsBlockWithText(text, fragments)
 
   override def requestLevelTextWithExecution[R: AsExecution](
       text: String,
-      context: BaklavaRequestContext[?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       r: => R
   ): Fragment =
     text >> r

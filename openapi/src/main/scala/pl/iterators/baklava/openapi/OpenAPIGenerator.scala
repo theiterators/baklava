@@ -28,7 +28,7 @@ object OpenAPIGenerator {
     BaklavaOpenApiPostProcessor.postProcessors.foldLeft(openAPI) { case (openAPI, processor) => processor.process(openAPI) }
   }
 
-  def chunk(context: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): OpenAPI = {
+  def chunk(context: List[(BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): OpenAPI = {
     val openAPI = new OpenAPI()
 
     val securitySchemes = context.flatMap(_._1.securitySchemes).distinctBy(_.name).map { scheme =>
@@ -247,28 +247,46 @@ object OpenAPIGenerator {
           new io.swagger.v3.oas.models.security.SecurityRequirement().addList(ss.name, scopes.asJava)
         }.asJava)
 
-        operation.setParameters(responses.head._1.queryParametersSeq.map { queryParam =>
-          val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
-          parameter.setName(queryParam.name)
-          parameter.setIn("query")
-          parameter.setRequired(queryParam.schema.required)
-          parameter.setExplode(true) // I guess this is default?
-          parameter.setSchema(baklavaSchemaToOpenAPISchema(queryParam.schema))
-          queryParam.description.foreach(parameter.setDescription)
-          // TODO: we could add example best on provided in test case :shrug:
-          parameter
-        }.asJava)
+        responses.head._1.queryParametersSeq
+          .map { queryParam =>
+            val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
+            parameter.setName(queryParam.name)
+            parameter.setIn("query")
+            parameter.setRequired(queryParam.schema.required)
+            parameter.setExplode(true) // I guess this is default?
+            parameter.setSchema(baklavaSchemaToOpenAPISchema(queryParam.schema))
+            queryParam.description.foreach(parameter.setDescription)
+            // TODO: we could add example best on provided in test case :shrug:
+            parameter
+          }
+          .foreach(operation.addParametersItem)
 
-        operation.setParameters(responses.head._1.pathParametersSeq.map { pathParam =>
-          val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
-          parameter.setName(pathParam.name)
-          parameter.setIn("path")
-          parameter.setRequired(pathParam.schema.required)
-          parameter.setSchema(baklavaSchemaToOpenAPISchema(pathParam.schema))
-          pathParam.description.foreach(parameter.setDescription)
-          // TODO: we could add example best on provided in test case :shrug:
-          parameter
-        }.asJava)
+        responses.head._1.pathParametersSeq
+          .map { pathParam =>
+            val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
+            parameter.setName(pathParam.name)
+            parameter.setIn("path")
+            parameter.setRequired(pathParam.schema.required)
+            parameter.setSchema(baklavaSchemaToOpenAPISchema(pathParam.schema))
+            pathParam.description.foreach(parameter.setDescription)
+            // TODO: we could add example best on provided in test case :shrug:
+            parameter
+          }
+          .foreach(operation.addParametersItem)
+
+        responses.head._1.headersSeq
+          .filter(h => h.name.toLowerCase != "content-type" && h.name.toLowerCase != "accept" && h.name.toLowerCase != "authorization")
+          .map { header =>
+            val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
+            parameter.setName(header.name)
+            parameter.setIn("header")
+            parameter.setRequired(header.schema.required)
+            parameter.setSchema(baklavaSchemaToOpenAPISchema(header.schema))
+            header.description.foreach(parameter.setDescription)
+            // TODO: we could add example best on provided in test case :shrug:
+            parameter
+          }
+          .foreach(operation.addParametersItem)
 
         pathItem.operation(io.swagger.v3.oas.models.PathItem.HttpMethod.valueOf(method.get.value.toUpperCase), operation)
         responses.head._1.pathSummary.foreach(pathItem.setSummary)

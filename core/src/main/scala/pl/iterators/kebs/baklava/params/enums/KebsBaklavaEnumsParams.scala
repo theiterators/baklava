@@ -1,6 +1,6 @@
 package pl.iterators.kebs.baklava.params.enums
 
-import pl.iterators.baklava.{ToPathParam, ToQueryParam}
+import pl.iterators.baklava.{ToHeader, ToPathParam, ToQueryParam}
 import pl.iterators.kebs.core.enums.{EnumLike, ValueEnumLike, ValueEnumLikeEntry}
 
 trait KebsBaklavaEnumsParams {
@@ -18,6 +18,13 @@ trait KebsBaklavaEnumsParams {
     }
   }
 
+  implicit def toHeaderEnum[T](implicit _enum: EnumLike[T]): ToHeader[T] = new ToHeader[T] {
+    override def apply(value: T): Option[String] = {
+      val _ = _enum // fix warning
+      Some(value.toString)
+    }
+  }
+
   trait KebsBaklavaEnumsUppercaseParams {
     implicit def toQueryParamEnum[T](implicit _enum: EnumLike[T]): ToQueryParam[T] = new ToQueryParam[T] {
       override def apply(t: T): Seq[String] = {
@@ -30,6 +37,13 @@ trait KebsBaklavaEnumsParams {
       override def apply(t: T): String = {
         val _ = _enum // fix warning
         t.toString.toUpperCase
+      }
+    }
+
+    implicit def toHeaderEnum[T](implicit _enum: EnumLike[T]): ToHeader[T] = new ToHeader[T] {
+      override def apply(value: T): Option[String] = {
+        val _ = _enum // fix warning
+        Some(value.toString.toUpperCase)
       }
     }
   }
@@ -48,6 +62,13 @@ trait KebsBaklavaEnumsParams {
         t.toString.toLowerCase
       }
     }
+
+    implicit def toHeaderEnum[T](implicit _enum: EnumLike[T]): ToHeader[T] = new ToHeader[T] {
+      override def apply(value: T): Option[String] = {
+        val _ = _enum // fix warning
+        Some(value.toString.toLowerCase)
+      }
+    }
   }
 }
 
@@ -57,5 +78,19 @@ trait KebsBaklavaValueEnumsParams {
       tsm: ToQueryParam[V]
   ): ToQueryParam[T] = new ToQueryParam[T] {
     override def apply(t: T): Seq[String] = tsm(valueEnumLike.valueOf(t))
+  }
+
+  implicit def toPathParamValueEnum[T, V <: ValueEnumLikeEntry[T]](implicit
+      valueEnumLike: ValueEnumLike[T, V],
+      tsm: ToPathParam[V]
+  ): ToPathParam[T] = new ToPathParam[T] {
+    override def apply(t: T): String = tsm(valueEnumLike.valueOf(t))
+  }
+
+  implicit def toHeaderValueEnum[T, V <: ValueEnumLikeEntry[T]](implicit
+      valueEnumLike: ValueEnumLike[T, V],
+      tsm: ToHeader[V]
+  ): ToHeader[T] = new ToHeader[T] {
+    override def apply(value: T): Option[String] = tsm(valueEnumLike.valueOf(value))
   }
 }

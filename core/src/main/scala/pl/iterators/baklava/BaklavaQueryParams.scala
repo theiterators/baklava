@@ -120,11 +120,11 @@ trait BaklavaQueryParams {
     ): String = addQueryParametersToUri(uri, Map(queryParameters.name -> queryParameters.tsm(queryParametersProvided)))
   }
 
-  implicit def provideQueryParams2[A, B]: ProvideQueryParams[(QueryParam[A], QueryParam[B]), (A, B)] =
-    new ProvideQueryParams[(QueryParam[A], QueryParam[B]), (A, B)] {
+  implicit def provideQueryParams2[T1, T2, U1 <: T1, U2 <: T2]: ProvideQueryParams[(QueryParam[T1], QueryParam[T2]), (U1, U2)] =
+    new ProvideQueryParams[(QueryParam[T1], QueryParam[T2]), (U1, U2)] {
       override def apply(
-          queryParameters: (QueryParam[A], QueryParam[B]),
-          queryParametersProvided: (A, B),
+          queryParameters: (QueryParam[T1], QueryParam[T2]),
+          queryParametersProvided: (U1, U2),
           uri: String
       ): String = {
         val (a, b) = queryParametersProvided
@@ -138,11 +138,12 @@ trait BaklavaQueryParams {
       }
     }
 
-  implicit def provideQueryParams3[A, B, C]: ProvideQueryParams[(QueryParam[A], QueryParam[B], QueryParam[C]), (A, B, C)] =
-    new ProvideQueryParams[(QueryParam[A], QueryParam[B], QueryParam[C]), (A, B, C)] {
+  implicit def provideQueryParams3[T1, T2, T3, U1 <: T1, U2 <: T2, U3 <: T3]
+      : ProvideQueryParams[(QueryParam[T1], QueryParam[T2], QueryParam[T3]), (U1, U2, U3)] =
+    new ProvideQueryParams[(QueryParam[T1], QueryParam[T2], QueryParam[T3]), (U1, U2, U3)] {
       override def apply(
-          queryParameters: (QueryParam[A], QueryParam[B], QueryParam[C]),
-          queryParametersProvided: (A, B, C),
+          queryParameters: (QueryParam[T1], QueryParam[T2], QueryParam[T3]),
+          queryParametersProvided: (U1, U2, U3),
           uri: String
       ): String = {
         val (a, b, c) = queryParametersProvided
@@ -157,12 +158,12 @@ trait BaklavaQueryParams {
       }
     }
 
-  implicit def provideQueryParams4[A, B, C, D]
-      : ProvideQueryParams[(QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D]), (A, B, C, D)] =
-    new ProvideQueryParams[(QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D]), (A, B, C, D)] {
+  implicit def provideQueryParams4[T1, T2, T3, T4, U1 <: T1, U2 <: T2, U3 <: T3, U4 <: T4]
+      : ProvideQueryParams[(QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4]), (U1, U2, U3, U4)] =
+    new ProvideQueryParams[(QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4]), (U1, U2, U3, U4)] {
       override def apply(
-          queryParameters: (QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D]),
-          queryParametersProvided: (A, B, C, D),
+          queryParameters: (QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4]),
+          queryParametersProvided: (U1, U2, U3, U4),
           uri: String
       ): String = {
         val (a, b, c, d) = queryParametersProvided

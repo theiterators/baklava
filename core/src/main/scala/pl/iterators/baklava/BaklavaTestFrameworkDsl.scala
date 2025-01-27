@@ -16,7 +16,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
   ] =>
 
   def path(path: String, description: String = "", summary: String = "")(steps: BaklavaMethodDefinition*): TestFrameworkFragmentsType = {
-    val ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any] = BaklavaRequestContext(
+    val ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any, Any, Any] = BaklavaRequestContext(
       symbolicPath = path,
       path = path,
       pathDescription = if (description.trim.isEmpty) None else Some(description.trim),
@@ -30,6 +30,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       body = None,
       bodySchema = None,
       headers = BaklavaHttpHeaders(Map.empty),
+      headersDefinition = (),
+      headersProvided = (),
+      headersSeq = Seq.empty,
       security = AppliedSecurity(NoopSecurity, Map.empty),
       pathParameters = (),
       pathParametersProvided = (),
@@ -53,22 +56,27 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     )
   }
 
-  def supports[PathParameters, QueryParameters](
+  def supports[PathParameters, QueryParameters, Headers](
       method: BaklavaHttpMethod,
       securitySchemes: Seq[SecurityScheme] = Seq.empty,
       pathParameters: PathParameters = (),
       queryParameters: QueryParameters = (),
+      headers: Headers = (),
       description: String = "",
       summary: String = "",
       operationId: String = "",
       tags: Seq[String] = Seq.empty
   )(
-      steps: BaklavaIntermediateTestCase[PathParameters, QueryParameters]*
-  )(implicit toQueryParamSeq: ToQueryParamSeq[QueryParameters], toPathParamSeq: ToPathParamSeq[PathParameters]): BaklavaMethodDefinition =
+      steps: BaklavaIntermediateTestCase[PathParameters, QueryParameters, Headers]*
+  )(implicit
+      toQueryParamSeq: ToQueryParamSeq[QueryParameters],
+      toPathParamSeq: ToPathParamSeq[PathParameters],
+      toHeaderSeq: ToHeaderSeq[Headers]
+  ): BaklavaMethodDefinition =
     new BaklavaMethodDefinition {
-      override def apply(ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any]): TestFrameworkFragmentsType = {
+      override def apply(ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any, Any, Any]): TestFrameworkFragmentsType = {
         val finalSummary = if (summary.trim.isEmpty) "" else ": " + summary.trim
-        val newCtx = BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit](
+        val newCtx = BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit, Headers, Unit](
           symbolicPath = ctx.symbolicPath,
           path = ctx.path,
           pathDescription = ctx.pathDescription,
@@ -82,6 +90,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
           body = None,
           bodySchema = None,
           headers = ctx.headers,
+          headersDefinition = headers,
+          headersProvided = (),
+          headersSeq = toHeaderSeq.apply(headers),
           security = AppliedSecurity(NoopSecurity, Map.empty),
           pathParameters = pathParameters,
           pathParametersProvided = (),
@@ -96,32 +107,35 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     }
 
   trait BaklavaMethodDefinition {
-    def apply(ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any]): TestFrameworkFragmentsType
+    def apply(ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any, Any, Any]): TestFrameworkFragmentsType
   }
 
-  trait BaklavaIntermediateTestCase[PathParameters, QueryParameters] {
-    def apply(ctx: BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit]): TestFrameworkFragmentType
+  trait BaklavaIntermediateTestCase[PathParameters, QueryParameters, Headers] {
+    def apply(ctx: BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit, Headers, Unit]): TestFrameworkFragmentType
   }
 
-  trait BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided] {
-    def assert[R: TestFrameworkExecutionType, PathParameters, QueryParameters](
+  trait BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] {
+    def assert[R: TestFrameworkExecutionType, PathParameters, QueryParameters, Headers](
         r: BaklavaCaseContext[
           RequestBody,
           ResponseBody,
           PathParameters,
           PathParametersProvided,
           QueryParameters,
-          QueryParametersProvided
+          QueryParametersProvided,
+          Headers,
+          HeadersProvided
         ] => R
     )(implicit
         providePathParams: ProvidePathParams[PathParameters, PathParametersProvided],
-        provideQueryParams: ProvideQueryParams[QueryParameters, QueryParametersProvided]
-    ): BaklavaIntermediateTestCase[PathParameters, QueryParameters]
+        provideQueryParams: ProvideQueryParams[QueryParameters, QueryParametersProvided],
+        provideHeaders: ProvideHeaders[Headers, HeadersProvided]
+    ): BaklavaIntermediateTestCase[PathParameters, QueryParameters, Headers]
   }
 
-  case class OnRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided](
+  case class OnRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
       body: RequestBody,
-      headers: Map[String, String],
+      headers: HeadersProvided,
       security: AppliedSecurity,
       pathParametersProvided: PathParametersProvided,
       queryParametersProvided: QueryParametersProvided
@@ -129,28 +143,32 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     def respondsWith[ResponseBody: FromResponseBodyType: Schema](
         statusCode: BaklavaHttpStatus,
         description: String = ""
-    ): BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided] =
-      new BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided] {
-        override def assert[R: TestFrameworkExecutionType, PathParameters, QueryParameters](
+    ): BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
+      new BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] {
+        override def assert[R: TestFrameworkExecutionType, PathParameters, QueryParameters, Headers](
             r: BaklavaCaseContext[
               RequestBody,
               ResponseBody,
               PathParameters,
               PathParametersProvided,
               QueryParameters,
-              QueryParametersProvided
+              QueryParametersProvided,
+              Headers,
+              HeadersProvided
             ] => R
         )(implicit
             providePathParams: ProvidePathParams[PathParameters, PathParametersProvided],
-            provideQueryParams: ProvideQueryParams[QueryParameters, QueryParametersProvided]
-        ): BaklavaIntermediateTestCase[PathParameters, QueryParameters] =
-          new BaklavaIntermediateTestCase[PathParameters, QueryParameters] {
+            provideQueryParams: ProvideQueryParams[QueryParameters, QueryParametersProvided],
+            provideHeaders: ProvideHeaders[Headers, HeadersProvided]
+        ): BaklavaIntermediateTestCase[PathParameters, QueryParameters, Headers] =
+          new BaklavaIntermediateTestCase[PathParameters, QueryParameters, Headers] {
             override def apply(
-                requestContext: BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit]
+                requestContext: BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit, Headers, Unit]
             ): TestFrameworkFragmentType = {
               val finalDescription = if (description.trim.isEmpty) "" else ": " + description.trim
               var timesCalled: Int = 0
 
+              val headersProvided = provideHeaders.apply(requestContext.headersDefinition, headers)
               // TODO: this security logic is duplicated in multiple places and messy and NEEDS TESTS
               // TODO: e.g. cookie concatenation by hand?!
               val additionalSecurityHeaders = security match {
@@ -167,30 +185,30 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                 case AppliedSecurity(_: OAuth2InCookie, _)             => Map.empty[String, String]
                 case AppliedSecurity(_: NoopSecurity.type, _)          => Map.empty[String, String]
               }
-              val headersWithCookieModifiedForSecurity = security match {
-                case AppliedSecurity(_: HttpBearer, _)     => headers
-                case AppliedSecurity(_: HttpBasic, _)      => headers
-                case AppliedSecurity(_: ApiKeyInHeader, _) => headers
-                case AppliedSecurity(_: ApiKeyInQuery, _)  => headers
+              val headersWithCookieModifiedForSecurity: Map[String, String] = security match {
+                case AppliedSecurity(_: HttpBearer, _)     => headersProvided
+                case AppliedSecurity(_: HttpBasic, _)      => headersProvided
+                case AppliedSecurity(_: ApiKeyInHeader, _) => headersProvided
+                case AppliedSecurity(_: ApiKeyInQuery, _)  => headersProvided
                 case AppliedSecurity(s: ApiKeyInCookie, params) =>
-                  headers.find(_._1.toLowerCase == "cookie") match {
-                    case Some((_, value)) => headers + ("Cookie" -> s"$value; ${s.name}=${params("apiKey")}")
-                    case None             => headers + ("Cookie" -> s"${s.name}=${params("apiKey")}")
+                  headersProvided.find(_._1.toLowerCase == "cookie") match {
+                    case Some((_, value)) => headersProvided + ("Cookie" -> s"$value; ${s.name}=${params("apiKey")}")
+                    case None             => headersProvided + ("Cookie" -> s"${s.name}=${params("apiKey")}")
                   }
-                case AppliedSecurity(_: MutualTls, _)             => headers
-                case AppliedSecurity(_: OpenIdConnectInBearer, _) => headers
+                case AppliedSecurity(_: MutualTls, _)             => headersProvided
+                case AppliedSecurity(_: OpenIdConnectInBearer, _) => headersProvided
                 case AppliedSecurity(_: OpenIdConnectInCookie, params) =>
-                  headers.find(_._1.toLowerCase == "cookie") match {
-                    case Some((_, value)) => headers + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
-                    case None             => headers + ("Cookie" -> s"${params("name")}=${params("token")}")
+                  headersProvided.find(_._1.toLowerCase == "cookie") match {
+                    case Some((_, value)) => headersProvided + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
+                    case None             => headersProvided + ("Cookie" -> s"${params("name")}=${params("token")}")
                   }
-                case AppliedSecurity(_: OAuth2InBearer, _) => headers
+                case AppliedSecurity(_: OAuth2InBearer, _) => headersProvided
                 case AppliedSecurity(_: OAuth2InCookie, params) =>
-                  headers.find(_._1.toLowerCase == "cookie") match {
-                    case Some((_, value)) => headers + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
-                    case None             => headers + ("Cookie" -> s"${params("name")}=${params("token")}")
+                  headersProvided.find(_._1.toLowerCase == "cookie") match {
+                    case Some((_, value)) => headersProvided + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
+                    case None             => headersProvided + ("Cookie" -> s"${params("name")}=${params("token")}")
                   }
-                case AppliedSecurity(_: NoopSecurity.type, _) => headers
+                case AppliedSecurity(_: NoopSecurity.type, _) => headersProvided
               }
               val securityQueryParameters = security match {
                 case AppliedSecurity(_: HttpBearer, _)            => Map.empty[String, Seq[String]]
@@ -220,6 +238,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                   body = if (body != EmptyBodyInstance) Some(body) else None,
                   bodySchema = Some(implicitly[Schema[RequestBody]]),
                   headers = BaklavaHttpHeaders(headersWithCookieModifiedForSecurity ++ additionalSecurityHeaders),
+                  headersProvided = headers,
                   security = security,
                   pathParametersProvided = pathParametersProvided,
                   queryParametersProvided = queryParametersProvided,
@@ -235,7 +254,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                         PathParameters,
                         PathParametersProvided,
                         QueryParameters,
-                        QueryParametersProvided
+                        QueryParametersProvided,
+                        Headers,
+                        HeadersProvided
                       ],
                       route: RouteType
                   ) => {
@@ -246,7 +267,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                         PathParameters,
                         PathParametersProvided,
                         QueryParameters,
-                        QueryParametersProvided
+                        QueryParametersProvided,
+                        Headers,
+                        HeadersProvided
                       ](
                         requestContext,
                         route
@@ -289,39 +312,39 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       }
   }
 
-  def onRequest: OnRequest[EmptyBody, Unit, Unit] =
-    onRequest(EmptyBodyInstance: EmptyBody, Map.empty, AppliedSecurity(NoopSecurity, Map.empty), (), ())(
+  def onRequest: OnRequest[EmptyBody, Unit, Unit, Unit] =
+    onRequest(EmptyBodyInstance: EmptyBody, AppliedSecurity(NoopSecurity, Map.empty), (), (), ())(
       emptyToRequestBodyType,
       Schema.emptyBodySchema
     )
-  def onRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided](
+  def onRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
       body: RequestBody = EmptyBodyInstance: EmptyBody,
-      headers: Map[String, String] = Map.empty,
       security: AppliedSecurity = AppliedSecurity(NoopSecurity, Map.empty),
       pathParameters: PathParametersProvided = (),
-      queryParameters: QueryParametersProvided = ()
-  ): OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided] =
+      queryParameters: QueryParametersProvided = (),
+      headers: HeadersProvided = ()
+  ): OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
     OnRequest(body, headers, security, pathParameters, queryParameters)
 
   def fragmentsFromSeq(fragments: Seq[TestFrameworkFragmentType]): TestFrameworkFragmentsType
   def concatFragments(fragments: Seq[TestFrameworkFragmentsType]): TestFrameworkFragmentsType
   def pathLevelTextWithFragments(
       text: String,
-      context: BaklavaRequestContext[?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       fragments: => TestFrameworkFragmentsType
   ): TestFrameworkFragmentsType
   def methodLevelTextWithFragments(
       text: String,
-      context: BaklavaRequestContext[?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       fragments: => TestFrameworkFragmentsType
   ): TestFrameworkFragmentsType
   def requestLevelTextWithExecution[R: TestFrameworkExecutionType](
       text: String,
-      context: BaklavaRequestContext[?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       r: => R
   ): TestFrameworkFragmentType
 
-  private def updateStorage(ctx: BaklavaRequestContext[?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
+  private def updateStorage(ctx: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
     storage.getAndUpdate(_ :+ (ctx -> response))
     ()
   }
@@ -330,6 +353,6 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     BaklavaDslFormatter.formatters.foreach(_.createChunk(getClass.getCanonicalName, storage.get()))
   }
 
-  private val storage: AtomicReference[List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]] =
+  private val storage: AtomicReference[List[(BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]] =
     new AtomicReference(List.empty)
 }

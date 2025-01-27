@@ -135,14 +135,18 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       PathParameters,
       PathParametersProvided,
       QueryParameters,
-      QueryParametersProvided
+      QueryParametersProvided,
+      Headers,
+      HeadersProvided
   ](
       ctx: BaklavaRequestContext[
         RequestBody,
         PathParameters,
         PathParametersProvided,
         QueryParameters,
-        QueryParametersProvided
+        QueryParametersProvided,
+        Headers,
+        HeadersProvided
       ]
   )(implicit
       requestBody: ToEntityMarshaller[RequestBody]

@@ -14,15 +14,15 @@ trait BaklavaScalatest[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
 
   override def concatFragments(fragments: Seq[Unit]): Unit = fragments.foreach(identity)
 
-  override def pathLevelTextWithFragments(text: String, context: BaklavaRequestContext[?, ?, ?, ?, ?], fragments: => Unit): Unit =
+  override def pathLevelTextWithFragments(text: String, context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], fragments: => Unit): Unit =
     describe(text)(fragments)
 
-  override def methodLevelTextWithFragments(text: String, context: BaklavaRequestContext[?, ?, ?, ?, ?], fragments: => Unit): Unit =
+  override def methodLevelTextWithFragments(text: String, context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], fragments: => Unit): Unit =
     describe(text)(fragments)
 
   override def requestLevelTextWithExecution[R: ScalatestAsExecution](
       text: String,
-      context: BaklavaRequestContext[?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       r: => R
   ): Unit = it(text)(r)
 

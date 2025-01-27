@@ -12,15 +12,15 @@ trait BaklavaMunit[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
 
   override def concatFragments(fragments: Seq[Unit]): Unit = fragments.foreach(identity)
 
-  override def pathLevelTextWithFragments(text: String, context: BaklavaRequestContext[?, ?, ?, ?, ?], fragments: => Unit): Unit =
+  override def pathLevelTextWithFragments(text: String, context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], fragments: => Unit): Unit =
     fragments
 
-  override def methodLevelTextWithFragments(text: String, context: BaklavaRequestContext[?, ?, ?, ?, ?], fragments: => Unit): Unit =
+  override def methodLevelTextWithFragments(text: String, context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], fragments: => Unit): Unit =
     fragments
 
   override def requestLevelTextWithExecution[R: MunitAsExecution](
       text: String,
-      context: BaklavaRequestContext[?, ?, ?, ?, ?],
+      context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       r: => R
   ): Unit =
     test(s"${context.method.get.value} ${context.symbolicPath} should respond with -> " + text)(r)

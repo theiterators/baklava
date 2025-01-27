@@ -5,7 +5,10 @@ import org.reflections.Reflections
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 trait BaklavaDslFormatter {
-  def createChunk(name: String, pathRepresentation: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]): Unit
+  def createChunk(
+      name: String,
+      pathRepresentation: List[(BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]
+  ): Unit
 
   def mergeChunks(config: Map[String, String]): Unit
 }

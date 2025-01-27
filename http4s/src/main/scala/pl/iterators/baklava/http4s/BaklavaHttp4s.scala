@@ -111,14 +111,18 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
       PathParameters,
       PathParametersProvided,
       QueryParameters,
-      QueryParametersProvided
+      QueryParametersProvided,
+      Headers_,
+      HeadersProvided
   ](
       ctx: BaklavaRequestContext[
         RequestBody,
         PathParameters,
         PathParametersProvided,
         QueryParameters,
-        QueryParametersProvided
+        QueryParametersProvided,
+        Headers_,
+        HeadersProvided
       ]
   )(implicit
       requestBody: BaklavaHttp4s.ToEntityMarshaller[RequestBody]

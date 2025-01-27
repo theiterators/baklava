@@ -89,18 +89,19 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
     supports(
       PUT,
       securitySchemes = Seq(petSecurityOauthScheme),
+      headers = h[String]("Accept"),
       summary = "Update an existing pet",
       description = "Update an existing pet by Id",
       operationId = "updatePet",
       tags = Seq("pet")
     )(
-      onRequest(body = examplePet, security = petOauthSecurity("pet-token"), headers = Map("Accept" -> "application/json"))
+      onRequest(body = examplePet, security = petOauthSecurity("pet-token"), headers = "application/json")
         .respondsWith[Pet](OK, description = "Update an existent pet in the store")
         .assert { ctx =>
           ctx.performRequest(routes)
           ok
         },
-      onRequest(body = nonExistentPet, security = petOauthSecurity("pet-token"), headers = Map("Accept" -> "application/json"))
+      onRequest(body = nonExistentPet, security = petOauthSecurity("pet-token"), headers = "application/json")
         .respondsWith[String](NotFound, description = "Pet not found")
         .assert { ctx =>
           ctx.performRequest(routes)
@@ -110,12 +111,13 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
     supports(
       POST,
       securitySchemes = Seq(petSecurityOauthScheme),
+      headers = h[String]("Accept"),
       summary = "Add a new pet to the store",
       description = "Add a new pet to the store",
       operationId = "addPet",
       tags = Seq("pet")
     )(
-      onRequest(body = examplePet, security = petOauthSecurity("pet-token"), headers = Map("Accept" -> "application/json"))
+      onRequest(body = examplePet, security = petOauthSecurity("pet-token"), headers = "application/json")
         .respondsWith[Pet](OK, description = "Successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
@@ -124,7 +126,7 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
       onRequest(
         body = examplePet.copy(name = Some("doggo"), id = Some(2)),
         security = petOauthSecurity("pet-token"),
-        headers = Map("Accept" -> "application/json")
+        headers = "application/json"
       )
         .respondsWith[Pet](OK, description = "Another successful operation")
         .assert { ctx =>
@@ -143,6 +145,7 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
       GET,
       securitySchemes = Seq(petSecurityOauthScheme),
       queryParameters = q[Status]("status"),
+      headers = h[String]("Accept"),
       summary = "Finds Pets by status",
       description = "Multiple status values can be provided with comma separated strings",
       operationId = "findPetsByStatus",
@@ -151,14 +154,14 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
       onRequest(
         queryParameters = Status.Available,
         security = petOauthSecurity("pet-token"),
-        headers = Map("Accept" -> "application/json")
+        headers = "application/json"
       )
         .respondsWith[Seq[Pet]](OK, description = "Successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
           ok
         },
-      onRequest(headers = Map("Accept" -> "application/json"))
+      onRequest(headers = "application/json")
         .respondsWith[String](BadRequest, description = "Invalid status value")
         .assert { ctx =>
           ctx.performRequest(routes)
@@ -172,6 +175,7 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
       GET,
       securitySchemes = Seq(petSecurityOauthScheme),
       queryParameters = q[Seq[String]]("tags"),
+      headers = h[String]("Accept"),
       summary = "Finds Pets by tag",
       description = "Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing.",
       operationId = "findPetsByTag",
@@ -180,14 +184,14 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
       onRequest(
         queryParameters = Seq("tag1", "tag2"),
         security = petOauthSecurity("pet-token"),
-        headers = Map("Accept" -> "application/json")
+        headers = "application/json"
       )
         .respondsWith[Seq[Pet]](OK, description = "Successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
           ok
         },
-      onRequest(headers = Map("Accept" -> "application/json"))
+      onRequest(headers = "application/json")
         .respondsWith[String](BadRequest, description = "Invalid tag value")
         .assert { ctx =>
           ctx.performRequest(routes)
@@ -201,25 +205,48 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
       GET,
       securitySchemes = Seq(petSecurityOauthScheme, petSecurityApiKeyScheme),
       pathParameters = p[Int]("petId"),
+      headers = h[String]("Accept"),
       summary = "Find pet by ID",
       description = "Returns a single pet",
       operationId = "getPetById",
       tags = Seq("pet")
     )(
-      onRequest(pathParameters = 1, security = petOauthSecurity("pet-token"), headers = Map("Accept" -> "application/json"))
+      onRequest(pathParameters = 1, security = petOauthSecurity("pet-token"), headers = "application/json")
         .respondsWith[Pet](OK, description = "Successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
           ok
         },
-      onRequest(pathParameters = 1, security = petApiKeySecurity("my-api-key"), headers = Map("Accept" -> "application/json"))
+      onRequest(pathParameters = 1, security = petApiKeySecurity("my-api-key"), headers = "application/json")
         .respondsWith[Pet](OK, description = "Successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
           ok
         },
-      onRequest(pathParameters = -2137, security = petOauthSecurity("pet-token"), headers = Map("Accept" -> "application/json"))
+      onRequest(pathParameters = -2137, security = petOauthSecurity("pet-token"), headers = "application/json")
         .respondsWith[String](NotFound, description = "Pet not found")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        }
+    ),
+    supports(
+      DELETE,
+      securitySchemes = Seq(petSecurityOauthScheme),
+      pathParameters = p[Int]("petId"),
+      headers = (h[String]("Accept"), h[Option[String]]("api_key")),
+      summary = "Deletes a pet",
+      operationId = "deletePet",
+      tags = Seq("pet")
+    )(
+      onRequest(pathParameters = 23, headers = ("application/json", Some("my-api-key")))
+        .respondsWith[String](OK, description = "Successful operation")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+          ok
+        },
+      onRequest(pathParameters = 23, headers = ("application/json", None))
+        .respondsWith[String](OK, description = "Unauthorized") // api_key is ignored :shrug:
         .assert { ctx =>
           ctx.performRequest(routes)
           ok

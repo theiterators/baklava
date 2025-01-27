@@ -96,7 +96,7 @@ trait BaklavaPathParams {
 
   // TODO: more tuples
 
-  implicit val providePathParamsUnit: ProvidePathParams[Unit, Unit] = new ProvidePathParams[Unit, Unit] {
+  implicit val providePathParamsByUnit: ProvidePathParams[Unit, Unit] = new ProvidePathParams[Unit, Unit] {
     override def apply(
         pathParams: Unit,
         pathParamsProvided: Unit,
@@ -105,20 +105,20 @@ trait BaklavaPathParams {
   }
 
   // TODO: it's ugly
-  implicit def providePathParamsSingleValue[T]: ProvidePathParams[PathParam[T], T] = new ProvidePathParams[PathParam[T], T] {
+  implicit def providePathParamsSingleValue[T, U <: T]: ProvidePathParams[PathParam[T], U] = new ProvidePathParams[PathParam[T], U] {
     override def apply(
         pathParams: PathParam[T],
-        pathParamsProvided: T,
+        pathParamsProvided: U,
         uri: String
     ): String =
       uri.replace(s"{${pathParams.name}}", URLEncoder.encode(pathParams.tsm(pathParamsProvided), StandardCharsets.UTF_8.toString))
   }
 
-  implicit def providePathParams2[T1, T2]: ProvidePathParams[(PathParam[T1], PathParam[T2]), (T1, T2)] =
-    new ProvidePathParams[(PathParam[T1], PathParam[T2]), (T1, T2)] {
+  implicit def providePathParams2[T1, T2, U1 <: T1, U2 <: T2]: ProvidePathParams[(PathParam[T1], PathParam[T2]), (U1, U2)] =
+    new ProvidePathParams[(PathParam[T1], PathParam[T2]), (U1, U2)] {
       override def apply(
           pathParams: (PathParam[T1], PathParam[T2]),
-          pathParamsProvided: (T1, T2),
+          pathParamsProvided: (U1, U2),
           uri: String
       ): String = {
         val (param1, param2)       = pathParams
@@ -128,11 +128,12 @@ trait BaklavaPathParams {
       }
     }
 
-  implicit def providePathParams3[T1, T2, T3]: ProvidePathParams[(PathParam[T1], PathParam[T2], PathParam[T3]), (T1, T2, T3)] =
-    new ProvidePathParams[(PathParam[T1], PathParam[T2], PathParam[T3]), (T1, T2, T3)] {
+  implicit def providePathParams3[T1, T2, T3, U1 <: T1, U2 <: T2, U3 <: T3]
+      : ProvidePathParams[(PathParam[T1], PathParam[T2], PathParam[T3]), (U1, U2, U3)] =
+    new ProvidePathParams[(PathParam[T1], PathParam[T2], PathParam[T3]), (U1, U2, U3)] {
       override def apply(
           pathParams: (PathParam[T1], PathParam[T2], PathParam[T3]),
-          pathParamsProvided: (T1, T2, T3),
+          pathParamsProvided: (U1, U2, U3),
           uri: String
       ): String = {
         val (param1, param2, param3)          = pathParams
@@ -143,12 +144,12 @@ trait BaklavaPathParams {
       }
     }
 
-  implicit def providePathParams4[T1, T2, T3, T4]
-      : ProvidePathParams[(PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4]), (T1, T2, T3, T4)] =
-    new ProvidePathParams[(PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4]), (T1, T2, T3, T4)] {
+  implicit def providePathParams4[T1, T2, T3, T4, U1 <: T1, U2 <: T2, U3 <: T3, U4 <: T4]
+      : ProvidePathParams[(PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4]), (U1, U2, U3, U4)] =
+    new ProvidePathParams[(PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4]), (U1, U2, U3, U4)] {
       override def apply(
           pathParams: (PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4]),
-          pathParamsProvided: (T1, T2, T3, T4),
+          pathParamsProvided: (U1, U2, U3, U4),
           uri: String
       ): String = {
         val (param1, param2, param3, param4)             = pathParams

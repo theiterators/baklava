@@ -17,7 +17,7 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
 
   override def createChunk(
       name: String,
-      pathRepresentation: List[(BaklavaRequestContext[?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]
+      pathRepresentation: List[(BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]
   ): Unit = {
     dirFile.mkdirs()
 
