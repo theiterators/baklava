@@ -35,6 +35,8 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
   }
 
   override def mergeChunks(config: Map[String, String]): Unit = {
+    dirFile.mkdirs()
+
     val chunks = Option(dirFile.listFiles())
       .getOrElse(Array.empty[File])
       .filter(_.getName.endsWith(chunkExtension))
@@ -58,7 +60,12 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
       val openApiHeaderChunk = config
         .get("openapi-info")
         .flatMap { openApiHeader =>
-          Option(parser.readContents(openApiHeader, null, null).getOpenAPI)
+          Option {
+            parser.readContents(openApiHeader, null, null).getOpenAPI
+          }.orElse {
+            println(s"Unable to parse your openapi-info -> '$openApiHeader''")
+            None
+          }
         }
         .getOrElse(new OpenAPI())
 

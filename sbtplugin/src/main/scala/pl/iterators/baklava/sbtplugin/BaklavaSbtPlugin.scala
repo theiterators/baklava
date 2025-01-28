@@ -4,7 +4,7 @@ import sbt.Keys._
 import sbt._
 import sbt.internal.util.Attributed.data
 
-import java.nio.file.Paths
+import java.util.Base64
 
 object BaklavaSbtPlugin extends AutoPlugin {
 
@@ -40,7 +40,10 @@ object BaklavaSbtPlugin extends AutoPlugin {
         val r                      = (Test / run / runner).value
         val s                      = streams.value
         val config                 = baklavaGenerateConfigs.value
-        val serializedConfig       = config.map { case (key, value) => s"$key=$value" }.toList
+        val serializedConfig = config.map { case (key, value) =>
+          val base64EncodedValue = Base64.getEncoder.encodeToString(value.getBytes("UTF-8"))
+          s"$key|$base64EncodedValue"
+        }.toList
 
         s.log.log(Level.Info, "Running baklava generate")
         r.run(clazz, data(configurationClassPath), serializedConfig, s.log).get
@@ -62,7 +65,11 @@ object BaklavaSbtPlugin extends AutoPlugin {
         val r                      = (Test / run / runner).value
         val s                      = streams.value
         val config                 = baklavaGenerateConfigs.value
-        val serializedConfig       = config.map { case (key, value) => s"$key=$value" }.toList
+        val serializedConfig = config.map { case (key, value) =>
+          val base64EncodedValue = Base64.getEncoder.encodeToString(value.getBytes("UTF-8"))
+          s"$key|$base64EncodedValue"
+        }.toList
+
         s.log.log(Level.Info, "Running baklava generate")
         r.run(clazz, data(configurationClassPath), serializedConfig, s.log).get
       }
