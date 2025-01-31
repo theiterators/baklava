@@ -108,7 +108,7 @@ object Schema extends SchemaDerivation {
     val description: Option[String]        = schema.description
   }
   implicit def seqSchema[T](implicit schema: Schema[T]): Schema[Seq[T]] = new Schema[Seq[T]] {
-    val className: String                  = schema.className
+    val className: String                  = "Seq[" + schema.className + "]"
     val `type`: SchemaType                 = SchemaType.ArrayType
     val format: Option[String]             = None
     val properties: Map[String, Schema[?]] = Map.empty
@@ -120,7 +120,7 @@ object Schema extends SchemaDerivation {
     val description: Option[String]        = None
   }
   implicit def listSchema[T](implicit schema: Schema[T]): Schema[List[T]] = new Schema[List[T]] {
-    val className: String                  = schema.className
+    val className: String                  = "List[" + schema.className + "]"
     val `type`: SchemaType                 = SchemaType.ArrayType
     val format: Option[String]             = None
     val properties: Map[String, Schema[?]] = Map.empty

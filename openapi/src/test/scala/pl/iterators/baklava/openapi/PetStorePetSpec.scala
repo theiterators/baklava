@@ -31,7 +31,7 @@ object Status extends Enum[Status] {
     val format: Option[String]             = None
     val properties: Map[String, Schema[?]] = Map.empty
     val `enum`: Option[Set[String]]        = Some(Status.values.map(_.entryName).toSet)
-    val items: Option[Schema[_]]           = None
+    val items: Option[Schema[?]]           = None
     val required: Boolean                  = true
     val additionalProperties: Boolean      = false
     val default: Option[Status]            = None
@@ -66,7 +66,7 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
     status = Some(Status.Available)
   )
 
-  val petOauthSecurity = OAuth2InBearer(
+  val petOauthSecurity: OAuth2InBearer = OAuth2InBearer(
     OAuthFlows(
       implicitFlow = Some(
         OAuthImplicitFlow(
@@ -80,10 +80,10 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
     )
   )
 
-  val petApiKeySecurity = ApiKeyInHeader("api_key")
+  val petApiKeySecurity: ApiKeyInHeader = ApiKeyInHeader("api_key")
 
-  val petSecurityOauthScheme  = SecurityScheme("petstore_auth", petOauthSecurity)
-  val petSecurityApiKeyScheme = SecurityScheme("api_key", petApiKeySecurity)
+  val petSecurityOauthScheme: SecurityScheme  = SecurityScheme("petstore_auth", petOauthSecurity)
+  val petSecurityApiKeyScheme: SecurityScheme = SecurityScheme("api_key", petApiKeySecurity)
 
   path("/pet")(
     supports(
@@ -192,7 +192,10 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
           ok
         },
       onRequest(headers = "application/json")
-        .respondsWith[String](BadRequest, description = "Invalid tag value")
+        .respondsWith[String](
+          BadRequest,
+          description = "Invalid tag value"
+        )
         .assert { ctx =>
           ctx.performRequest(routes)
           ok
@@ -212,13 +215,37 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
       tags = Seq("pet")
     )(
       onRequest(pathParameters = 1, security = petOauthSecurity("pet-token"), headers = "application/json")
-        .respondsWith[Pet](OK, description = "Successful operation")
+        .respondsWith[Pet](
+          OK,
+          description = "Successful operation",
+          headers = Seq(
+            h[String]("Access-Control-Allow-Headers"),
+            h[String]("Access-Control-Allow-Methods"),
+            h[String]("Access-Control-Allow-Origin"),
+            h[String]("Access-Control-Expose-Headers"),
+            h[String]("Date"),
+            h[String]("Server")
+          ),
+          strictHeaderCheck = true
+        )
         .assert { ctx =>
           ctx.performRequest(routes)
           ok
         },
       onRequest(pathParameters = 1, security = petApiKeySecurity("my-api-key"), headers = "application/json")
-        .respondsWith[Pet](OK, description = "Successful operation")
+        .respondsWith[Pet](
+          OK,
+          description = "Successful operation",
+          headers = Seq(
+            h[String]("Access-Control-Allow-Headers"),
+            h[String]("Access-Control-Allow-Methods"),
+            h[String]("Access-Control-Allow-Origin"),
+            h[String]("Access-Control-Expose-Headers"),
+            h[String]("Date"),
+            h[String]("Server", description = "Server header")
+          ),
+          strictHeaderCheck = true
+        )
         .assert { ctx =>
           ctx.performRequest(routes)
           ok

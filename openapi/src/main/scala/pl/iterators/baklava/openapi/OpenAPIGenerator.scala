@@ -11,14 +11,17 @@ object OpenAPIGenerator {
   def merge(openAPI: OpenAPI, chunks: List[OpenAPI]): OpenAPI = {
     chunks.foreach { chunk =>
       val chunkPaths = chunk.getPaths
-      Option(chunk.getPaths).map(_.keySet().asScala).getOrElse(Set.empty).foreach { chunkPathKey =>
+      Option(chunk.getPaths).map(_.keySet().asScala).getOrElse(Set.empty[String]).foreach { chunkPathKey =>
         openAPI.path(chunkPathKey, chunkPaths.get(chunkPathKey))
       }
     }
 
-    val securitySchemesMerged = chunks
+    val securitySchemesMerged: Map[String, io.swagger.v3.oas.models.security.SecurityScheme] = chunks
       .map { chunk =>
-        Option(chunk.getComponents).flatMap(c => Option(c.getSecuritySchemes)).map(_.asScala).getOrElse(Map.empty)
+        Option(chunk.getComponents)
+          .flatMap(c => Option(c.getSecuritySchemes))
+          .map(_.asScala)
+          .getOrElse(Map.empty[String, io.swagger.v3.oas.models.security.SecurityScheme])
       }
       .foldLeft(Map.empty[String, io.swagger.v3.oas.models.security.SecurityScheme]) { (acc, securitySchemes) =>
         acc ++ securitySchemes
@@ -180,12 +183,13 @@ object OpenAPIGenerator {
               )
             }
             commonStatusResponses.head._1.responseDescription.foreach(r.setDescription)
-            commonContentTypeResponses.head._2.headers.headers.filterNot { case (name, _) => name.toLowerCase == "content-type" }.foreach {
-              case (name, header) =>
-                val h = new io.swagger.v3.oas.models.headers.Header()
-                h.schema(new Schema[String]().`type`("string"))
-                h.example(header)
-                r.addHeaderObject(name, h)
+            commonContentTypeResponses.head._1.responseHeaders.filterNot { _.name == "content-type" }.foreach { header =>
+              val h = new io.swagger.v3.oas.models.headers.Header()
+              h.schema(baklavaSchemaToOpenAPISchema(header.schema))
+              h.setRequired(header.schema.required)
+              header.description.foreach(h.setDescription)
+              h.example(commonContentTypeResponses.head._2.headers.headers(header.name)) // TODO: make case-insensitive
+              r.addHeaderObject(header.name, h)
             }
             content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
             r.setContent(content)
@@ -299,7 +303,13 @@ object OpenAPIGenerator {
 
   private def baklavaSchemaToOpenAPISchema(baklavaSchema: BaklavaSchema[?]): Schema[?] = {
     val schema = new Schema[String]()
-    schema.set$id(baklavaSchema.className)
+    schema.extensions(
+      Map
+        .apply[String, AnyRef](
+          "x-class" -> baklavaSchema.className
+        )
+        .asJava
+    )
     baklavaSchema.`type` match {
       case SchemaType.NullType    => schema.setType("null")
       case SchemaType.StringType  => schema.setType("string")

@@ -40,7 +40,8 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       queryParameters = (),
       queryParametersProvided = (),
       queryParametersSeq = Seq.empty,
-      responseDescription = None
+      responseDescription = None,
+      responseHeaders = Seq.empty
     )
     pathLevelTextWithFragments(
       s"$path should",
@@ -100,7 +101,8 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
           queryParameters = queryParameters,
           queryParametersProvided = (),
           queryParametersSeq = toQueryParamSeq.apply(queryParameters),
-          responseDescription = None
+          responseDescription = None,
+          responseHeaders = Seq.empty
         )
         methodLevelTextWithFragments(s"support ${method.value}" + finalSummary, newCtx, fragmentsFromSeq(steps.map(_.apply(newCtx))))
       }
@@ -133,16 +135,20 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     ): BaklavaIntermediateTestCase[PathParameters, QueryParameters, Headers]
   }
 
+  def strictHeaderCheckDefault: Boolean
+
   case class OnRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
       body: RequestBody,
-      headers: HeadersProvided,
       security: AppliedSecurity,
+      headersProvided: HeadersProvided,
       pathParametersProvided: PathParametersProvided,
       queryParametersProvided: QueryParametersProvided
   ) {
     def respondsWith[ResponseBody: FromResponseBodyType: Schema](
         statusCode: BaklavaHttpStatus,
-        description: String = ""
+        headers: Seq[Header[?]] = Seq.empty,
+        description: String = "",
+        strictHeaderCheck: Boolean = strictHeaderCheckDefault
     ): BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
       new BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] {
         override def assert[R: TestFrameworkExecutionType, PathParameters, QueryParameters, Headers](
@@ -168,7 +174,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
               val finalDescription = if (description.trim.isEmpty) "" else ": " + description.trim
               var timesCalled: Int = 0
 
-              val headersProvided = provideHeaders.apply(requestContext.headersDefinition, headers)
+              val headersToInclude = provideHeaders.apply(requestContext.headersDefinition, headersProvided)
               // TODO: this security logic is duplicated in multiple places and messy and NEEDS TESTS
               // TODO: e.g. cookie concatenation by hand?!
               val additionalSecurityHeaders = security match {
@@ -186,29 +192,29 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                 case AppliedSecurity(_: NoopSecurity.type, _)          => Map.empty[String, String]
               }
               val headersWithCookieModifiedForSecurity: Map[String, String] = security match {
-                case AppliedSecurity(_: HttpBearer, _)     => headersProvided
-                case AppliedSecurity(_: HttpBasic, _)      => headersProvided
-                case AppliedSecurity(_: ApiKeyInHeader, _) => headersProvided
-                case AppliedSecurity(_: ApiKeyInQuery, _)  => headersProvided
+                case AppliedSecurity(_: HttpBearer, _)     => headersToInclude
+                case AppliedSecurity(_: HttpBasic, _)      => headersToInclude
+                case AppliedSecurity(_: ApiKeyInHeader, _) => headersToInclude
+                case AppliedSecurity(_: ApiKeyInQuery, _)  => headersToInclude
                 case AppliedSecurity(s: ApiKeyInCookie, params) =>
-                  headersProvided.find(_._1.toLowerCase == "cookie") match {
-                    case Some((_, value)) => headersProvided + ("Cookie" -> s"$value; ${s.name}=${params("apiKey")}")
-                    case None             => headersProvided + ("Cookie" -> s"${s.name}=${params("apiKey")}")
+                  headersToInclude.find(_._1.toLowerCase == "cookie") match {
+                    case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${s.name}=${params("apiKey")}")
+                    case None             => headersToInclude + ("Cookie" -> s"${s.name}=${params("apiKey")}")
                   }
-                case AppliedSecurity(_: MutualTls, _)             => headersProvided
-                case AppliedSecurity(_: OpenIdConnectInBearer, _) => headersProvided
+                case AppliedSecurity(_: MutualTls, _)             => headersToInclude
+                case AppliedSecurity(_: OpenIdConnectInBearer, _) => headersToInclude
                 case AppliedSecurity(_: OpenIdConnectInCookie, params) =>
-                  headersProvided.find(_._1.toLowerCase == "cookie") match {
-                    case Some((_, value)) => headersProvided + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
-                    case None             => headersProvided + ("Cookie" -> s"${params("name")}=${params("token")}")
+                  headersToInclude.find(_._1.toLowerCase == "cookie") match {
+                    case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
+                    case None             => headersToInclude + ("Cookie" -> s"${params("name")}=${params("token")}")
                   }
-                case AppliedSecurity(_: OAuth2InBearer, _) => headersProvided
+                case AppliedSecurity(_: OAuth2InBearer, _) => headersToInclude
                 case AppliedSecurity(_: OAuth2InCookie, params) =>
-                  headersProvided.find(_._1.toLowerCase == "cookie") match {
-                    case Some((_, value)) => headersProvided + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
-                    case None             => headersProvided + ("Cookie" -> s"${params("name")}=${params("token")}")
+                  headersToInclude.find(_._1.toLowerCase == "cookie") match {
+                    case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
+                    case None             => headersToInclude + ("Cookie" -> s"${params("name")}=${params("token")}")
                   }
-                case AppliedSecurity(_: NoopSecurity.type, _) => headersProvided
+                case AppliedSecurity(_: NoopSecurity.type, _) => headersToInclude
               }
               val securityQueryParameters = security match {
                 case AppliedSecurity(_: HttpBearer, _)            => Map.empty[String, Seq[String]]
@@ -238,11 +244,12 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                   body = if (body != EmptyBodyInstance) Some(body) else None,
                   bodySchema = Some(implicitly[Schema[RequestBody]]),
                   headers = BaklavaHttpHeaders(headersWithCookieModifiedForSecurity ++ additionalSecurityHeaders),
-                  headersProvided = headers,
+                  headersProvided = headersProvided,
                   security = security,
                   pathParametersProvided = pathParametersProvided,
                   queryParametersProvided = queryParametersProvided,
-                  responseDescription = if (description.trim.isEmpty) None else Some(description.trim)
+                  responseDescription = if (description.trim.isEmpty) None else Some(description.trim),
+                  responseHeaders = headers
                 )
 
               requestLevelTextWithExecution(
@@ -276,6 +283,39 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                       )
                     timesCalled += 1
 
+                    if (responseContext.status != statusCode) {
+                      throw new RuntimeException(
+                        s"Expected status code ${statusCode.status}, but got ${responseContext.status.status}"
+                      )
+                    }
+
+                    if (responseContext.responseBodyString.nonEmpty && implicitly[Schema[ResponseBody]] == Schema.emptyBodySchema) {
+                      throw new RuntimeException("Expected empty response body, but got: " + responseContext.responseBodyString)
+                    }
+
+                    val headersParsed = headers.map { h =>
+                      responseContext.headers.headers.get(h.name) match { // TODO: should be case insensitive
+                        case None => throw new RuntimeException(s"Header ${h.name} not found but expected")
+                        case Some(value) =>
+                          h.name ->
+                          h.tsm
+                            .unapply(value)
+                            .getOrElse(
+                              throw new RuntimeException(
+                                s"Header ${h.name} with value $value could not be parsed as ${h.schema.className}"
+                              )
+                            )
+                      }
+                    }
+                    if (strictHeaderCheck && headersParsed.distinctBy(_._1).length != responseContext.headers.headers.size) {
+                      throw new RuntimeException(
+                        s"Strict headers check is on, expected following headers: [${headers
+                            .map(h => h.name)
+                            .sorted
+                            .mkString(", ")}], but got: [${responseContext.headers.headers.keys.toList.sorted.mkString(", ")}]"
+                      )
+                    }
+
                     if (
                       requestContext.security.security != NoopSecurity && !requestContext.securitySchemes
                         .exists(_.security == requestContext.security.security)
@@ -285,14 +325,6 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                       )
                     }
 
-                    if (responseContext.status != statusCode) {
-                      throw new RuntimeException(
-                        s"Expected status code ${statusCode.status}, but got ${responseContext.status.status}"
-                      )
-                    }
-                    if (responseContext.responseBodyString.nonEmpty && implicitly[Schema[ResponseBody]] == Schema.emptyBodySchema) {
-                      throw new RuntimeException("Expected empty response body, but got: " + responseContext.responseBodyString)
-                    }
                     updateStorage(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
                     responseContext
                   }
@@ -324,7 +356,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       queryParameters: QueryParametersProvided = (),
       headers: HeadersProvided = ()
   ): OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
-    OnRequest(body, headers, security, pathParameters, queryParameters)
+    OnRequest(body, security, headers, pathParameters, queryParameters)
 
   def fragmentsFromSeq(fragments: Seq[TestFrameworkFragmentType]): TestFrameworkFragmentsType
   def concatFragments(fragments: Seq[TestFrameworkFragmentsType]): TestFrameworkFragmentsType

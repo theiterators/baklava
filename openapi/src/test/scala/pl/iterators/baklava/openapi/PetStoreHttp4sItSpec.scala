@@ -24,6 +24,8 @@ trait PetStoreHttp4sItSpec
     with KebsCirceEnumsLowercase
     with KebsEnumeratum {
 
+  override def strictHeaderCheckDefault: Boolean = false
+
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] { case _ =>
     IO(Response[IO]())
   }

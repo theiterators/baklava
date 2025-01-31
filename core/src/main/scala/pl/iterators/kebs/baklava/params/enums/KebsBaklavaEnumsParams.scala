@@ -23,6 +23,11 @@ trait KebsBaklavaEnumsParams {
       val _ = _enum // fix warning
       Some(value.toString)
     }
+
+    override def unapply(value: String): Option[T] = {
+      val _ = _enum // fix warning
+      _enum.values.find(_.toString == value)
+    }
   }
 
   trait KebsBaklavaEnumsUppercaseParams {
@@ -44,6 +49,11 @@ trait KebsBaklavaEnumsParams {
       override def apply(value: T): Option[String] = {
         val _ = _enum // fix warning
         Some(value.toString.toUpperCase)
+      }
+
+      override def unapply(value: String): Option[T] = {
+        val _ = _enum // fix warning
+        _enum.values.find(_.toString.toUpperCase == value)
       }
     }
   }
@@ -67,6 +77,11 @@ trait KebsBaklavaEnumsParams {
       override def apply(value: T): Option[String] = {
         val _ = _enum // fix warning
         Some(value.toString.toLowerCase)
+      }
+
+      override def unapply(value: String): Option[T] = {
+        val _ = _enum // fix warning
+        _enum.values.find(_.toString.toLowerCase == value)
       }
     }
   }
@@ -92,5 +107,8 @@ trait KebsBaklavaValueEnumsParams {
       tsm: ToHeader[V]
   ): ToHeader[T] = new ToHeader[T] {
     override def apply(value: T): Option[String] = tsm(valueEnumLike.valueOf(value))
+
+    override def unapply(value: String): Option[T] =
+      tsm.unapply(value).flatMap(v => valueEnumLike.getValuesToEntriesMap.toList.find(_._2 == v).map(_._1))
   }
 }

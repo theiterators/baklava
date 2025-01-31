@@ -44,7 +44,8 @@ case class BaklavaRequestContext[
     queryParameters: QueryParameters,
     queryParametersProvided: QueryParametersProvided,
     queryParametersSeq: Seq[QueryParam[?]],
-    responseDescription: Option[String]
+    responseDescription: Option[String],
+    responseHeaders: Seq[Header[?]]
 )
 
 case class BaklavaResponseContext[ResponseBody, RequestType, ResponseType](

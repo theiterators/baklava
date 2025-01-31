@@ -31,6 +31,8 @@ trait PetStorePekkoItSpec
     with KebsCirceEnumsLowercase
     with KebsEnumeratum {
 
+  override def strictHeaderCheckDefault: Boolean = false
+
   private implicit val system: ActorSystem        = ActorSystem()
   implicit val executionContext: ExecutionContext = system.dispatcher
   implicit val materializer: Materializer         = Materializer(system)

@@ -14,7 +14,7 @@ trait KebsBaklavaSchema {
       cls: ClassTag[T]
   ): Schema[T] = {
     new Schema[T] {
-      val className: String                  = cls.runtimeClass.getName
+      val className: String                  = cls.runtimeClass.getName // TODO: this won't capture opaque type's name
       val `type`: SchemaType                 = schema.`type`
       val format: Option[String]             = schema.format
       val properties: Map[String, Schema[?]] = schema.properties
