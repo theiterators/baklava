@@ -1,5 +1,7 @@
 package pl.iterators.baklava
 
+import scala.reflect.ClassTag
+
 sealed trait EmptyBody
 
 case object EmptyBodyInstance extends EmptyBody
@@ -149,7 +151,8 @@ trait BaklavaHttpDsl[
       route: RouteType
   )(implicit
       requestBody: ToRequestBodyType[RequestBody],
-      responseBody: FromResponseBodyType[ResponseBody]
+      responseBody: FromResponseBodyType[ResponseBody],
+      classTag: ClassTag[ResponseBody]
   ): BaklavaResponseContext[ResponseBody, HttpRequest, HttpResponse] = {
     val request: HttpRequest   = baklavaContextToHttpRequest(ctx)(requestBody)
     val response: HttpResponse = performRequest(route, request)
@@ -172,7 +175,7 @@ trait BaklavaHttpDsl[
   implicit def baklavaHeadersToHttpHeaders(headers: BaklavaHttpHeaders): HttpHeaders
   implicit def httpHeadersToBaklavaHeaders(headers: HttpHeaders): BaklavaHttpHeaders
 
-  def httpResponseToBaklavaResponseContext[T: FromResponseBodyType](
+  def httpResponseToBaklavaResponseContext[T: FromResponseBodyType: ClassTag](
       request: HttpRequest,
       response: HttpResponse
   ): BaklavaResponseContext[T, HttpRequest, HttpResponse]

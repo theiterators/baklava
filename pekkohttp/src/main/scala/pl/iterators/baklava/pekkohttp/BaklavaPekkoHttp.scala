@@ -9,6 +9,7 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.util.ByteString
 import pl.iterators.baklava.{
+  BaklavaAssertionException,
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
   BaklavaHttpMethod,
@@ -23,6 +24,8 @@ import pl.iterators.baklava.{
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
+import scala.reflect.ClassTag
+import scala.util.{Failure, Success, Try}
 
 trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestFrameworkExecutionType[_]]
     extends BaklavaHttpDsl[
@@ -98,7 +101,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
     headers.map(h => h.name() -> h.value()).toMap
   )
 
-  override def httpResponseToBaklavaResponseContext[T: FromEntityUnmarshaller](
+  override def httpResponseToBaklavaResponseContext[T: FromEntityUnmarshaller: ClassTag](
       request: HttpRequest,
       response: HttpResponse
   ): BaklavaResponseContext[T, HttpRequest, HttpResponse] = {
@@ -112,15 +115,25 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       dataBytes
     )
 
+    val responseString = Await.result(implicitly[FromEntityUnmarshaller[String]].apply(secondResponseEntity), Duration.Inf)
+    val requestString  = Await.result(implicitly[FromEntityUnmarshaller[String]].apply(request.entity), Duration.Inf)
+
     BaklavaResponseContext(
       response.protocol,
       response.status,
       response.headers,
-      Await.result(implicitly[FromEntityUnmarshaller[T]].apply(firstResponseEntity), Duration.Inf),
+      Try(Await.result(implicitly[FromEntityUnmarshaller[T]].apply(firstResponseEntity), Duration.Inf)) match {
+        case Success(value) => value
+        case Failure(exception) =>
+          throw new BaklavaAssertionException(
+            s"Failed to decode response body: ${exception.getMessage}\n" +
+              s"Expected: ${implicitly[ClassTag[T]].runtimeClass.getSimpleName}, but got: ${response.status} -> ${responseString.take(maxBodyLengthInAssertion)}"
+          )
+      },
       request,
-      Await.result(implicitly[FromEntityUnmarshaller[String]].apply(request.entity), Duration.Inf),
+      requestString,
       response,
-      Await.result(implicitly[FromEntityUnmarshaller[String]].apply(secondResponseEntity), Duration.Inf),
+      responseString,
       Option.when(request.entity.contentType != HttpEntity.Empty.contentType)(
         response.entity.contentType.value
       ),

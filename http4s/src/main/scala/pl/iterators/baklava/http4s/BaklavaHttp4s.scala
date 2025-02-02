@@ -5,6 +5,7 @@ import cats.effect.unsafe.IORuntime
 import org.http4s.{EntityDecoder, EntityEncoder, Header, Headers, HttpRoutes, HttpVersion, Method, Request, Response, Status, Uri, headers}
 import org.typelevel.ci.CIString
 import pl.iterators.baklava.{
+  BaklavaAssertionException,
   BaklavaHttpDsl,
   BaklavaHttpHeaders,
   BaklavaHttpMethod,
@@ -16,6 +17,9 @@ import pl.iterators.baklava.{
   EmptyBody,
   EmptyBodyInstance
 }
+
+import scala.reflect.ClassTag
+import scala.util.{Failure, Success, Try}
 
 trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestFrameworkExecutionType[_]]
     extends BaklavaHttpDsl[
@@ -81,7 +85,7 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     headers.headers.map(h => h.name.toString -> h.value).toMap
   )
 
-  override def httpResponseToBaklavaResponseContext[T: BaklavaHttp4s.FromEntityUnmarshaller](
+  override def httpResponseToBaklavaResponseContext[T: BaklavaHttp4s.FromEntityUnmarshaller: ClassTag](
       request: Request[IO],
       response: Response[IO]
   ): BaklavaResponseContext[T, Request[IO], Response[IO]] = {
@@ -96,7 +100,14 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
       response.httpVersion,
       response.status,
       response.headers,
-      newResponse.as[T].unsafeRunSync(),
+      Try(newResponse.as[T].unsafeRunSync()) match {
+        case Success(value) => value
+        case Failure(exception) =>
+          throw new BaklavaAssertionException(
+            s"Failed to decode response body: ${exception.getMessage}\n" +
+              s"Expected: ${implicitly[ClassTag[T]].runtimeClass.getSimpleName}, but got: ${response.status.code} -> ${responseString.take(maxBodyLengthInAssertion)}"
+          )
+      },
       newRequest,
       requestString,
       newResponse,

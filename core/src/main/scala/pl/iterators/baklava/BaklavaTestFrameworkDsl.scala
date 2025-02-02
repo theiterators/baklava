@@ -2,6 +2,9 @@ package pl.iterators.baklava
 
 import java.util.Base64
 import java.util.concurrent.atomic.AtomicReference
+import scala.reflect.ClassTag
+
+class BaklavaAssertionException(message: String) extends RuntimeException(message)
 
 trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyType[
     _
@@ -137,6 +140,8 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
 
   def strictHeaderCheckDefault: Boolean
 
+  def maxBodyLengthInAssertion: Int = 8192
+
   case class OnRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
       body: RequestBody,
       security: AppliedSecurity,
@@ -144,7 +149,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       pathParametersProvided: PathParametersProvided,
       queryParametersProvided: QueryParametersProvided
   ) {
-    def respondsWith[ResponseBody: FromResponseBodyType: Schema](
+    def respondsWith[ResponseBody: FromResponseBodyType: Schema: ClassTag](
         statusCode: BaklavaHttpStatus,
         headers: Seq[Header[?]] = Seq.empty,
         description: String = "",
@@ -284,31 +289,33 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                     timesCalled += 1
 
                     if (responseContext.status != statusCode) {
-                      throw new RuntimeException(
-                        s"Expected status code ${statusCode.status}, but got ${responseContext.status.status}"
+                      throw new BaklavaAssertionException(
+                        s"Expected ${statusCode.status} -> ${implicitly[Schema[ResponseBody]].className}, but got ${responseContext.status.status} -> ${responseContext.responseBodyString.take(maxBodyLengthInAssertion)}"
                       )
                     }
 
                     if (responseContext.responseBodyString.nonEmpty && implicitly[Schema[ResponseBody]] == Schema.emptyBodySchema) {
-                      throw new RuntimeException("Expected empty response body, but got: " + responseContext.responseBodyString)
+                      throw new BaklavaAssertionException(
+                        "Expected empty response body, but got: " + responseContext.responseBodyString.take(maxBodyLengthInAssertion)
+                      )
                     }
 
                     val headersParsed = headers.map { h =>
                       responseContext.headers.headers.get(h.name) match { // TODO: should be case insensitive
-                        case None => throw new RuntimeException(s"Header ${h.name} not found but expected")
+                        case None => throw new BaklavaAssertionException(s"Header ${h.name} not found but expected")
                         case Some(value) =>
                           h.name ->
                           h.tsm
                             .unapply(value)
                             .getOrElse(
-                              throw new RuntimeException(
+                              throw new BaklavaAssertionException(
                                 s"Header ${h.name} with value $value could not be parsed as ${h.schema.className}"
                               )
                             )
                       }
                     }
                     if (strictHeaderCheck && headersParsed.distinctBy(_._1).length != responseContext.headers.headers.size) {
-                      throw new RuntimeException(
+                      throw new BaklavaAssertionException(
                         s"Strict headers check is on, expected following headers: [${headers
                             .map(h => h.name)
                             .sorted
@@ -320,7 +327,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                       requestContext.security.security != NoopSecurity && !requestContext.securitySchemes
                         .exists(_.security == requestContext.security.security)
                     ) {
-                      throw new RuntimeException(
+                      throw new BaklavaAssertionException(
                         s"Used security ${requestContext.security.security.`type`} is not defined in security schemes: [${requestContext.securitySchemes.map(ss => s"${ss.name} -> ${ss.security.`type`}").mkString(", ")}]"
                       )
                     }
@@ -331,9 +338,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                   val baklava2CaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
                   r.andThen { x =>
                     if (timesCalled == 0) {
-                      throw new RuntimeException("oi, mate! performRequest was not called")
+                      throw new BaklavaAssertionException("performRequest was not called in a test, one request should be made")
                     } else if (timesCalled > 1) {
-                      throw new RuntimeException("oi, mate! performRequest was called more than once")
+                      throw new RuntimeException("performRequest was called multiple times in a test, only one request should be made")
                     }
                     x
                   }(baklava2CaseContext)
