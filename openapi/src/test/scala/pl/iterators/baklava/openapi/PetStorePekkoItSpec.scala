@@ -9,11 +9,10 @@ import org.apache.pekko.http.scaladsl.server.Directives.complete
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
-import org.specs2.mutable.SpecificationLike
-import org.specs2.specification.AfterAll
-import org.specs2.specification.core.{AsExecution, Fragment, Fragments}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.pekkohttp.BaklavaPekkoHttp
-import pl.iterators.baklava.specs2.BaklavaSpecs2
+import pl.iterators.baklava.scalatest.{BaklavaScalatest, ScalatestAsExecution}
 import pl.iterators.kebs.circe.KebsCirce
 import pl.iterators.kebs.circe.enums.KebsCirceEnumsLowercase
 import pl.iterators.kebs.enumeratum.KebsEnumeratum
@@ -22,10 +21,10 @@ import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext}
 
 trait PetStorePekkoItSpec
-    extends SpecificationLike
-    with AfterAll
-    with BaklavaPekkoHttp[Fragment, Fragments, AsExecution]
-    with BaklavaSpecs2[Route, ToEntityMarshaller, FromEntityUnmarshaller]
+    extends AnyFunSpec
+    with Matchers
+    with BaklavaPekkoHttp[Unit, Unit, ScalatestAsExecution]
+    with BaklavaScalatest[Route, ToEntityMarshaller, FromEntityUnmarshaller]
     with FailFastCirceSupport
     with KebsCirce
     with KebsCirceEnumsLowercase

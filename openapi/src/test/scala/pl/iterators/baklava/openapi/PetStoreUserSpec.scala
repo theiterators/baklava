@@ -38,7 +38,6 @@ class PetStoreUserSpec extends PetStoreHttp4sItSpec {
     )(
       onRequest(body = exampleUser).respondsWith[User](Ok, description = "successful operation").assert { ctx =>
         ctx.performRequest(routes)
-        ok
       }
     )
   )

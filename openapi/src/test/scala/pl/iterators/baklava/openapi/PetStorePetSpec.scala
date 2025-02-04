@@ -99,13 +99,11 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
         .respondsWith[Pet](OK, description = "Update an existent pet in the store")
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         },
       onRequest(body = nonExistentPet, security = petOauthSecurity("pet-token"), headers = "application/json")
         .respondsWith[String](NotFound, description = "Pet not found")
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         }
     ),
     supports(
@@ -121,7 +119,6 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
         .respondsWith[Pet](OK, description = "Successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         },
       onRequest(
         body = examplePet.copy(name = Some("doggo"), id = Some(2)),
@@ -131,11 +128,9 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
         .respondsWith[Pet](OK, description = "Another successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         },
       onRequest.respondsWith[Error](BadRequest, description = "Invalid input").assert { ctx =>
         ctx.performRequest(routes)
-        ok
       }
     )
   )
@@ -159,13 +154,11 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
         .respondsWith[Seq[Pet]](OK, description = "Successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         },
       onRequest(headers = "application/json")
         .respondsWith[String](BadRequest, description = "Invalid status value")
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         }
     )
   )
@@ -189,7 +182,6 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
         .respondsWith[Seq[Pet]](OK, description = "Successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         },
       onRequest(headers = "application/json")
         .respondsWith[String](
@@ -198,7 +190,6 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
         )
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         }
     )
   )
@@ -230,12 +221,11 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
         )
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         },
       onRequest(pathParameters = 1, security = petApiKeySecurity("my-api-key"), headers = "application/json")
         .respondsWith[Pet](
           OK,
-          description = "Successful operation",
+          description = "Successful operation 2",
           headers = Seq(
             h[String]("Access-Control-Allow-Headers"),
             h[String]("Access-Control-Allow-Methods"),
@@ -248,13 +238,11 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
         )
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         },
       onRequest(pathParameters = -2137, security = petOauthSecurity("pet-token"), headers = "application/json")
         .respondsWith[String](NotFound, description = "Pet not found")
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         }
     ),
     supports(
@@ -270,13 +258,11 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
         .respondsWith[String](OK, description = "Successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         },
       onRequest(pathParameters = 23, headers = ("application/json", None))
         .respondsWith[String](OK, description = "Unauthorized") // api_key is ignored :shrug:
         .assert { ctx =>
           ctx.performRequest(routes)
-          ok
         }
     )
   )

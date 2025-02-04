@@ -1,5 +1,6 @@
 ThisBuild / tlBaseVersion    := "1.0"
 ThisBuild / tlCiHeaderCheck  := false
+ThisBuild / tlUntaggedAreSnapshots := true
 ThisBuild / versionScheme    := Some("early-semver")
 ThisBuild / organization     := "pl.iterators"
 ThisBuild / organizationName := "Iterators"
@@ -48,7 +49,7 @@ lazy val core = project
 
 lazy val openapi = project
   .in(file("openapi"))
-  .dependsOn(core, pekkohttp % "test", http4s % "test", specs2 % "test")
+  .dependsOn(core, pekkohttp % "test", http4s % "test", scalatest % "test")
   .settings(
     name := "baklava-openapi",
     libraryDependencies ++= Seq(
