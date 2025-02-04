@@ -1,11 +1,11 @@
-ThisBuild / tlBaseVersion    := "1.0"
-ThisBuild / tlCiHeaderCheck  := false
+ThisBuild / tlBaseVersion          := "1.0"
+ThisBuild / tlCiHeaderCheck        := false
 ThisBuild / tlUntaggedAreSnapshots := true
-ThisBuild / versionScheme    := Some("early-semver")
-ThisBuild / organization     := "pl.iterators"
-ThisBuild / organizationName := "Iterators"
-ThisBuild / startYear        := Some(2024)
-ThisBuild / licenses         := Seq(License.Apache2)
+ThisBuild / versionScheme          := Some("early-semver")
+ThisBuild / organization           := "pl.iterators"
+ThisBuild / organizationName       := "Iterators"
+ThisBuild / startYear              := Some(2024)
+ThisBuild / licenses               := Seq(License.Apache2)
 ThisBuild / developers := List(
   tlGitHubDev("luksow", "Łukasz Sowa")
 )
@@ -32,8 +32,9 @@ val reflectionsV   = "0.10.2"
 val magnoliaS2V    = "1.1.10"
 val magnoliaS3V    = "1.3.8"
 
-val enumeratumV    = "1.7.5"
-val pekkoHttpJsonV = "3.0.0"
+val enumeratumV     = "1.7.5"
+val pekkoHttpJsonV  = "3.0.0"
+val testcontainersV = "0.41.8"
 
 lazy val core = project
   .in(file("core"))
@@ -53,14 +54,15 @@ lazy val openapi = project
   .settings(
     name := "baklava-openapi",
     libraryDependencies ++= Seq(
-      "io.swagger.core.v3"    % "swagger-core"        % swaggerV,
-      "io.swagger.parser.v3"  % "swagger-parser"      % swaggerParserV,
-      "com.beachape"         %% "enumeratum"          % enumeratumV    % "test",
-      "pl.iterators"         %% "kebs-enumeratum"     % kebsV          % "test",
-      "pl.iterators"         %% "kebs-circe"          % kebsV          % "test",
-      "com.github.pjfanning" %% "pekko-http-circe"    % pekkoHttpJsonV % "test",
-      "org.http4s"           %% "http4s-ember-client" % http4sV        % "test",
-      "org.http4s"           %% "http4s-circe"        % http4sV        % "test"
+      "io.swagger.core.v3"    % "swagger-core"                   % swaggerV,
+      "io.swagger.parser.v3"  % "swagger-parser"                 % swaggerParserV,
+      "com.beachape"         %% "enumeratum"                     % enumeratumV     % "test",
+      "pl.iterators"         %% "kebs-enumeratum"                % kebsV           % "test",
+      "pl.iterators"         %% "kebs-circe"                     % kebsV           % "test",
+      "com.github.pjfanning" %% "pekko-http-circe"               % pekkoHttpJsonV  % "test",
+      "org.http4s"           %% "http4s-ember-client"            % http4sV         % "test",
+      "org.http4s"           %% "http4s-circe"                   % http4sV         % "test",
+      "com.dimafeng"         %% "testcontainers-scala-scalatest" % testcontainersV % "test"
     )
   )
 

@@ -50,7 +50,7 @@ case class Pet(id: Option[Long], name: Option[String], photoUrls: Seq[String], t
 case class Error(code: Int, message: String)
 
 class PetStorePetSpec extends PetStorePekkoItSpec {
-  private val examplePet = Pet(
+  val examplePet = Pet(
     id = Some(1),
     name = Some("doggie"),
     photoUrls = Seq("url1", "url2"),
@@ -58,7 +58,7 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
     status = Some(Status.Available)
   )
 
-  private val nonExistentPet = Pet(
+  val nonExistentPet = Pet(
     id = Some(-1000),
     name = Some("doggie"),
     photoUrls = Seq("string"),
