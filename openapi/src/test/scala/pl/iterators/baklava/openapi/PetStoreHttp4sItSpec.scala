@@ -27,7 +27,7 @@ trait PetStoreHttp4sItSpec
     with KebsEnumeratum
     with TestContainerForAll {
 
-  override val containerDef = GenericContainer.Def(
+  override val containerDef: GenericContainer.Def[GenericContainer] = GenericContainer.Def(
     "swaggerapi/petstore3:unstable",
     exposedPorts = Seq(8080),
     waitStrategy = Wait.forHttp("/")
