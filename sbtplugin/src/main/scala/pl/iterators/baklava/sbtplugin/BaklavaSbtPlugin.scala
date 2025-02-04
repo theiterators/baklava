@@ -1,9 +1,10 @@
 package pl.iterators.baklava.sbtplugin
 
-import sbt.Keys._
-import sbt._
+import org.typelevel.scalaccompat.annotation.unused
+import sbt.Keys.*
+import sbt.*
 import sbt.internal.util.Attributed.data
-import sbt.dsl.LinterLevel.Ignore // TODO: probably not a good idea to ignore linter warnings
+import sbt.dsl.LinterLevel.Ignore
 
 import java.util.Base64
 
@@ -18,7 +19,7 @@ object BaklavaSbtPlugin extends AutoPlugin {
     val baklavaGenerateConfigs = taskKey[Map[String, String]]("Options for baklava generate")
   }
 
-  def settings(configuration: Configuration): Seq[Setting[_]] = {
+  def settings(@unused configuration: Configuration): Seq[Setting[_]] = {
     import BaklavaSbtPlugin.autoImport._
 
     val clazz = "pl.iterators.baklava.BaklavaGenerate"
