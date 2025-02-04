@@ -1,4 +1,5 @@
 ThisBuild / tlBaseVersion    := "1.0"
+ThisBuild / tlCiHeaderCheck  := false
 ThisBuild / versionScheme    := Some("early-semver")
 ThisBuild / organization     := "pl.iterators"
 ThisBuild / organizationName := "Iterators"
