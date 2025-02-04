@@ -3,6 +3,7 @@ package pl.iterators.baklava.sbtplugin
 import sbt.Keys._
 import sbt._
 import sbt.internal.util.Attributed.data
+import sbt.dsl.LinterLevel.Ignore // TODO: probably not a good idea to ignore linter warnings
 
 import java.util.Base64
 
