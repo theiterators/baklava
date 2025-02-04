@@ -335,7 +335,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                     updateStorage(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
                     responseContext
                   }
-                  val baklava2CaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
+                  val baklavaCaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
                   r.andThen { x =>
                     if (timesCalled == 0) {
                       throw new BaklavaAssertionException("performRequest was not called in a test, one request should be made")
@@ -343,7 +343,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                       throw new RuntimeException("performRequest was called multiple times in a test, only one request should be made")
                     }
                     x
-                  }(baklava2CaseContext)
+                  }(baklavaCaseContext)
                 }
               )
             }

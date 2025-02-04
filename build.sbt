@@ -1,6 +1,4 @@
-import sbt.internal.util.Attributed.data
-
-ThisBuild / tlBaseVersion    := "2.0"
+ThisBuild / tlBaseVersion    := "1.0"
 ThisBuild / versionScheme    := Some("early-semver")
 ThisBuild / organization     := "pl.iterators"
 ThisBuild / organizationName := "Iterators"
@@ -38,7 +36,7 @@ val pekkoHttpJsonV = "3.0.0"
 lazy val core = project
   .in(file("core"))
   .settings(
-    name := "baklava2-core",
+    name := "baklava-core",
     libraryDependencies ++= Seq(
       "pl.iterators"   %% "kebs-core"   % kebsV,
       "org.reflections" % "reflections" % reflectionsV,
@@ -51,7 +49,7 @@ lazy val openapi = project
   .in(file("openapi"))
   .dependsOn(core, pekkohttp % "test", http4s % "test", specs2 % "test")
   .settings(
-    name := "baklava2-openapi",
+    name := "baklava-openapi",
     libraryDependencies ++= Seq(
       "io.swagger.core.v3"    % "swagger-core"        % swaggerV,
       "io.swagger.parser.v3"  % "swagger-parser"      % swaggerParserV,
@@ -68,7 +66,7 @@ lazy val pekkohttp = project
   .in(file("pekkohttp"))
   .dependsOn(core)
   .settings(
-    name := "baklava2-pekko-http",
+    name := "baklava-pekko-http",
     libraryDependencies ++= Seq(
       "org.apache.pekko" %% "pekko-http"         % pekkoHttpV,
       "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV,
@@ -80,7 +78,7 @@ lazy val http4s = project
   .in(file("http4s"))
   .dependsOn(core)
   .settings(
-    name := "baklava2-http4s",
+    name := "baklava-http4s",
     libraryDependencies ++= Seq(
       "org.http4s" %% "http4s-dsl" % http4sV
     )
@@ -90,7 +88,7 @@ lazy val specs2 = project
   .in(file("specs2"))
   .dependsOn(core)
   .settings(
-    name := "baklava2-specs2",
+    name := "baklava-specs2",
     libraryDependencies ++= Seq(
       "org.specs2" %% "specs2-core" % specs2V
     )
@@ -100,7 +98,7 @@ lazy val scalatest = project
   .in(file("scalatest"))
   .dependsOn(core)
   .settings(
-    name := "baklava2-scalatest",
+    name := "baklava-scalatest",
     libraryDependencies ++= Seq(
       "org.scalatest" %% "scalatest" % scalatestV
     )
@@ -110,7 +108,7 @@ lazy val munit = project
   .in(file("munit"))
   .dependsOn(core)
   .settings(
-    name := "baklava2-munit",
+    name := "baklava-munit",
     libraryDependencies ++= Seq(
       "org.scalameta" %% "munit" % munitV
     )
@@ -120,7 +118,7 @@ lazy val sbtplugin = project
   .in(file("sbtplugin"))
   .enablePlugins(SbtPlugin)
   .settings(
-    name               := "baklava2-sbt-plugin",
+    name               := "baklava-sbt-plugin",
     scalaVersion       := "2.12.17",
     crossScalaVersions := Seq("2.12.17"),
     pluginCrossBuild / sbtVersion := {
