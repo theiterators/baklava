@@ -18,7 +18,7 @@ ThisBuild / scalaVersion       := Scala213
 
 // TODO: add -Yretain-trees to scalacOptions to enable magnolia features
 
-lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, http4s, specs2, scalatest, munit, sbtplugin)
+lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, pekkohttproutes, http4s, specs2, scalatest, munit, sbtplugin)
 
 val swaggerV       = "2.2.27"
 val swaggerParserV = "2.1.24"
@@ -36,6 +36,10 @@ val magnoliaS3V    = "1.3.8"
 val enumeratumV     = "1.7.5"
 val pekkoHttpJsonV  = "3.0.0"
 val testcontainersV = "0.41.8"
+
+val webjarsLocatorV = "0.52"
+val swaggerUiV      = "5.17.11"
+val typesafeConfigV = "1.4.3"
 
 lazy val core = project
   .in(file("core"))
@@ -77,6 +81,23 @@ lazy val pekkohttp = project
       "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV,
       "org.apache.pekko" %% "pekko-stream"       % pekkoV
     )
+  )
+
+lazy val pekkohttproutes = project
+  .in(file("pekkohttproutes"))
+  .settings(
+    name := "baklava-pekko-http-routes",
+    libraryDependencies ++= {
+      Seq(
+        "org.apache.pekko"    %% "pekko-stream"    % pekkoHttpV,
+        "org.apache.pekko"    %% "pekko-http"      % pekkoHttpV,
+        "com.typesafe"         % "config"          % typesafeConfigV,
+        "org.webjars"          % "webjars-locator" % webjarsLocatorV,
+        "io.swagger.core.v3"   % "swagger-core"    % swaggerV,
+        "io.swagger.parser.v3" % "swagger-parser"  % swaggerParserV,
+        "org.webjars"          % "swagger-ui"      % swaggerUiV
+      )
+    }
   )
 
 lazy val http4s = project
