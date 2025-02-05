@@ -10,8 +10,8 @@ import java.net.URLEncoder
 import scala.util.Using
 
 class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
-//todo names - check if its possible to read the target name from context or something like thath
-  private val dirName        = "target/baklava"
+//todo names - check if its possible to read the target name from context or something like that
+  private val dirName        = "target/baklava/openapi"
   private val dirFile        = new File(dirName)
   private val chunkExtension = "openapi.chunk"
 
@@ -53,7 +53,7 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
       }
       .toList
 
-    val finalFile = new File(s"$dirName/baklava.openapi")
+    val finalFile = new File(s"$dirName/openapi.yml")
 
     Using(new FileOutputStream(finalFile)) { outputStream =>
       val parser = new OpenAPIV3Parser
