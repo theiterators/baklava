@@ -15,6 +15,8 @@ import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.util.{Failure, Success, Try}
 
 object BaklavaRoutes {
+  private val swaggerVersion = "5.17.11"
+
   def routes(config: com.typesafe.config.Config): Route = {
     implicit val internalConfig: BaklavaRoutes.Config = BaklavaRoutes.Config(config)
     if (internalConfig.enabled)
@@ -27,7 +29,7 @@ object BaklavaRoutes {
         } ~ */
         path("openapi") {
           complete(openApiFileContent)
-        } ~ (path("swagger-ui" / "5.17.11" / "swagger-initializer.js") & get) {
+        } ~ (path("swagger-ui" / swaggerVersion / "swagger-initializer.js") & get) {
           complete(swaggerInitializerContent)
         } ~ pathPrefix("swagger-ui") {
           swaggerWebJar
@@ -82,7 +84,7 @@ object BaklavaRoutes {
   }
 
   private def swaggerRedirectHttpResponse(implicit internalConfig: BaklavaRoutes.Config) = {
-    val swaggerUiUrl = s"${internalConfig.publicPathPrefix}swagger-ui/5.15.1/index.html"
+    val swaggerUiUrl = s"${internalConfig.publicPathPrefix}swagger-ui/${swaggerVersion}/index.html"
     HttpResponse(status = StatusCodes.SeeOther, headers = Location(swaggerUiUrl) :: Nil)
   }
 
