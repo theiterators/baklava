@@ -119,7 +119,7 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
     }
 
   private def routeToRequestBody(route: EnrichedRouteRepresentation[_, _]): Option[RequestBody] =
-    route.routeRepresentation.request.minimal.jsonString.map { _ =>
+    route.routeRepresentation.request.random.jsonString.map { _ =>
       val mt = routeDtoHandlerToMediaType(route.routeRepresentation.request)
 
       val apiRequest = new RequestBody()
@@ -203,21 +203,15 @@ class OpenApiFormatterWorker(jsonSchemaToSwaggerSchemaWorker: JsonSchemaToSwagge
   private def routeDtoHandlerToMediaType(dto: RouteDtoHandler[_]): MediaType = {
     val mt = new MediaType
 
-    dto.minimal.jsonString.foreach { json =>
+    dto.random.jsonString.foreach { json =>
       val example = new Example()
       example.setValue(json)
-      mt.addExamples("minimal", example)
+      mt.addExamples("random", example)
 
       val schema = new Schema
       schema.setType(swaggerSchema(dto.jsonSchemaWrapper).getType)
       schema.set$ref(schemaRefName(dto.scalaClassOpt.get))
       mt.setSchema(schema)
-    }
-
-    dto.maximal.jsonString.foreach { json =>
-      val example = new Example()
-      example.setValue(json)
-      mt.addExamples("maximal", example)
     }
 
     mt

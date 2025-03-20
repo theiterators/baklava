@@ -1,6 +1,7 @@
 package pl.iterators.baklava.fetcher
 
 import org.reflections.Reflections
+import org.scalacheck.Gen
 import org.scalatest.flatspec.{AnyFlatSpec, AnyFlatSpecLike}
 import org.scalatest.matchers.should.Matchers
 import org.specs2.mutable.Specification
@@ -9,19 +10,15 @@ import pl.iterators.baklava.circe.CirceJsonStringProvider
 import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation}
 import pl.iterators.kebs.circe.KebsCirce
 import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
-import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
+import pl.iterators.kebs.scalacheck.KebsArbitrarySupport
 
 trait LibraryTestSpec extends ScalatestRouteBaklavaSpec with AkkaHttpRouteBaklavaSpec with AnyFlatSpecLike with Matchers {
   override def shutdownSpec(): Unit = ()
 }
 
-object ScalatestTestData
-    extends KebsArbitraryPredefs
-    with KebsJsonSchemaPredefs
-    with KebsCirce
-    with CirceJsonStringProvider
-    with KebsJsonSchema
-    with KebsScalacheckGenerators {
+object ScalatestTestData extends KebsArbitrarySupport with KebsJsonSchemaPredefs with KebsCirce with CirceJsonStringProvider with KebsJsonSchema {
+  implicit val genParameters: Gen.Parameters = Gen.Parameters.default.withSize(5)
+
   val routeRepresentation1: RouteRepresentation[Unit, Unit] = RouteRepresentation("description1", "method1", "path1")
 
   val routeRepresentation2: RouteRepresentation[Unit, Unit] = RouteRepresentation("description1", "method1", "path1")

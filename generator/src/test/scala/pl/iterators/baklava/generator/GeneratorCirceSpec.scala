@@ -1,6 +1,7 @@
 package pl.iterators.baklava.generator
 
 import org.reflections.Reflections
+import org.scalacheck.Gen
 import org.specs2.mutable.Specification
 import pl.iterators.baklava.circe.CirceJsonStringProvider
 import pl.iterators.baklava.core.fetchers.Fetcher
@@ -23,13 +24,9 @@ object CirceStaticTestState {
 
 }
 
-class CirceTestFetcher
-    extends Fetcher
-    with CirceJsonStringProvider
-    with KebsJsonSchema
-    with KebsArbitraryPredefs
-    with KebsJsonSchemaPredefs
-    with KebsScalacheckGenerators {
+class CirceTestFetcher extends Fetcher with CirceJsonStringProvider with KebsJsonSchema with KebsArbitrarySupport with KebsJsonSchemaPredefs {
+
+  implicit val genParameters: Gen.Parameters = Gen.Parameters.default.withSize(5)
 
   CirceStaticTestState.testFetcherCreated = true
 

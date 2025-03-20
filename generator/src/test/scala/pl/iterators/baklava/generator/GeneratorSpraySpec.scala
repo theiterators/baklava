@@ -1,6 +1,7 @@
 package pl.iterators.baklava.generator
 
 import org.reflections.Reflections
+import org.scalacheck.Gen
 import org.specs2.mutable.Specification
 import pl.iterators.baklava.core.fetchers.Fetcher
 import pl.iterators.baklava.core.model._
@@ -29,9 +30,10 @@ class SprayTestFetcher
     with SprayJsonStringProvider
     with DefaultJsonProtocol
     with KebsJsonSchema
-    with KebsArbitraryPredefs
-    with KebsJsonSchemaPredefs
-    with KebsScalacheckGenerators {
+    with KebsArbitrarySupport
+    with KebsJsonSchemaPredefs {
+
+  implicit val genParameters: Gen.Parameters = Gen.Parameters.default.withSize(5)
 
   SprayStaticTestState.testFetcherCreated = true
 

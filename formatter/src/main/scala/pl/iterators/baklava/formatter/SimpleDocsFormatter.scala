@@ -149,12 +149,10 @@ class SimpleDocsFormatter extends Formatter {
             s"</td></tr>"
         ),
         r.request.scalaClassOpt.map(s => s"<tr><td><b>REQUEST SCALA TYPE</b></td><td><pre>$s</pre></td></tr>"),
-        r.request.minimal.jsonString.map(s => s"<tr><td><b>REQUEST MINIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
-        r.request.maximal.jsonString.map(s => s"<tr><td><b>REQUEST MAXIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
+        r.request.random.jsonString.map(s => s"<tr><td><b>REQUEST RANDOM JSON</b></td><td><pre>$s</pre></td></tr>"),
         r.request.schema.map(s => s"<tr><td><b>REQUEST SCHEMA</b></td><td><pre>${printSchema(s)}</pre></td></tr>"),
         r.response.scalaClassOpt.map(s => s"<tr><td><b>RESPONSE SCALA TYPE</b></td><td><pre>$s</pre></td></tr>"),
-        r.response.minimal.jsonString.map(s => s"<tr><td><b>RESPONSE MINIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
-        r.response.maximal.jsonString.map(s => s"<tr><td><b>RESPONSE MAXIMAL JSON</b></td><td><pre>$s</pre></td></tr>"),
+        r.response.random.jsonString.map(s => s"<tr><td><b>RESPONSE RANDOM JSON</b></td><td><pre>$s</pre></td></tr>"),
         r.response.schema.map(s => s"<tr><td><b>RESPONSE SCHEMA</b></td><td><pre>${printSchema(s)}</pre></td></tr>")
       ).flatten.mkString("\n") +
       "</table>"

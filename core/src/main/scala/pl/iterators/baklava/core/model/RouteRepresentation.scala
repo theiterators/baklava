@@ -1,7 +1,7 @@
 package pl.iterators.baklava.core.model
 
+import org.scalacheck.{Arbitrary, Gen}
 import pl.iterators.kebs.jsonschema.JsonSchemaWrapper
-import pl.iterators.kebs.scalacheck.AllGenerators
 import pl.iterators.baklava.core.utils.option.RichOptionCompanion
 
 import scala.reflect.runtime.universe._
@@ -19,13 +19,14 @@ case class RouteRepresentation[Request, Response](
   extendedDescription: Option[String] = None
 )(implicit
   requestTypeTag: TypeTag[Request],
-  requestGenerators: AllGenerators[Request],
+  requestGenerators: Arbitrary[Request],
   val requestJsonSchemaWrapper: JsonSchemaWrapper[Request],
   requestJsonPrinter: JsonStringPrinter[Request],
   responseTypeTag: TypeTag[Response],
-  responseGenerators: AllGenerators[Response],
+  responseGenerators: Arbitrary[Response],
   val responseJsonSchemaWrapper: JsonSchemaWrapper[Response],
-  responseJsonPrinter: JsonStringPrinter[Response]) {
+  responseJsonPrinter: JsonStringPrinter[Response],
+  genParameters: Gen.Parameters) {
 
   lazy val name: String = s"$method $path"
 

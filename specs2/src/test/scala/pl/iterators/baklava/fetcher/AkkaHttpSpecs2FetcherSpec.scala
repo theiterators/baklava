@@ -2,12 +2,13 @@ package pl.iterators.baklava.fetcher
 
 import akka.http.scaladsl.testkit.Specs2RouteTest
 import org.reflections.Reflections
+import org.scalacheck.Gen
 import org.specs2.mutable.{Specification, SpecificationLike}
 import pl.iterators.baklava.core.fetchers.RouteBaklavaSpec
 import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation}
 import pl.iterators.baklava.sprayjson.SprayJsonStringProvider
 import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
-import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
+import pl.iterators.kebs.scalacheck.KebsArbitrarySupport
 import spray.json.DefaultJsonProtocol
 
 trait LibrarySpec2TestSpec extends Specs2RouteTest with SpecificationLike with RouteBaklavaSpec with Specs2RouteBaklavaSpec {
@@ -15,12 +16,13 @@ trait LibrarySpec2TestSpec extends Specs2RouteTest with SpecificationLike with R
 }
 
 object Specs2TestData
-    extends KebsArbitraryPredefs
+    extends KebsArbitrarySupport
     with KebsJsonSchemaPredefs
     with DefaultJsonProtocol
     with SprayJsonStringProvider
-    with KebsJsonSchema
-    with KebsScalacheckGenerators {
+    with KebsJsonSchema {
+  implicit val genParameters: Gen.Parameters = Gen.Parameters.default.withSize(5)
+
   val routeRepresentation1: RouteRepresentation[Unit, Unit] = RouteRepresentation("description1", "method1", "path1")
 
   val routeRepresentation2: RouteRepresentation[Unit, Unit] = RouteRepresentation("description1", "method1", "path1")

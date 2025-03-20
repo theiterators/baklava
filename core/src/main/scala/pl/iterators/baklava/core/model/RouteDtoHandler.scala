@@ -1,15 +1,16 @@
 package pl.iterators.baklava.core.model
 
+import org.scalacheck.{Arbitrary, Gen}
 import pl.iterators.kebs.jsonschema.JsonSchemaWrapper
-import pl.iterators.kebs.scalacheck.AllGenerators
 import pl.iterators.baklava.core.utils.option.RichOptionCompanion
+import pl.iterators.kebs.scalacheck._
 
 import scala.reflect.runtime.universe._
-import scala.util.Random
 
 class RouteDtoHandler[T](
   implicit ttag: TypeTag[T],
-  generators: AllGenerators[T],
+  arbitrary: Arbitrary[T],
+  genParameters: Gen.Parameters,
   val jsonSchemaWrapper: JsonSchemaWrapper[T],
   jsonPrinter: JsonStringPrinter[T]) {
 
@@ -20,31 +21,21 @@ class RouteDtoHandler[T](
   lazy val schema: Option[json.Schema[T]] =
     Option.when(!isUnit)(jsonSchemaWrapper.schema)
 
-  def minimal: RouteDtoValueWithJsonOpt[T] =
-    RouteDtoValueWithJsonOpt[T](generators.minimal.generate)
-  def normal: RouteDtoValueWithJsonOpt[T] =
-    RouteDtoValueWithJsonOpt[T](generators.normal.generate)
-  def maximal: RouteDtoValueWithJsonOpt[T] =
-    RouteDtoValueWithJsonOpt[T](generators.maximal.generate)
-  def get: RouteDtoValueWithJsonOpt[T] = normal
-  def random: RouteDtoValueWithJsonOpt[T] = {
-    val rnd = Random.nextInt(3)
-    if (rnd == 0) minimal
-    else if (rnd == 1) maximal
-    else normal
-  }
+  def random: RouteDtoValueWithJsonOpt[T] =
+    RouteDtoValueWithJsonOpt[T](generate[T]()(arbitrary, genParameters))
 }
 
 class RouteDtoHandlerWithPredefinedValue[T](
   value: T
 )(implicit
   ttag: TypeTag[T],
-  generators: AllGenerators[T],
+  arbitrary: Arbitrary[T],
+  genParameters: Gen.Parameters,
   override val jsonSchemaWrapper: JsonSchemaWrapper[T],
   jsonPrinter: JsonStringPrinter[T])
     extends RouteDtoHandler {
 
-  override lazy val normal: RouteDtoValueWithJsonOpt[T] =
+  override lazy val random: RouteDtoValueWithJsonOpt[T] =
     RouteDtoValueWithJsonOpt[T](value)
 }
 
@@ -53,7 +44,8 @@ object RouteDtoHandler {
     predefinedValue: Option[T]
   )(implicit
     ttag: TypeTag[T],
-    generators: AllGenerators[T],
+    arbitrary: Arbitrary[T],
+    genParameters: Gen.Parameters,
     jsonSchemaWrapper: JsonSchemaWrapper[T],
     jsonPrinter: JsonStringPrinter[T]
   ): RouteDtoHandler[T] =

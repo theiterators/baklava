@@ -2,6 +2,7 @@ package pl.iterators.baklava.formatter
 
 import io.swagger.v3.oas.models.security.SecurityScheme
 import io.swagger.v3.oas.models.{Components, Paths}
+import org.scalacheck.Gen
 import org.specs2.mutable.Specification
 import org.specs2.specification.Scope
 import pl.iterators.baklava.core.model.{EnrichedRouteRepresentation, RouteRepresentation, RouteSecurity}
@@ -9,7 +10,7 @@ import pl.iterators.baklava.formatter.openapi._
 import pl.iterators.baklava.sprayjson.SprayJsonStringProvider
 import pl.iterators.kebs.sprayjson.KebsSprayJson
 import pl.iterators.kebs.jsonschema.{KebsJsonSchema, KebsJsonSchemaPredefs}
-import pl.iterators.kebs.scalacheck.{KebsArbitraryPredefs, KebsScalacheckGenerators}
+import pl.iterators.kebs.scalacheck.KebsArbitrarySupport
 import spray.json._
 
 import scala.jdk.CollectionConverters._
@@ -32,13 +33,14 @@ class OpenApiFormatterWorkerSpec extends Specification {
       with SprayJsonStringProvider
       with KebsSprayJson
       with KebsJsonSchema
-      with KebsArbitraryPredefs
-      with KebsJsonSchemaPredefs
-      with KebsScalacheckGenerators {
+      with KebsArbitrarySupport
+      with KebsJsonSchemaPredefs {
 
     val converter = new JsonSchemaToSwaggerSchemaWorker
     val worker    = new OpenApiFormatterWorker(converter)
   }
+
+  implicit val genParameters: Gen.Parameters = Gen.Parameters.default.withSize(5)
 
   "converter" should {
     "works for empty list" in new TestCase {
@@ -125,29 +127,26 @@ class OpenApiFormatterWorkerSpec extends Specification {
       val path1OutputMt = path1.getGet.getResponses.get("200").getContent.get("application/json")
       path1OutputMt.getSchema.getType shouldEqual "object"
       path1OutputMt.getSchema.get$ref shouldEqual "#/components/schemas/pl.iterators.baklava.formatter.TestData.Path1Output"
-      path1OutputMt.getExamples.get("minimal").getValue.toString.parseJson.convertTo[TestData.Path1Output] shouldNotEqual
-        path1OutputMt.getExamples.get("maximal").getValue.toString.parseJson.convertTo[TestData.Path1Output]
+      path1OutputMt.getExamples.get("random").getValue.toString.parseJson.convertTo[TestData.Path1Output]
 
       val path2 = openApi.getPaths.get("/path2")
       path2.getPut.getSummary shouldEqual "summary 2"
       val path2InputMt = path2.getPut.getRequestBody.getContent.get("application/json")
       path2InputMt.getSchema.getType shouldEqual "object"
       path2InputMt.getSchema.get$ref shouldEqual "#/components/schemas/pl.iterators.baklava.formatter.TestData.Path2Input"
-      path2InputMt.getExamples.get("minimal").getValue.toString.parseJson.convertTo[TestData.Path2Input] shouldNotEqual
-        path2InputMt.getExamples.get("maximal").getValue.toString.parseJson.convertTo[TestData.Path2Input]
+      path2InputMt.getExamples.get("random").getValue.toString.parseJson.convertTo[TestData.Path2Input]
 
       val path3 = openApi.getPaths.get("/path3")
       path3.getPost.getSummary shouldEqual "summary 3"
       val path3InputMt = path3.getPost.getRequestBody.getContent.get("application/json")
       path3InputMt.getSchema.getType shouldEqual "object"
       path3InputMt.getSchema.get$ref shouldEqual "#/components/schemas/pl.iterators.baklava.formatter.TestData.Path3Input"
-      path3InputMt.getExamples.get("minimal").getValue.toString.parseJson.convertTo[TestData.Path3Input] shouldNotEqual
-        path3InputMt.getExamples.get("maximal").getValue.toString.parseJson.convertTo[TestData.Path3Input]
+      path3InputMt.getExamples.get("random").getValue.toString.parseJson.convertTo[TestData.Path3Input]
+
       val path3OutputMt = path3.getPost.getResponses.get("200").getContent.get("application/json")
       path3OutputMt.getSchema.getType shouldEqual "object"
       path3OutputMt.getSchema.get$ref shouldEqual "#/components/schemas/pl.iterators.baklava.formatter.TestData.Path3Output"
-      path3OutputMt.getExamples.get("minimal").getValue.toString.parseJson.convertTo[TestData.Path3Output] shouldNotEqual
-        path3OutputMt.getExamples.get("maximal").getValue.toString.parseJson.convertTo[TestData.Path3Output]
+      path3OutputMt.getExamples.get("random").getValue.toString.parseJson.convertTo[TestData.Path3Output]
 
       val schemas = openApi.getComponents.getSchemas
       schemas.get("pl.iterators.baklava.formatter.TestData.Path1Output") shouldEqual
