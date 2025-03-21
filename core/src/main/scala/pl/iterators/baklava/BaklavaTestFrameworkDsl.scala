@@ -1,7 +1,6 @@
 package pl.iterators.baklava
 
 import java.util.Base64
-import java.util.concurrent.atomic.AtomicReference
 import scala.reflect.ClassTag
 
 class BaklavaAssertionException(message: String) extends RuntimeException(message)
@@ -332,7 +331,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                       )
                     }
 
-                    updateStorage(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
+                    store(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
                     responseContext
                   }
                   val baklavaCaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
@@ -383,15 +382,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       r: => R
   ): TestFrameworkFragmentType
 
-  private def updateStorage(ctx: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
-    storage.getAndUpdate(_ :+ (ctx -> response))
-    ()
+  private def store(request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
+    BaklavaSerialize.serializeCall(request, response)
   }
-
-  def storeResult(): Unit = {
-    BaklavaDslFormatter.formatters.foreach(_.createChunk(getClass.getCanonicalName, storage.get()))
-  }
-
-  private val storage: AtomicReference[List[(BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], BaklavaResponseContext[?, ?, ?])]] =
-    new AtomicReference(List.empty)
 }

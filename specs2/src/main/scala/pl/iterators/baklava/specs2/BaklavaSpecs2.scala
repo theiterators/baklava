@@ -36,8 +36,4 @@ trait BaklavaSpecs2[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
       r: => R
   ): Fragment =
     text >> r
-
-  override def afterAll(): Unit = {
-    storeResult()
-  }
 }

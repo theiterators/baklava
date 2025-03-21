@@ -12,19 +12,19 @@ case class SecurityScheme(name: String, security: Security)
 
 case class AppliedSecurity(security: Security, params: Map[String, String])
 
-private[baklava] case object NoopSecurity extends Security {
+private[baklava] case object NoopSecurity extends Security with Serializable {
   override val `type`: String      = "noop"
   override val description: String = "this should never be rendered"
 }
 
-case class HttpBearer(bearerFormat: String = "", description: String = "") extends Security {
+case class HttpBearer(bearerFormat: String = "", description: String = "") extends Security with Serializable {
   override val `type`: String = "http"
   val `scheme`: String        = "bearer"
 
   def apply(token: String): AppliedSecurity = AppliedSecurity(this, Map("token" -> token))
 }
 
-case class HttpBasic(description: String = "") extends Security {
+case class HttpBasic(description: String = "") extends Security with Serializable {
   override val `type`: String = "http"
   val `scheme`: String        = "basic"
 
@@ -33,49 +33,49 @@ case class HttpBasic(description: String = "") extends Security {
 
 // TODO: support other schemes?
 
-case class ApiKeyInHeader(name: String, description: String = "") extends Security {
+case class ApiKeyInHeader(name: String, description: String = "") extends Security with Serializable {
   override val `type`: String = "apiKey"
 
   def apply(apiKey: String): AppliedSecurity = AppliedSecurity(this, Map("apiKey" -> apiKey))
 }
 
-case class ApiKeyInQuery(name: String, description: String = "") extends Security {
+case class ApiKeyInQuery(name: String, description: String = "") extends Security with Serializable {
   override val `type`: String = "apiKey"
 
   def apply(apiKey: String): AppliedSecurity = AppliedSecurity(this, Map("apiKey" -> apiKey))
 }
 
-case class ApiKeyInCookie(name: String, description: String = "") extends Security {
+case class ApiKeyInCookie(name: String, description: String = "") extends Security with Serializable {
   override val `type`: String = "apiKey"
 
   def apply(apiKey: String): AppliedSecurity = AppliedSecurity(this, Map("apiKey" -> apiKey))
 }
 
-case class MutualTls(description: String = "") extends Security {
+case class MutualTls(description: String = "") extends Security with Serializable {
   override val `type`: String = "mutualTLS"
 
   def apply(): AppliedSecurity = AppliedSecurity(this, Map.empty)
 }
 
-case class OpenIdConnectInBearer(openIdConnectUrl: URI, description: String = "") extends Security {
+case class OpenIdConnectInBearer(openIdConnectUrl: URI, description: String = "") extends Security with Serializable {
   override val `type`: String = "openIdConnect"
 
   def apply(token: String): AppliedSecurity = AppliedSecurity(this, Map("token" -> token))
 }
 
-case class OpenIdConnectInCookie(openIdConnectUrl: URI, description: String = "") extends Security {
+case class OpenIdConnectInCookie(openIdConnectUrl: URI, description: String = "") extends Security with Serializable {
   override val `type`: String = "openIdConnect"
 
   def apply(name: String, token: String): AppliedSecurity = AppliedSecurity(this, Map("name" -> name, "token" -> token))
 }
 
-case class OAuth2InBearer(flows: OAuthFlows, description: String = "") extends Security {
+case class OAuth2InBearer(flows: OAuthFlows, description: String = "") extends Security with Serializable {
   override val `type`: String = "oauth2"
 
   def apply(token: String): AppliedSecurity = AppliedSecurity(this, Map("token" -> token))
 }
 
-case class OAuth2InCookie(flows: OAuthFlows, description: String = "") extends Security {
+case class OAuth2InCookie(flows: OAuthFlows, description: String = "") extends Security with Serializable {
   override val `type`: String = "oauth2"
 
   def apply(name: String, token: String): AppliedSecurity = AppliedSecurity(this, Map("name" -> name, "token" -> token))
