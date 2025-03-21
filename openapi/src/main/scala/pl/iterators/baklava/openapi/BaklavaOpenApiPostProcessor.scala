@@ -8,7 +8,7 @@ import org.reflections.util.ConfigurationBuilder
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 trait BaklavaOpenApiPostProcessor {
-  def process(openAPI: OpenAPI): OpenAPI
+  def process(openAPI: OpenAPI): Unit
 }
 
 object BaklavaOpenApiPostProcessor {

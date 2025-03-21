@@ -11,11 +11,12 @@ ThisBuild / developers := List(
 )
 ThisBuild / sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeLegacy
 
-val Scala213 = "2.13.15"
+val Scala213 = "2.13.16"
 val Scala3   = "3.3.3"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion       := Scala213
 
+scalacOptions += "-Xmax-inlines:64"
 // TODO: add -Yretain-trees to scalacOptions to enable magnolia features
 
 lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, pekkohttproutes, http4s, specs2, scalatest, munit, sbtplugin)
@@ -25,6 +26,7 @@ val swaggerParserV = "2.1.24"
 val pekkoHttpV     = "1.1.0"
 val pekkoV         = "1.1.2"
 val kebsV          = "2.0.0"
+val circeV         = "0.14.0"
 val specs2V        = "4.20.9"
 val scalatestV     = "3.2.19"
 val munitV         = "1.0.2"
@@ -46,8 +48,10 @@ lazy val core = project
   .settings(
     name := "baklava-core",
     libraryDependencies ++= Seq(
-      "pl.iterators"   %% "kebs-core"   % kebsV,
-      "org.reflections" % "reflections" % reflectionsV,
+      "pl.iterators"   %% "kebs-core"    % kebsV,
+      "org.reflections" % "reflections"  % reflectionsV,
+      "pl.iterators"   %% "kebs-circe"   % kebsV,
+      "io.circe"       %% "circe-parser" % circeV,
       if (scalaVersion.value.startsWith("3")) "com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaS3V
       else "com.softwaremill.magnolia1_2"                                    %% "magnolia" % magnoliaS2V
     )

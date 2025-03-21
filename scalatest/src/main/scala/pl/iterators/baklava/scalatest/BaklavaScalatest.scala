@@ -25,10 +25,6 @@ trait BaklavaScalatest[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
       context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       r: => R
   ): Unit = it(text)(r)
-
-  override def afterAll(): Unit = {
-    storeResult()
-  }
 }
 
 trait ScalatestAsExecution[T]

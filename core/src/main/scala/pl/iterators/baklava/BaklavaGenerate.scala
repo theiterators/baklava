@@ -3,7 +3,6 @@ package pl.iterators.baklava
 import java.util.Base64
 
 object BaklavaGenerate {
-
   def main(args: Array[String]): Unit = {
     val configMap = args.map { entry =>
       val splitIndex = entry.indexOf('|')
@@ -16,6 +15,8 @@ object BaklavaGenerate {
         entry -> ""
       }
     }.toMap
-    BaklavaDslFormatter.formatters.foreach(_.mergeChunks(configMap))
+    val calls = BaklavaSerialize.listSerializedCalls()
+    BaklavaDslFormatter.formatters.foreach(_.create(configMap, calls))
+    BaklavaSerialize.cleanSerializedCalls()
   }
 }
