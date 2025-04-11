@@ -179,7 +179,1815 @@ trait BaklavaQueryParams {
       }
     }
 
-  // TODO: more tuples
+  implicit def provideQueryParams5[T1, T2, T3, T4, T5, U1 <: T1, U2 <: T2, U3 <: T3, U4 <: T4, U5 <: T5]
+      : ProvideQueryParams[(QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4], QueryParam[T5]), (U1, U2, U3, U4, U5)] =
+    new ProvideQueryParams[(QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4], QueryParam[T5]), (U1, U2, U3, U4, U5)] {
+      override def apply(
+          queryParameters: (QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4], QueryParam[T5]),
+          queryParametersProvided: (U1, U2, U3, U4, U5),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name -> queryParameters._1.tsm(a),
+            queryParameters._2.name -> queryParameters._2.tsm(b),
+            queryParameters._3.name -> queryParameters._3.tsm(c),
+            queryParameters._4.name -> queryParameters._4.tsm(d),
+            queryParameters._5.name -> queryParameters._5.tsm(e)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams6[T1, T2, T3, T4, T5, T6, U1 <: T1, U2 <: T2, U3 <: T3, U4 <: T4, U5 <: T5, U6 <: T6]: ProvideQueryParams[
+    (QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4], QueryParam[T5], QueryParam[T6]),
+    (U1, U2, U3, U4, U5, U6)
+  ] =
+    new ProvideQueryParams[
+      (QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4], QueryParam[T5], QueryParam[T6]),
+      (U1, U2, U3, U4, U5, U6)
+    ] {
+      override def apply(
+          queryParameters: (QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4], QueryParam[T5], QueryParam[T6]),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name -> queryParameters._1.tsm(a),
+            queryParameters._2.name -> queryParameters._2.tsm(b),
+            queryParameters._3.name -> queryParameters._3.tsm(c),
+            queryParameters._4.name -> queryParameters._4.tsm(d),
+            queryParameters._5.name -> queryParameters._5.tsm(e),
+            queryParameters._6.name -> queryParameters._6.tsm(f)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams7[T1, T2, T3, T4, T5, T6, T7, U1 <: T1, U2 <: T2, U3 <: T3, U4 <: T4, U5 <: T5, U6 <: T6, U7 <: T7]
+      : ProvideQueryParams[
+        (QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4], QueryParam[T5], QueryParam[T6], QueryParam[T7]),
+        (U1, U2, U3, U4, U5, U6, U7)
+      ] =
+    new ProvideQueryParams[
+      (QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4], QueryParam[T5], QueryParam[T6], QueryParam[T7]),
+      (U1, U2, U3, U4, U5, U6, U7)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name -> queryParameters._1.tsm(a),
+            queryParameters._2.name -> queryParameters._2.tsm(b),
+            queryParameters._3.name -> queryParameters._3.tsm(c),
+            queryParameters._4.name -> queryParameters._4.tsm(d),
+            queryParameters._5.name -> queryParameters._5.tsm(e),
+            queryParameters._6.name -> queryParameters._6.tsm(f),
+            queryParameters._7.name -> queryParameters._7.tsm(g)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams8[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8
+  ]: ProvideQueryParams[
+    (QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4], QueryParam[T5], QueryParam[T6], QueryParam[T7], QueryParam[T8]),
+    (U1, U2, U3, U4, U5, U6, U7, U8)
+  ] =
+    new ProvideQueryParams[
+      (QueryParam[T1], QueryParam[T2], QueryParam[T3], QueryParam[T4], QueryParam[T5], QueryParam[T6], QueryParam[T7], QueryParam[T8]),
+      (U1, U2, U3, U4, U5, U6, U7, U8)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name -> queryParameters._1.tsm(a),
+            queryParameters._2.name -> queryParameters._2.tsm(b),
+            queryParameters._3.name -> queryParameters._3.tsm(c),
+            queryParameters._4.name -> queryParameters._4.tsm(d),
+            queryParameters._5.name -> queryParameters._5.tsm(e),
+            queryParameters._6.name -> queryParameters._6.tsm(f),
+            queryParameters._7.name -> queryParameters._7.tsm(g),
+            queryParameters._8.name -> queryParameters._8.tsm(h)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams9[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name -> queryParameters._1.tsm(a),
+            queryParameters._2.name -> queryParameters._2.tsm(b),
+            queryParameters._3.name -> queryParameters._3.tsm(c),
+            queryParameters._4.name -> queryParameters._4.tsm(d),
+            queryParameters._5.name -> queryParameters._5.tsm(e),
+            queryParameters._6.name -> queryParameters._6.tsm(f),
+            queryParameters._7.name -> queryParameters._7.tsm(g),
+            queryParameters._8.name -> queryParameters._8.tsm(h),
+            queryParameters._9.name -> queryParameters._9.tsm(i)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams10[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams11[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams12[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams13[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      T13,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12,
+      U13 <: T13
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12],
+        QueryParam[T13]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12],
+          QueryParam[T13]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12],
+              QueryParam[T13]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l, m) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l),
+            queryParameters._13.name -> queryParameters._13.tsm(m)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams14[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      T13,
+      T14,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12,
+      U13 <: T13,
+      U14 <: T14
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12],
+        QueryParam[T13],
+        QueryParam[T14]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12],
+          QueryParam[T13],
+          QueryParam[T14]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12],
+              QueryParam[T13],
+              QueryParam[T14]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l, m, n) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l),
+            queryParameters._13.name -> queryParameters._13.tsm(m),
+            queryParameters._14.name -> queryParameters._14.tsm(n)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams15[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      T13,
+      T14,
+      T15,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12,
+      U13 <: T13,
+      U14 <: T14,
+      U15 <: T15
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12],
+        QueryParam[T13],
+        QueryParam[T14],
+        QueryParam[T15]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12],
+          QueryParam[T13],
+          QueryParam[T14],
+          QueryParam[T15]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12],
+              QueryParam[T13],
+              QueryParam[T14],
+              QueryParam[T15]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l),
+            queryParameters._13.name -> queryParameters._13.tsm(m),
+            queryParameters._14.name -> queryParameters._14.tsm(n),
+            queryParameters._15.name -> queryParameters._15.tsm(o)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams16[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      T13,
+      T14,
+      T15,
+      T16,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12,
+      U13 <: T13,
+      U14 <: T14,
+      U15 <: T15,
+      U16 <: T16
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12],
+        QueryParam[T13],
+        QueryParam[T14],
+        QueryParam[T15],
+        QueryParam[T16]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12],
+          QueryParam[T13],
+          QueryParam[T14],
+          QueryParam[T15],
+          QueryParam[T16]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12],
+              QueryParam[T13],
+              QueryParam[T14],
+              QueryParam[T15],
+              QueryParam[T16]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l),
+            queryParameters._13.name -> queryParameters._13.tsm(m),
+            queryParameters._14.name -> queryParameters._14.tsm(n),
+            queryParameters._15.name -> queryParameters._15.tsm(o),
+            queryParameters._16.name -> queryParameters._16.tsm(p)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams17[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      T13,
+      T14,
+      T15,
+      T16,
+      T17,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12,
+      U13 <: T13,
+      U14 <: T14,
+      U15 <: T15,
+      U16 <: T16,
+      U17 <: T17
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12],
+        QueryParam[T13],
+        QueryParam[T14],
+        QueryParam[T15],
+        QueryParam[T16],
+        QueryParam[T17]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12],
+          QueryParam[T13],
+          QueryParam[T14],
+          QueryParam[T15],
+          QueryParam[T16],
+          QueryParam[T17]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12],
+              QueryParam[T13],
+              QueryParam[T14],
+              QueryParam[T15],
+              QueryParam[T16],
+              QueryParam[T17]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l),
+            queryParameters._13.name -> queryParameters._13.tsm(m),
+            queryParameters._14.name -> queryParameters._14.tsm(n),
+            queryParameters._15.name -> queryParameters._15.tsm(o),
+            queryParameters._16.name -> queryParameters._16.tsm(p),
+            queryParameters._17.name -> queryParameters._17.tsm(q)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams18[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      T13,
+      T14,
+      T15,
+      T16,
+      T17,
+      T18,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12,
+      U13 <: T13,
+      U14 <: T14,
+      U15 <: T15,
+      U16 <: T16,
+      U17 <: T17,
+      U18 <: T18
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12],
+        QueryParam[T13],
+        QueryParam[T14],
+        QueryParam[T15],
+        QueryParam[T16],
+        QueryParam[T17],
+        QueryParam[T18]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12],
+          QueryParam[T13],
+          QueryParam[T14],
+          QueryParam[T15],
+          QueryParam[T16],
+          QueryParam[T17],
+          QueryParam[T18]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12],
+              QueryParam[T13],
+              QueryParam[T14],
+              QueryParam[T15],
+              QueryParam[T16],
+              QueryParam[T17],
+              QueryParam[T18]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l),
+            queryParameters._13.name -> queryParameters._13.tsm(m),
+            queryParameters._14.name -> queryParameters._14.tsm(n),
+            queryParameters._15.name -> queryParameters._15.tsm(o),
+            queryParameters._16.name -> queryParameters._16.tsm(p),
+            queryParameters._17.name -> queryParameters._17.tsm(q),
+            queryParameters._18.name -> queryParameters._18.tsm(r)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams19[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      T13,
+      T14,
+      T15,
+      T16,
+      T17,
+      T18,
+      T19,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12,
+      U13 <: T13,
+      U14 <: T14,
+      U15 <: T15,
+      U16 <: T16,
+      U17 <: T17,
+      U18 <: T18,
+      U19 <: T19
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12],
+        QueryParam[T13],
+        QueryParam[T14],
+        QueryParam[T15],
+        QueryParam[T16],
+        QueryParam[T17],
+        QueryParam[T18],
+        QueryParam[T19]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12],
+          QueryParam[T13],
+          QueryParam[T14],
+          QueryParam[T15],
+          QueryParam[T16],
+          QueryParam[T17],
+          QueryParam[T18],
+          QueryParam[T19]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12],
+              QueryParam[T13],
+              QueryParam[T14],
+              QueryParam[T15],
+              QueryParam[T16],
+              QueryParam[T17],
+              QueryParam[T18],
+              QueryParam[T19]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l),
+            queryParameters._13.name -> queryParameters._13.tsm(m),
+            queryParameters._14.name -> queryParameters._14.tsm(n),
+            queryParameters._15.name -> queryParameters._15.tsm(o),
+            queryParameters._16.name -> queryParameters._16.tsm(p),
+            queryParameters._17.name -> queryParameters._17.tsm(q),
+            queryParameters._18.name -> queryParameters._18.tsm(r),
+            queryParameters._19.name -> queryParameters._19.tsm(s)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams20[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      T13,
+      T14,
+      T15,
+      T16,
+      T17,
+      T18,
+      T19,
+      T20,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12,
+      U13 <: T13,
+      U14 <: T14,
+      U15 <: T15,
+      U16 <: T16,
+      U17 <: T17,
+      U18 <: T18,
+      U19 <: T19,
+      U20 <: T20
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12],
+        QueryParam[T13],
+        QueryParam[T14],
+        QueryParam[T15],
+        QueryParam[T16],
+        QueryParam[T17],
+        QueryParam[T18],
+        QueryParam[T19],
+        QueryParam[T20]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12],
+          QueryParam[T13],
+          QueryParam[T14],
+          QueryParam[T15],
+          QueryParam[T16],
+          QueryParam[T17],
+          QueryParam[T18],
+          QueryParam[T19],
+          QueryParam[T20]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12],
+              QueryParam[T13],
+              QueryParam[T14],
+              QueryParam[T15],
+              QueryParam[T16],
+              QueryParam[T17],
+              QueryParam[T18],
+              QueryParam[T19],
+              QueryParam[T20]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l),
+            queryParameters._13.name -> queryParameters._13.tsm(m),
+            queryParameters._14.name -> queryParameters._14.tsm(n),
+            queryParameters._15.name -> queryParameters._15.tsm(o),
+            queryParameters._16.name -> queryParameters._16.tsm(p),
+            queryParameters._17.name -> queryParameters._17.tsm(q),
+            queryParameters._18.name -> queryParameters._18.tsm(r),
+            queryParameters._19.name -> queryParameters._19.tsm(s),
+            queryParameters._20.name -> queryParameters._20.tsm(t)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams21[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      T13,
+      T14,
+      T15,
+      T16,
+      T17,
+      T18,
+      T19,
+      T20,
+      T21,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12,
+      U13 <: T13,
+      U14 <: T14,
+      U15 <: T15,
+      U16 <: T16,
+      U17 <: T17,
+      U18 <: T18,
+      U19 <: T19,
+      U20 <: T20,
+      U21 <: T21
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12],
+        QueryParam[T13],
+        QueryParam[T14],
+        QueryParam[T15],
+        QueryParam[T16],
+        QueryParam[T17],
+        QueryParam[T18],
+        QueryParam[T19],
+        QueryParam[T20],
+        QueryParam[T21]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20, U21)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12],
+          QueryParam[T13],
+          QueryParam[T14],
+          QueryParam[T15],
+          QueryParam[T16],
+          QueryParam[T17],
+          QueryParam[T18],
+          QueryParam[T19],
+          QueryParam[T20],
+          QueryParam[T21]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20, U21)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12],
+              QueryParam[T13],
+              QueryParam[T14],
+              QueryParam[T15],
+              QueryParam[T16],
+              QueryParam[T17],
+              QueryParam[T18],
+              QueryParam[T19],
+              QueryParam[T20],
+              QueryParam[T21]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20, U21),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l),
+            queryParameters._13.name -> queryParameters._13.tsm(m),
+            queryParameters._14.name -> queryParameters._14.tsm(n),
+            queryParameters._15.name -> queryParameters._15.tsm(o),
+            queryParameters._16.name -> queryParameters._16.tsm(p),
+            queryParameters._17.name -> queryParameters._17.tsm(q),
+            queryParameters._18.name -> queryParameters._18.tsm(r),
+            queryParameters._19.name -> queryParameters._19.tsm(s),
+            queryParameters._20.name -> queryParameters._20.tsm(t),
+            queryParameters._21.name -> queryParameters._21.tsm(u)
+          )
+        )
+      }
+    }
+
+  implicit def provideQueryParams22[
+      T1,
+      T2,
+      T3,
+      T4,
+      T5,
+      T6,
+      T7,
+      T8,
+      T9,
+      T10,
+      T11,
+      T12,
+      T13,
+      T14,
+      T15,
+      T16,
+      T17,
+      T18,
+      T19,
+      T20,
+      T21,
+      T22,
+      U1 <: T1,
+      U2 <: T2,
+      U3 <: T3,
+      U4 <: T4,
+      U5 <: T5,
+      U6 <: T6,
+      U7 <: T7,
+      U8 <: T8,
+      U9 <: T9,
+      U10 <: T10,
+      U11 <: T11,
+      U12 <: T12,
+      U13 <: T13,
+      U14 <: T14,
+      U15 <: T15,
+      U16 <: T16,
+      U17 <: T17,
+      U18 <: T18,
+      U19 <: T19,
+      U20 <: T20,
+      U21 <: T21,
+      U22 <: T22
+  ]: ProvideQueryParams[
+    (
+        QueryParam[T1],
+        QueryParam[T2],
+        QueryParam[T3],
+        QueryParam[T4],
+        QueryParam[T5],
+        QueryParam[T6],
+        QueryParam[T7],
+        QueryParam[T8],
+        QueryParam[T9],
+        QueryParam[T10],
+        QueryParam[T11],
+        QueryParam[T12],
+        QueryParam[T13],
+        QueryParam[T14],
+        QueryParam[T15],
+        QueryParam[T16],
+        QueryParam[T17],
+        QueryParam[T18],
+        QueryParam[T19],
+        QueryParam[T20],
+        QueryParam[T21],
+        QueryParam[T22]
+    ),
+    (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20, U21, U22)
+  ] =
+    new ProvideQueryParams[
+      (
+          QueryParam[T1],
+          QueryParam[T2],
+          QueryParam[T3],
+          QueryParam[T4],
+          QueryParam[T5],
+          QueryParam[T6],
+          QueryParam[T7],
+          QueryParam[T8],
+          QueryParam[T9],
+          QueryParam[T10],
+          QueryParam[T11],
+          QueryParam[T12],
+          QueryParam[T13],
+          QueryParam[T14],
+          QueryParam[T15],
+          QueryParam[T16],
+          QueryParam[T17],
+          QueryParam[T18],
+          QueryParam[T19],
+          QueryParam[T20],
+          QueryParam[T21],
+          QueryParam[T22]
+      ),
+      (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20, U21, U22)
+    ] {
+      override def apply(
+          queryParameters: (
+              QueryParam[T1],
+              QueryParam[T2],
+              QueryParam[T3],
+              QueryParam[T4],
+              QueryParam[T5],
+              QueryParam[T6],
+              QueryParam[T7],
+              QueryParam[T8],
+              QueryParam[T9],
+              QueryParam[T10],
+              QueryParam[T11],
+              QueryParam[T12],
+              QueryParam[T13],
+              QueryParam[T14],
+              QueryParam[T15],
+              QueryParam[T16],
+              QueryParam[T17],
+              QueryParam[T18],
+              QueryParam[T19],
+              QueryParam[T20],
+              QueryParam[T21],
+              QueryParam[T22]
+          ),
+          queryParametersProvided: (U1, U2, U3, U4, U5, U6, U7, U8, U9, U10, U11, U12, U13, U14, U15, U16, U17, U18, U19, U20, U21, U22),
+          uri: String
+      ): String = {
+        val (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) = queryParametersProvided
+        addQueryParametersToUri(
+          uri,
+          Map(
+            queryParameters._1.name  -> queryParameters._1.tsm(a),
+            queryParameters._2.name  -> queryParameters._2.tsm(b),
+            queryParameters._3.name  -> queryParameters._3.tsm(c),
+            queryParameters._4.name  -> queryParameters._4.tsm(d),
+            queryParameters._5.name  -> queryParameters._5.tsm(e),
+            queryParameters._6.name  -> queryParameters._6.tsm(f),
+            queryParameters._7.name  -> queryParameters._7.tsm(g),
+            queryParameters._8.name  -> queryParameters._8.tsm(h),
+            queryParameters._9.name  -> queryParameters._9.tsm(i),
+            queryParameters._10.name -> queryParameters._10.tsm(j),
+            queryParameters._11.name -> queryParameters._11.tsm(k),
+            queryParameters._12.name -> queryParameters._12.tsm(l),
+            queryParameters._13.name -> queryParameters._13.tsm(m),
+            queryParameters._14.name -> queryParameters._14.tsm(n),
+            queryParameters._15.name -> queryParameters._15.tsm(o),
+            queryParameters._16.name -> queryParameters._16.tsm(p),
+            queryParameters._17.name -> queryParameters._17.tsm(q),
+            queryParameters._18.name -> queryParameters._18.tsm(r),
+            queryParameters._19.name -> queryParameters._19.tsm(s),
+            queryParameters._20.name -> queryParameters._20.tsm(t),
+            queryParameters._21.name -> queryParameters._21.tsm(u),
+            queryParameters._22.name -> queryParameters._22.tsm(v)
+          )
+        )
+      }
+    }
 
   // TODO: created by chatgpt, check later
   def addQueryParametersToUri(uri: String, queryParameters: Map[String, Seq[String]]): String = {
