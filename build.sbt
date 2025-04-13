@@ -42,12 +42,14 @@ val testcontainersV = "0.41.8"
 val webjarsLocatorV = "0.52"
 val swaggerUiV      = "5.17.11"
 val typesafeConfigV = "1.4.3"
+val sttpModelV      = "1.7.13"
 
 lazy val core = project
   .in(file("core"))
   .settings(
     name := "baklava-core",
     libraryDependencies ++= Seq(
+      "com.softwaremill.sttp.model" %% "core" % sttpModelV,
       "pl.iterators"   %% "kebs-core"    % kebsV,
       "org.reflections" % "reflections"  % reflectionsV,
       "pl.iterators"   %% "kebs-circe"   % kebsV,

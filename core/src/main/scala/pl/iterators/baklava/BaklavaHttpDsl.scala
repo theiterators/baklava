@@ -1,18 +1,11 @@
 package pl.iterators.baklava
 
 import scala.reflect.ClassTag
+import sttp.model._
 
 sealed trait EmptyBody
 
 case object EmptyBodyInstance extends EmptyBody
-
-case class BaklavaHttpMethod(value: String)
-
-case class BaklavaHttpProtocol(protocol: String)
-
-case class BaklavaHttpStatus(status: Int)
-
-case class BaklavaHttpHeaders(headers: Map[String, String])
 
 case class BaklavaRequestContext[
     Body,
@@ -27,7 +20,7 @@ case class BaklavaRequestContext[
     path: String,
     pathDescription: Option[String],
     pathSummary: Option[String],
-    method: Option[BaklavaHttpMethod],
+    method: Option[Method],
     operationDescription: Option[String],
     operationSummary: Option[String],
     operationId: Option[String],
@@ -35,10 +28,10 @@ case class BaklavaRequestContext[
     securitySchemes: Seq[SecurityScheme],
     body: Option[Body],
     bodySchema: Option[Schema[Body]],
-    headers: BaklavaHttpHeaders,
+    headers: Headers,
     headersDefinition: Headers,
     headersProvided: HeadersProvided,
-    headersSeq: Seq[Header[?]],
+    headersSeq: Seq[Header],
     security: AppliedSecurity,
     pathParameters: PathParameters,
     pathParametersProvided: PathParametersProvided,
@@ -47,13 +40,13 @@ case class BaklavaRequestContext[
     queryParametersProvided: QueryParametersProvided,
     queryParametersSeq: Seq[QueryParam[?]],
     responseDescription: Option[String],
-    responseHeaders: Seq[Header[?]]
+    responseHeaders: Seq[Header]
 )
 
 case class BaklavaResponseContext[ResponseBody, RequestType, ResponseType](
-    protocol: BaklavaHttpProtocol,
-    status: BaklavaHttpStatus,
-    headers: BaklavaHttpHeaders,
+    protocol: HttpVersion,
+    status: StatusCode,
+    headers: Headers,
     body: ResponseBody,
     rawRequest: RequestType,
     requestBodyString: String,
@@ -73,7 +66,7 @@ trait BaklavaHttpDsl[
     TestFrameworkExecutionType[_]
 ] extends BaklavaQueryParams
     with BaklavaPathParams
-    with BaklavaHeaders {
+    with HasHeaders {
   this: BaklavaTestFrameworkDsl[
     RouteType,
     ToRequestBodyType,
@@ -163,17 +156,17 @@ trait BaklavaHttpDsl[
 
   protected implicit def emptyToResponseBodyType: FromResponseBodyType[EmptyBody]
 
-  implicit def statusCodeToBaklavaStatusCodes(statusCode: HttpStatusCode): BaklavaHttpStatus
-  implicit def baklavaStatusCodeToStatusCode(baklavaHttpStatus: BaklavaHttpStatus): HttpStatusCode
+  implicit def statusCodeToBaklavaStatusCodes(statusCode: HttpStatusCode): StatusCode
+  implicit def baklavaStatusCodeToStatusCode(baklavaHttpStatus: StatusCode): HttpStatusCode
 
-  implicit def httpMethodToBaklavaHttpMethod(method: HttpMethod): BaklavaHttpMethod
-  implicit def baklavaHttpMethodToHttpMethod(baklavaHttpMethod: BaklavaHttpMethod): HttpMethod
+  implicit def httpMethodToBaklavaHttpMethod(method: HttpMethod): Method
+  implicit def baklavaHttpMethodToHttpMethod(baklavaHttpMethod: Method): HttpMethod
 
-  implicit def baklavaHttpProtocolToHttpProtocol(baklavaHttpProtocol: BaklavaHttpProtocol): HttpProtocol
-  implicit def httpProtocolToBaklavaHttpProtocol(protocol: HttpProtocol): BaklavaHttpProtocol
+  implicit def baklavaHttpProtocolToHttpProtocol(baklavaHttpProtocol: HttpVersion): HttpProtocol
+  implicit def httpProtocolToBaklavaHttpProtocol(protocol: HttpProtocol): HttpVersion
 
-  implicit def baklavaHeadersToHttpHeaders(headers: BaklavaHttpHeaders): HttpHeaders
-  implicit def httpHeadersToBaklavaHeaders(headers: HttpHeaders): BaklavaHttpHeaders
+  implicit def baklavaHeadersToHttpHeaders(headers: Headers): HttpHeaders
+  implicit def httpHeadersToBaklavaHeaders(headers: HttpHeaders): Headers
 
   def httpResponseToBaklavaResponseContext[T: FromResponseBodyType: ClassTag](
       request: HttpRequest,
