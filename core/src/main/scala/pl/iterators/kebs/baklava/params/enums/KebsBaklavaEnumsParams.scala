@@ -7,21 +7,21 @@ trait KebsBaklavaEnumsParams {
   implicit def toQueryParamEnum[T](implicit _enum: EnumLike[T]): ToQueryParam[T] = new ToQueryParam[T] {
     override def apply(t: T): Seq[String] = {
       val _ = _enum // fix warning
-      Seq(t.toString)
+      Seq(t.toString) // todo use getName with kebs 2.1.0
     }
   }
 
   implicit def toPathParamEnum[T](implicit _enum: EnumLike[T]): ToPathParam[T] = new ToPathParam[T] {
     override def apply(t: T): String = {
       val _ = _enum // fix warning
-      t.toString
+      t.toString // todo use getName with kebs 2.1.0
     }
   }
 
   implicit def toHeaderEnum[T](implicit _enum: EnumLike[T]): ToHeader[T] = new ToHeader[T] {
     override def apply(value: T): Option[String] = {
       val _ = _enum // fix warning
-      Some(value.toString)
+      Some(value.toString) // todo use getName with kebs 2.1.0
     }
 
     override def unapply(value: String): Option[T] = {
