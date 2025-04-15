@@ -71,30 +71,372 @@ trait BaklavaPathParams {
     override def apply(t: java.util.UUID): String = t.toString
   }
 
-  implicit val unitToPathParamSeq: ToPathParamSeq[Unit] = new ToPathParamSeq[Unit] {
-    override def apply(t: Unit): Seq[PathParam[?]] = Seq.empty
-  }
+  implicit val unitToPathParamSeq: ToPathParamSeq[Unit] = (_: Unit) => Seq.empty
 
-  implicit def singleValueToPathParamSeq[T]: ToPathParamSeq[PathParam[T]] = new ToPathParamSeq[PathParam[T]] {
-    override def apply(t: PathParam[T]): Seq[PathParam[?]] = Seq(t)
-  }
+  implicit def singleValueToPathParamSeq[T]: ToPathParamSeq[PathParam[T]] = (t: PathParam[T]) => Seq(t)
 
   implicit def tuple2ToPathParamSeq[T1, T2]: ToPathParamSeq[(PathParam[T1], PathParam[T2])] =
-    new ToPathParamSeq[(PathParam[T1], PathParam[T2])] {
-      override def apply(t: (PathParam[T1], PathParam[T2])): Seq[PathParam[?]] = Seq(t._1, t._2)
-    }
+    (t: (PathParam[T1], PathParam[T2])) => Seq(t._1, t._2)
 
   implicit def tuple3ToPathParamSeq[T1, T2, T3]: ToPathParamSeq[(PathParam[T1], PathParam[T2], PathParam[T3])] =
-    new ToPathParamSeq[(PathParam[T1], PathParam[T2], PathParam[T3])] {
-      override def apply(t: (PathParam[T1], PathParam[T2], PathParam[T3])): Seq[PathParam[?]] = Seq(t._1, t._2, t._3)
-    }
+    (t: (PathParam[T1], PathParam[T2], PathParam[T3])) => Seq(t._1, t._2, t._3)
 
   implicit def tuple4ToPathParamSeq[T1, T2, T3, T4]: ToPathParamSeq[(PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4])] =
-    new ToPathParamSeq[(PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4])] {
-      override def apply(t: (PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4])): Seq[PathParam[?]] = Seq(t._1, t._2, t._3, t._4)
-    }
+    (t: (PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4])) => Seq(t._1, t._2, t._3, t._4)
 
-  // TODO: more tuples
+  implicit def tuple5ToPathParamSeq[T1, T2, T3, T4, T5]
+      : ToPathParamSeq[(PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4], PathParam[T5])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5)
+
+  implicit def tuple6ToPathParamSeq[T1, T2, T3, T4, T5, T6]
+      : ToPathParamSeq[(PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4], PathParam[T5], PathParam[T6])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6)
+
+  implicit def tuple7ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7]
+      : ToPathParamSeq[(PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4], PathParam[T5], PathParam[T6], PathParam[T7])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7)
+
+  implicit def tuple8ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8]: ToPathParamSeq[
+    (PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4], PathParam[T5], PathParam[T6], PathParam[T7], PathParam[T8])
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8)
+
+  implicit def tuple9ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9]: ToPathParamSeq[
+    (PathParam[T1], PathParam[T2], PathParam[T3], PathParam[T4], PathParam[T5], PathParam[T6], PathParam[T7], PathParam[T8], PathParam[T9])
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9)
+
+  implicit def tuple10ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]: ToPathParamSeq[
+    (
+        PathParam[T1],
+        PathParam[T2],
+        PathParam[T3],
+        PathParam[T4],
+        PathParam[T5],
+        PathParam[T6],
+        PathParam[T7],
+        PathParam[T8],
+        PathParam[T9],
+        PathParam[T10]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10)
+
+  implicit def tuple11ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]: ToPathParamSeq[
+    (
+        PathParam[T1],
+        PathParam[T2],
+        PathParam[T3],
+        PathParam[T4],
+        PathParam[T5],
+        PathParam[T6],
+        PathParam[T7],
+        PathParam[T8],
+        PathParam[T9],
+        PathParam[T10],
+        PathParam[T11]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11)
+
+  implicit def tuple12ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]: ToPathParamSeq[
+    (
+        PathParam[T1],
+        PathParam[T2],
+        PathParam[T3],
+        PathParam[T4],
+        PathParam[T5],
+        PathParam[T6],
+        PathParam[T7],
+        PathParam[T8],
+        PathParam[T9],
+        PathParam[T10],
+        PathParam[T11],
+        PathParam[T12]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12)
+
+  implicit def tuple13ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]: ToPathParamSeq[
+    (
+        PathParam[T1],
+        PathParam[T2],
+        PathParam[T3],
+        PathParam[T4],
+        PathParam[T5],
+        PathParam[T6],
+        PathParam[T7],
+        PathParam[T8],
+        PathParam[T9],
+        PathParam[T10],
+        PathParam[T11],
+        PathParam[T12],
+        PathParam[T13]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13)
+
+  implicit def tuple14ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]: ToPathParamSeq[
+    (
+        PathParam[T1],
+        PathParam[T2],
+        PathParam[T3],
+        PathParam[T4],
+        PathParam[T5],
+        PathParam[T6],
+        PathParam[T7],
+        PathParam[T8],
+        PathParam[T9],
+        PathParam[T10],
+        PathParam[T11],
+        PathParam[T12],
+        PathParam[T13],
+        PathParam[T14]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14)
+
+  implicit def tuple15ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]: ToPathParamSeq[
+    (
+        PathParam[T1],
+        PathParam[T2],
+        PathParam[T3],
+        PathParam[T4],
+        PathParam[T5],
+        PathParam[T6],
+        PathParam[T7],
+        PathParam[T8],
+        PathParam[T9],
+        PathParam[T10],
+        PathParam[T11],
+        PathParam[T12],
+        PathParam[T13],
+        PathParam[T14],
+        PathParam[T15]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15)
+
+  implicit def tuple16ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]: ToPathParamSeq[
+    (
+        PathParam[T1],
+        PathParam[T2],
+        PathParam[T3],
+        PathParam[T4],
+        PathParam[T5],
+        PathParam[T6],
+        PathParam[T7],
+        PathParam[T8],
+        PathParam[T9],
+        PathParam[T10],
+        PathParam[T11],
+        PathParam[T12],
+        PathParam[T13],
+        PathParam[T14],
+        PathParam[T15],
+        PathParam[T16]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16)
+
+  implicit def tuple17ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]: ToPathParamSeq[
+    (
+        PathParam[T1],
+        PathParam[T2],
+        PathParam[T3],
+        PathParam[T4],
+        PathParam[T5],
+        PathParam[T6],
+        PathParam[T7],
+        PathParam[T8],
+        PathParam[T9],
+        PathParam[T10],
+        PathParam[T11],
+        PathParam[T12],
+        PathParam[T13],
+        PathParam[T14],
+        PathParam[T15],
+        PathParam[T16],
+        PathParam[T17]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17)
+
+  implicit def tuple18ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]: ToPathParamSeq[
+    (
+        PathParam[T1],
+        PathParam[T2],
+        PathParam[T3],
+        PathParam[T4],
+        PathParam[T5],
+        PathParam[T6],
+        PathParam[T7],
+        PathParam[T8],
+        PathParam[T9],
+        PathParam[T10],
+        PathParam[T11],
+        PathParam[T12],
+        PathParam[T13],
+        PathParam[T14],
+        PathParam[T15],
+        PathParam[T16],
+        PathParam[T17],
+        PathParam[T18]
+    )
+  ] = t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18)
+
+  implicit def tuple19ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]: ToPathParamSeq[
+    (
+        PathParam[T1],
+        PathParam[T2],
+        PathParam[T3],
+        PathParam[T4],
+        PathParam[T5],
+        PathParam[T6],
+        PathParam[T7],
+        PathParam[T8],
+        PathParam[T9],
+        PathParam[T10],
+        PathParam[T11],
+        PathParam[T12],
+        PathParam[T13],
+        PathParam[T14],
+        PathParam[T15],
+        PathParam[T16],
+        PathParam[T17],
+        PathParam[T18],
+        PathParam[T19]
+    )
+  ] = t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18, t._19)
+
+  implicit def tuple20ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]
+      : ToPathParamSeq[
+        (
+            PathParam[T1],
+            PathParam[T2],
+            PathParam[T3],
+            PathParam[T4],
+            PathParam[T5],
+            PathParam[T6],
+            PathParam[T7],
+            PathParam[T8],
+            PathParam[T9],
+            PathParam[T10],
+            PathParam[T11],
+            PathParam[T12],
+            PathParam[T13],
+            PathParam[T14],
+            PathParam[T15],
+            PathParam[T16],
+            PathParam[T17],
+            PathParam[T18],
+            PathParam[T19],
+            PathParam[T20]
+        )
+      ] = t =>
+    Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18, t._19, t._20)
+
+  implicit def tuple21ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]
+      : ToPathParamSeq[
+        (
+            PathParam[T1],
+            PathParam[T2],
+            PathParam[T3],
+            PathParam[T4],
+            PathParam[T5],
+            PathParam[T6],
+            PathParam[T7],
+            PathParam[T8],
+            PathParam[T9],
+            PathParam[T10],
+            PathParam[T11],
+            PathParam[T12],
+            PathParam[T13],
+            PathParam[T14],
+            PathParam[T15],
+            PathParam[T16],
+            PathParam[T17],
+            PathParam[T18],
+            PathParam[T19],
+            PathParam[T20],
+            PathParam[T21]
+        )
+      ] = t =>
+    Seq(
+      t._1,
+      t._2,
+      t._3,
+      t._4,
+      t._5,
+      t._6,
+      t._7,
+      t._8,
+      t._9,
+      t._10,
+      t._11,
+      t._12,
+      t._13,
+      t._14,
+      t._15,
+      t._16,
+      t._17,
+      t._18,
+      t._19,
+      t._20,
+      t._21
+    )
+
+  implicit def tuple22ToPathParamSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22]
+      : ToPathParamSeq[
+        (
+            PathParam[T1],
+            PathParam[T2],
+            PathParam[T3],
+            PathParam[T4],
+            PathParam[T5],
+            PathParam[T6],
+            PathParam[T7],
+            PathParam[T8],
+            PathParam[T9],
+            PathParam[T10],
+            PathParam[T11],
+            PathParam[T12],
+            PathParam[T13],
+            PathParam[T14],
+            PathParam[T15],
+            PathParam[T16],
+            PathParam[T17],
+            PathParam[T18],
+            PathParam[T19],
+            PathParam[T20],
+            PathParam[T21],
+            PathParam[T22]
+        )
+      ] = t =>
+    Seq(
+      t._1,
+      t._2,
+      t._3,
+      t._4,
+      t._5,
+      t._6,
+      t._7,
+      t._8,
+      t._9,
+      t._10,
+      t._11,
+      t._12,
+      t._13,
+      t._14,
+      t._15,
+      t._16,
+      t._17,
+      t._18,
+      t._19,
+      t._20,
+      t._21,
+      t._22
+    )
 
   implicit val providePathParamsByUnit: ProvidePathParams[Unit, Unit] = new ProvidePathParams[Unit, Unit] {
     override def apply(

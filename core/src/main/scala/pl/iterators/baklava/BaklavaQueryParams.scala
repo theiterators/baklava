@@ -78,31 +78,395 @@ trait BaklavaQueryParams {
 
   // TODO: arrays, collections
 
-  implicit val unitToQueryParamSeq: ToQueryParamSeq[Unit] = new ToQueryParamSeq[Unit] {
-    override def apply(t: Unit): Seq[QueryParam[?]] = Seq.empty
-  }
+  implicit val unitToQueryParamSeq: ToQueryParamSeq[Unit] = (_: Unit) => Seq.empty
 
-  implicit def singleValueToQueryParamSeq[T]: ToQueryParamSeq[QueryParam[T]] = new ToQueryParamSeq[QueryParam[T]] {
-    override def apply(t: QueryParam[T]): Seq[QueryParam[?]] = Seq(t)
-  }
+  implicit def singleValueToQueryParamSeq[T]: ToQueryParamSeq[QueryParam[T]] = (t: QueryParam[T]) => Seq(t)
 
   implicit def tuple2ToQueryParamSeq[A, B]: ToQueryParamSeq[(QueryParam[A], QueryParam[B])] =
-    new ToQueryParamSeq[(QueryParam[A], QueryParam[B])] {
-      override def apply(t: (QueryParam[A], QueryParam[B])): Seq[QueryParam[?]] = Seq(t._1, t._2)
-    }
+    (t: (QueryParam[A], QueryParam[B])) => Seq(t._1, t._2)
 
   implicit def tuple3ToQueryParamSeq[A, B, C]: ToQueryParamSeq[(QueryParam[A], QueryParam[B], QueryParam[C])] =
-    new ToQueryParamSeq[(QueryParam[A], QueryParam[B], QueryParam[C])] {
-      override def apply(t: (QueryParam[A], QueryParam[B], QueryParam[C])): Seq[QueryParam[?]] = Seq(t._1, t._2, t._3)
-    }
+    (t: (QueryParam[A], QueryParam[B], QueryParam[C])) => Seq(t._1, t._2, t._3)
 
   implicit def tuple4ToQueryParamSeq[A, B, C, D]: ToQueryParamSeq[(QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D])] =
-    new ToQueryParamSeq[(QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D])] {
-      override def apply(t: (QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D])): Seq[QueryParam[?]] =
-        Seq(t._1, t._2, t._3, t._4)
-    }
+    (t: (QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D])) => Seq(t._1, t._2, t._3, t._4)
 
-  // TODO: more tuples
+  implicit def tuple5ToQueryParamSeq[A, B, C, D, E]
+      : ToQueryParamSeq[(QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D], QueryParam[E])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5)
+
+  implicit def tuple6ToQueryParamSeq[A, B, C, D, E, F]
+      : ToQueryParamSeq[(QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D], QueryParam[E], QueryParam[F])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6)
+
+  implicit def tuple7ToQueryParamSeq[A, B, C, D, E, F, G]
+      : ToQueryParamSeq[(QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D], QueryParam[E], QueryParam[F], QueryParam[G])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7)
+
+  implicit def tuple8ToQueryParamSeq[A, B, C, D, E, F, G, H]: ToQueryParamSeq[
+    (QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D], QueryParam[E], QueryParam[F], QueryParam[G], QueryParam[H])
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8)
+
+  implicit def tuple9ToQueryParamSeq[A, B, C, D, E, F, G, H, I]: ToQueryParamSeq[
+    (QueryParam[A], QueryParam[B], QueryParam[C], QueryParam[D], QueryParam[E], QueryParam[F], QueryParam[G], QueryParam[H], QueryParam[I])
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9)
+
+  implicit def tuple10ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10)
+
+  implicit def tuple11ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11)
+
+  implicit def tuple12ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12)
+
+  implicit def tuple13ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L, M]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L],
+        QueryParam[M]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13)
+
+  implicit def tuple14ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L, M, N]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L],
+        QueryParam[M],
+        QueryParam[N]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14)
+
+  implicit def tuple15ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L],
+        QueryParam[M],
+        QueryParam[N],
+        QueryParam[O]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15)
+
+  implicit def tuple16ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L],
+        QueryParam[M],
+        QueryParam[N],
+        QueryParam[O],
+        QueryParam[P]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16)
+
+  implicit def tuple17ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L],
+        QueryParam[M],
+        QueryParam[N],
+        QueryParam[O],
+        QueryParam[P],
+        QueryParam[Q]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17)
+
+  implicit def tuple18ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L],
+        QueryParam[M],
+        QueryParam[N],
+        QueryParam[O],
+        QueryParam[P],
+        QueryParam[Q],
+        QueryParam[R]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18)
+
+  implicit def tuple19ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L],
+        QueryParam[M],
+        QueryParam[N],
+        QueryParam[O],
+        QueryParam[P],
+        QueryParam[Q],
+        QueryParam[R],
+        QueryParam[S]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18, t._19)
+
+  implicit def tuple20ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L],
+        QueryParam[M],
+        QueryParam[N],
+        QueryParam[O],
+        QueryParam[P],
+        QueryParam[Q],
+        QueryParam[R],
+        QueryParam[S],
+        QueryParam[T]
+    )
+  ] =
+    t =>
+      Seq(
+        t._1,
+        t._2,
+        t._3,
+        t._4,
+        t._5,
+        t._6,
+        t._7,
+        t._8,
+        t._9,
+        t._10,
+        t._11,
+        t._12,
+        t._13,
+        t._14,
+        t._15,
+        t._16,
+        t._17,
+        t._18,
+        t._19,
+        t._20
+      )
+
+  implicit def tuple21ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L],
+        QueryParam[M],
+        QueryParam[N],
+        QueryParam[O],
+        QueryParam[P],
+        QueryParam[Q],
+        QueryParam[R],
+        QueryParam[S],
+        QueryParam[T],
+        QueryParam[U]
+    )
+  ] =
+    t =>
+      Seq(
+        t._1,
+        t._2,
+        t._3,
+        t._4,
+        t._5,
+        t._6,
+        t._7,
+        t._8,
+        t._9,
+        t._10,
+        t._11,
+        t._12,
+        t._13,
+        t._14,
+        t._15,
+        t._16,
+        t._17,
+        t._18,
+        t._19,
+        t._20,
+        t._21
+      )
+
+  implicit def tuple22ToQueryParamSeq[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V]: ToQueryParamSeq[
+    (
+        QueryParam[A],
+        QueryParam[B],
+        QueryParam[C],
+        QueryParam[D],
+        QueryParam[E],
+        QueryParam[F],
+        QueryParam[G],
+        QueryParam[H],
+        QueryParam[I],
+        QueryParam[J],
+        QueryParam[K],
+        QueryParam[L],
+        QueryParam[M],
+        QueryParam[N],
+        QueryParam[O],
+        QueryParam[P],
+        QueryParam[Q],
+        QueryParam[R],
+        QueryParam[S],
+        QueryParam[T],
+        QueryParam[U],
+        QueryParam[V]
+    )
+  ] =
+    t =>
+      Seq(
+        t._1,
+        t._2,
+        t._3,
+        t._4,
+        t._5,
+        t._6,
+        t._7,
+        t._8,
+        t._9,
+        t._10,
+        t._11,
+        t._12,
+        t._13,
+        t._14,
+        t._15,
+        t._16,
+        t._17,
+        t._18,
+        t._19,
+        t._20,
+        t._21,
+        t._22
+      )
 
   implicit def provideQueryParamsByUnit[T]: ProvideQueryParams[T, Unit] = new ProvideQueryParams[T, Unit] {
     override def apply(

@@ -98,30 +98,374 @@ trait BaklavaHeaders {
     override def unapply(value: String): Option[Option[T]] = tsm.unapply(value).map(Some(_))
   }
 
-  implicit val unitToHeaderSeq: ToHeaderSeq[Unit] = new ToHeaderSeq[Unit] {
-    override def apply(t: Unit): Seq[Header[?]] = Seq.empty
-  }
+  implicit val unitToHeaderSeq: ToHeaderSeq[Unit] = (_: Unit) => Seq.empty
 
-  implicit def singleValueToHeaderSeq[T]: ToHeaderSeq[Header[T]] = new ToHeaderSeq[Header[T]] {
-    override def apply(t: Header[T]): Seq[Header[?]] = Seq(t)
-  }
+  implicit def singleValueToHeaderSeq[T]: ToHeaderSeq[Header[T]] = (t: Header[T]) => Seq(t)
 
   implicit def tuple2ToHeaderSeq[T1, T2]: ToHeaderSeq[(Header[T1], Header[T2])] =
-    new ToHeaderSeq[(Header[T1], Header[T2])] {
-      override def apply(t: (Header[T1], Header[T2])): Seq[Header[?]] = Seq(t._1, t._2)
-    }
+    (t: (Header[T1], Header[T2])) => Seq(t._1, t._2)
 
   implicit def tuple3ToHeaderSeq[T1, T2, T3]: ToHeaderSeq[(Header[T1], Header[T2], Header[T3])] =
-    new ToHeaderSeq[(Header[T1], Header[T2], Header[T3])] {
-      override def apply(t: (Header[T1], Header[T2], Header[T3])): Seq[Header[?]] = Seq(t._1, t._2, t._3)
-    }
+    (t: (Header[T1], Header[T2], Header[T3])) => Seq(t._1, t._2, t._3)
 
   implicit def tuple4ToHeaderSeq[T1, T2, T3, T4]: ToHeaderSeq[(Header[T1], Header[T2], Header[T3], Header[T4])] =
-    new ToHeaderSeq[(Header[T1], Header[T2], Header[T3], Header[T4])] {
-      override def apply(t: (Header[T1], Header[T2], Header[T3], Header[T4])): Seq[Header[?]] = Seq(t._1, t._2, t._3, t._4)
-    }
+    (t: (Header[T1], Header[T2], Header[T3], Header[T4])) => Seq(t._1, t._2, t._3, t._4)
 
-  // TODO: more tuples
+  implicit def tuple5ToHeaderSeq[T1, T2, T3, T4, T5]: ToHeaderSeq[(Header[T1], Header[T2], Header[T3], Header[T4], Header[T5])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5)
+
+  implicit def tuple6ToHeaderSeq[T1, T2, T3, T4, T5, T6]
+      : ToHeaderSeq[(Header[T1], Header[T2], Header[T3], Header[T4], Header[T5], Header[T6])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6)
+
+  implicit def tuple7ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7]
+      : ToHeaderSeq[(Header[T1], Header[T2], Header[T3], Header[T4], Header[T5], Header[T6], Header[T7])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7)
+
+  implicit def tuple8ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8]
+      : ToHeaderSeq[(Header[T1], Header[T2], Header[T3], Header[T4], Header[T5], Header[T6], Header[T7], Header[T8])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8)
+
+  implicit def tuple9ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9]
+      : ToHeaderSeq[(Header[T1], Header[T2], Header[T3], Header[T4], Header[T5], Header[T6], Header[T7], Header[T8], Header[T9])] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9)
+
+  implicit def tuple10ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]: ToHeaderSeq[
+    (Header[T1], Header[T2], Header[T3], Header[T4], Header[T5], Header[T6], Header[T7], Header[T8], Header[T9], Header[T10])
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10)
+
+  implicit def tuple11ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]: ToHeaderSeq[
+    (Header[T1], Header[T2], Header[T3], Header[T4], Header[T5], Header[T6], Header[T7], Header[T8], Header[T9], Header[T10], Header[T11])
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11)
+
+  implicit def tuple12ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]: ToHeaderSeq[
+    (
+        Header[T1],
+        Header[T2],
+        Header[T3],
+        Header[T4],
+        Header[T5],
+        Header[T6],
+        Header[T7],
+        Header[T8],
+        Header[T9],
+        Header[T10],
+        Header[T11],
+        Header[T12]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12)
+
+  implicit def tuple13ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]: ToHeaderSeq[
+    (
+        Header[T1],
+        Header[T2],
+        Header[T3],
+        Header[T4],
+        Header[T5],
+        Header[T6],
+        Header[T7],
+        Header[T8],
+        Header[T9],
+        Header[T10],
+        Header[T11],
+        Header[T12],
+        Header[T13]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13)
+
+  implicit def tuple14ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]: ToHeaderSeq[
+    (
+        Header[T1],
+        Header[T2],
+        Header[T3],
+        Header[T4],
+        Header[T5],
+        Header[T6],
+        Header[T7],
+        Header[T8],
+        Header[T9],
+        Header[T10],
+        Header[T11],
+        Header[T12],
+        Header[T13],
+        Header[T14]
+    )
+  ] =
+    t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14)
+
+  implicit def tuple15ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]: ToHeaderSeq[
+    (
+        Header[T1],
+        Header[T2],
+        Header[T3],
+        Header[T4],
+        Header[T5],
+        Header[T6],
+        Header[T7],
+        Header[T8],
+        Header[T9],
+        Header[T10],
+        Header[T11],
+        Header[T12],
+        Header[T13],
+        Header[T14],
+        Header[T15]
+    )
+  ] =
+    t =>
+      Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15)
+
+      implicit def tuple16ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]: ToHeaderSeq[
+        (
+            Header[T1],
+            Header[T2],
+            Header[T3],
+            Header[T4],
+            Header[T5],
+            Header[T6],
+            Header[T7],
+            Header[T8],
+            Header[T9],
+            Header[T10],
+            Header[T11],
+            Header[T12],
+            Header[T13],
+            Header[T14],
+            Header[T15],
+            Header[T16]
+        )
+      ] =
+        t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16)
+
+      implicit def tuple17ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]: ToHeaderSeq[
+        (
+            Header[T1],
+            Header[T2],
+            Header[T3],
+            Header[T4],
+            Header[T5],
+            Header[T6],
+            Header[T7],
+            Header[T8],
+            Header[T9],
+            Header[T10],
+            Header[T11],
+            Header[T12],
+            Header[T13],
+            Header[T14],
+            Header[T15],
+            Header[T16],
+            Header[T17]
+        )
+      ] =
+        t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17)
+
+      implicit def tuple18ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]: ToHeaderSeq[
+        (
+            Header[T1],
+            Header[T2],
+            Header[T3],
+            Header[T4],
+            Header[T5],
+            Header[T6],
+            Header[T7],
+            Header[T8],
+            Header[T9],
+            Header[T10],
+            Header[T11],
+            Header[T12],
+            Header[T13],
+            Header[T14],
+            Header[T15],
+            Header[T16],
+            Header[T17],
+            Header[T18]
+        )
+      ] =
+        t => Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18)
+
+      implicit def tuple19ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]: ToHeaderSeq[
+        (
+            Header[T1],
+            Header[T2],
+            Header[T3],
+            Header[T4],
+            Header[T5],
+            Header[T6],
+            Header[T7],
+            Header[T8],
+            Header[T9],
+            Header[T10],
+            Header[T11],
+            Header[T12],
+            Header[T13],
+            Header[T14],
+            Header[T15],
+            Header[T16],
+            Header[T17],
+            Header[T18],
+            Header[T19]
+        )
+      ] =
+        t =>
+          Seq(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18, t._19)
+
+      implicit def tuple20ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]
+          : ToHeaderSeq[
+            (
+                Header[T1],
+                Header[T2],
+                Header[T3],
+                Header[T4],
+                Header[T5],
+                Header[T6],
+                Header[T7],
+                Header[T8],
+                Header[T9],
+                Header[T10],
+                Header[T11],
+                Header[T12],
+                Header[T13],
+                Header[T14],
+                Header[T15],
+                Header[T16],
+                Header[T17],
+                Header[T18],
+                Header[T19],
+                Header[T20]
+            )
+          ] =
+        t =>
+          Seq(
+            t._1,
+            t._2,
+            t._3,
+            t._4,
+            t._5,
+            t._6,
+            t._7,
+            t._8,
+            t._9,
+            t._10,
+            t._11,
+            t._12,
+            t._13,
+            t._14,
+            t._15,
+            t._16,
+            t._17,
+            t._18,
+            t._19,
+            t._20
+          )
+
+      implicit def tuple21ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]
+          : ToHeaderSeq[
+            (
+                Header[T1],
+                Header[T2],
+                Header[T3],
+                Header[T4],
+                Header[T5],
+                Header[T6],
+                Header[T7],
+                Header[T8],
+                Header[T9],
+                Header[T10],
+                Header[T11],
+                Header[T12],
+                Header[T13],
+                Header[T14],
+                Header[T15],
+                Header[T16],
+                Header[T17],
+                Header[T18],
+                Header[T19],
+                Header[T20],
+                Header[T21]
+            )
+          ] =
+        t =>
+          Seq(
+            t._1,
+            t._2,
+            t._3,
+            t._4,
+            t._5,
+            t._6,
+            t._7,
+            t._8,
+            t._9,
+            t._10,
+            t._11,
+            t._12,
+            t._13,
+            t._14,
+            t._15,
+            t._16,
+            t._17,
+            t._18,
+            t._19,
+            t._20,
+            t._21
+          )
+
+      implicit def tuple22ToHeaderSeq[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22]
+          : ToHeaderSeq[
+            (
+                Header[T1],
+                Header[T2],
+                Header[T3],
+                Header[T4],
+                Header[T5],
+                Header[T6],
+                Header[T7],
+                Header[T8],
+                Header[T9],
+                Header[T10],
+                Header[T11],
+                Header[T12],
+                Header[T13],
+                Header[T14],
+                Header[T15],
+                Header[T16],
+                Header[T17],
+                Header[T18],
+                Header[T19],
+                Header[T20],
+                Header[T21],
+                Header[T22]
+            )
+          ] =
+        t =>
+          Seq(
+            t._1,
+            t._2,
+            t._3,
+            t._4,
+            t._5,
+            t._6,
+            t._7,
+            t._8,
+            t._9,
+            t._10,
+            t._11,
+            t._12,
+            t._13,
+            t._14,
+            t._15,
+            t._16,
+            t._17,
+            t._18,
+            t._19,
+            t._20,
+            t._21,
+            t._22
+          )
 
   implicit def providerHeadersByUnit[T]: ProvideHeaders[T, Unit] = new ProvideHeaders[T, Unit] {
     override def apply(headers: T, headersProvided: Unit): Map[String, String] = Map.empty
