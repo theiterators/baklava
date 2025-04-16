@@ -6,6 +6,11 @@ import java.security.MessageDigest
 import java.util.Base64
 import scala.jdk.CollectionConverters.*
 import scala.util.{Try, Using}
+import sttp.model.Method
+import sttp.model.Header
+import sttp.model.HttpVersion
+import sttp.model.StatusCode
+import sttp.model.Headers
 
 case class BaklavaSecuritySerializable(
     httpBearer: Option[HttpBearer] = None,
@@ -132,7 +137,7 @@ case class BaklavaHeaderSerializable(
     schema: BaklavaSchemaSerializable
 ) extends Serializable
 object BaklavaHeaderSerializable {
-  def apply[T](h: Header[T]): BaklavaHeaderSerializable =
+  def apply[T](h: Header): BaklavaHeaderSerializable =
     BaklavaHeaderSerializable(h.name, h.description, BaklavaSchemaSerializable(h.schema))
 }
 
@@ -162,7 +167,7 @@ case class BaklavaRequestContextSerializable(
     path: String,
     pathDescription: Option[String],
     pathSummary: Option[String],
-    method: Option[BaklavaHttpMethod],
+    method: Option[Method],
     operationDescription: Option[String],
     operationSummary: Option[String],
     operationId: Option[String],
@@ -207,9 +212,9 @@ object BaklavaRequestContextSerializable {
 }
 
 case class BaklavaResponseContextSerializable(
-    protocol: BaklavaHttpProtocol,
-    status: BaklavaHttpStatus,
-    headers: BaklavaHttpHeaders,
+    protocol: HttpVersion,
+    status: StatusCode,
+    headers: Headers,
     // body: ResponseBody, //maybe byte array? or maybe not needed
     // rawRequest: RequestType,//todo probably not needed
     requestBodyString: String,

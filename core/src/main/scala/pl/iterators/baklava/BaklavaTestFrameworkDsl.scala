@@ -2,6 +2,10 @@ package pl.iterators.baklava
 
 import java.util.Base64
 import scala.reflect.ClassTag
+import sttp.model.Headers
+import sttp.model.Header
+import sttp.model.Method
+import sttp.model.StatusCode
 
 class BaklavaAssertionException(message: String) extends RuntimeException(message)
 
@@ -31,7 +35,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       securitySchemes = Seq.empty,
       body = None,
       bodySchema = None,
-      headers = BaklavaHttpHeaders(Map.empty),
+      headers = List.empty[Header],
       headersDefinition = (),
       headersProvided = (),
       headersSeq = Seq.empty,
@@ -60,7 +64,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
   }
 
   def supports[PathParameters, QueryParameters, Headers](
-      method: BaklavaHttpMethod,
+      method: Method,
       securitySchemes: Seq[SecurityScheme] = Seq.empty,
       pathParameters: PathParameters = (),
       queryParameters: QueryParameters = (),
@@ -92,7 +96,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
           operationTags = tags,
           body = None,
           bodySchema = None,
-          headers = ctx.headers,
+          headers = Headers,
           headersDefinition = headers,
           headersProvided = (),
           headersSeq = toHeaderSeq.apply(headers),
@@ -106,7 +110,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
           responseDescription = None,
           responseHeaders = Seq.empty
         )
-        methodLevelTextWithFragments(s"support ${method.value}" + finalSummary, newCtx, fragmentsFromSeq(steps.map(_.apply(newCtx))))
+        methodLevelTextWithFragments(s"support ${method}" + finalSummary, newCtx, fragmentsFromSeq(steps.map(_.apply(newCtx))))
       }
     }
 
@@ -149,8 +153,8 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       queryParametersProvided: QueryParametersProvided
   ) {
     def respondsWith[ResponseBody: FromResponseBodyType: Schema: ClassTag](
-        statusCode: BaklavaHttpStatus,
-        headers: Seq[Header[?]] = Seq.empty,
+        statusCode: StatusCode,
+        headers: Seq[Header] = Seq.empty,
         description: String = "",
         strictHeaderCheck: Boolean = strictHeaderCheckDefault
     ): BaklavaTestCase[RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
@@ -247,7 +251,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                   ),
                   body = if (body != EmptyBodyInstance) Some(body) else None,
                   bodySchema = Some(implicitly[Schema[RequestBody]]),
-                  headers = BaklavaHttpHeaders(headersWithCookieModifiedForSecurity ++ additionalSecurityHeaders),
+                  headers = Headers(headersWithCookieModifiedForSecurity.map((k,v) => Header(k, v)) ++ additionalSecurityHeaders),
                   headersProvided = headersProvided,
                   security = security,
                   pathParametersProvided = pathParametersProvided,
@@ -257,7 +261,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                 )
 
               requestLevelTextWithExecution(
-                statusCode.status.toString + finalDescription,
+                statusCode.code.toString + finalDescription,
                 finalRequestCtx, {
                   val wrappedPerformRequest = (
                       requestContext: BaklavaRequestContext[
@@ -289,7 +293,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
 
                     if (responseContext.status != statusCode) {
                       throw new BaklavaAssertionException(
-                        s"Expected ${statusCode.status} -> ${implicitly[Schema[ResponseBody]].className}, but got ${responseContext.status.status} -> ${responseContext.responseBodyString.take(maxBodyLengthInAssertion)}"
+                        s"Expected ${statusCode.code} -> ${implicitly[Schema[ResponseBody]].className}, but got ${responseContext.status.code} -> ${responseContext.responseBodyString.take(maxBodyLengthInAssertion)}"
                       )
                     }
 
@@ -300,7 +304,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                     }
 
                     val headersParsed = headers.map { h =>
-                      responseContext.headers.headers.get(h.name) match { // TODO: should be case insensitive
+                      responseContext.headers.headers.find(_.name == h.name) match { // TODO: should be case insensitive
                         case None => throw new BaklavaAssertionException(s"Header ${h.name} not found but expected")
                         case Some(value) =>
                           h.name ->
@@ -318,7 +322,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                         s"Strict headers check is on, expected following headers: [${headers
                             .map(h => h.name)
                             .sorted
-                            .mkString(", ")}], but got: [${responseContext.headers.headers.keys.toList.sorted.mkString(", ")}]"
+                            .mkString(", ")}], but got: [${responseContext.headers.headers.map(_.name).toList.sorted.mkString(", ")}]"
                       )
                     }
 

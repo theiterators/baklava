@@ -170,14 +170,14 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
 //s"<tr><td><b>ROUTE WITH MINIMAL PARAMS</b></td><td>${r.routePathWithRequiredParameters}</td></tr>" +//
 //s"<tr><td><b>ROUTE WITH ALL PARAMS</b></td><td>${r.routePathWithAllParameters}</td></tr>"
     ).flatten
-      .concat(calls.sortBy(_.response.status.status).flatMap { c =>
+      .concat(calls.sortBy(_.response.status.code).flatMap { code =>
         List(
           Some(
-            s"<tr><td><b>RESPONSE BODY ${c.response.status.status}</b></td><td><pre>${jsonStr(response.responseBodyString)}</pre></td></tr>"
+            s"<tr><td><b>RESPONSE BODY ${code}</b></td><td><pre>${jsonStr(response.responseBodyString)}</pre></td></tr>"
           ),
-          c.response.bodySchema
+          code.response.bodySchema
             .map(schema =>
-              s"<tr><td><b>RESPONSE BODY SCHEMA ${c.response.status.status}</b></td><td><pre>${baklavaSchemaToJsonSchemaV7(schema)}</pre></td></tr>"
+              s"<tr><td><b>RESPONSE BODY SCHEMA ${code}</b></td><td><pre>${baklavaSchemaToJsonSchemaV7(schema)}</pre></td></tr>"
             )
         ).flatten
       })
