@@ -111,7 +111,7 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       |""".stripMargin +
     "<table>" +
     List(
-      Some(s"<tr><td><b>METHOD</b></td><td>${request.method.getOrElse("UNDEFINED")}</td></tr>"),
+      Some(s"<tr><td><b>METHOD</b></td><td>${request.method.map(_.value).getOrElse("UNDEFINED")}</td></tr>"),
       Some(s"<tr><td><b>ROUTE</b></td><td>${request.symbolicPath}</td></tr>"),
       Some(s"<tr><td><b>SUMMARY</b></td><td>${request.operationSummary}</td></tr>"),
       Some(s"<tr><td><b>DESCRIPTION</b></td><td>${request.operationDescription}</td></tr>"),
