@@ -221,7 +221,8 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
               r.addHeaderObject(header.name, h)
             }
             content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
-            r.setContent(content)
+            if (firstSchema.isDefined)
+              r.setContent(content)
             operationResponses.addApiResponse(status.status.toString, r)
           }
         }

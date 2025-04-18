@@ -135,7 +135,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       response,
       responseString,
       Option.when(request.entity.contentType != HttpEntity.Empty.contentType)(
-        response.entity.contentType.value
+        request.entity.contentType.value
       ),
       Option.when(response.entity.contentType != HttpEntity.Empty.contentType)(
         response.entity.contentType.value
