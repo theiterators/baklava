@@ -15,7 +15,7 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.testcontainers.containers.wait.strategy.Wait
 import pl.iterators.baklava.pekkohttp.BaklavaPekkoHttp
-import pl.iterators.baklava.scalatest.{BaklavaScalatest, ScalatestAsExecution}
+import pl.iterators.baklava.scalatest.ScalatestAsExecution
 import pl.iterators.kebs.circe.KebsCirce
 import pl.iterators.kebs.circe.enums.KebsCirceEnumsLowercase
 import pl.iterators.kebs.enumeratum.KebsEnumeratum
@@ -27,7 +27,7 @@ trait PetStorePekkoItSpec
     extends AnyFunSpec
     with Matchers
     with BaklavaPekkoHttp[Unit, Unit, ScalatestAsExecution]
-    with BaklavaScalatest[Route, ToEntityMarshaller, FromEntityUnmarshaller]
+    with BaklavaScalatestDebug[Route, ToEntityMarshaller, FromEntityUnmarshaller]
     with FailFastCirceSupport
     with KebsCirce
     with KebsCirceEnumsLowercase

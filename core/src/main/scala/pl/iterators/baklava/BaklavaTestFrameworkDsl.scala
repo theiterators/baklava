@@ -1,6 +1,7 @@
 package pl.iterators.baklava
 
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicReference
 import scala.reflect.ClassTag
 
 class BaklavaAssertionException(message: String) extends RuntimeException(message)
@@ -382,7 +383,45 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       r: => R
   ): TestFrameworkFragmentType
 
-  private def store(request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
+  protected def store(request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
     BaklavaSerialize.serializeCall(request, response)
   }
+}
+
+//todo better name
+trait BaklavaTestFrameworkDslDebug[
+    RouteType,
+    ToRequestBodyType[_],
+    FromResponseBodyType[_],
+    TestFrameworkFragmentType,
+    TestFrameworkFragmentsType,
+    TestFrameworkExecutionType[_]
+] extends BaklavaTestFrameworkDsl[
+      RouteType,
+      ToRequestBodyType,
+      FromResponseBodyType,
+      TestFrameworkFragmentType,
+      TestFrameworkFragmentsType,
+      TestFrameworkExecutionType
+    ] {
+  this: BaklavaHttpDsl[
+    RouteType,
+    ToRequestBodyType,
+    FromResponseBodyType,
+    TestFrameworkFragmentType,
+    TestFrameworkFragmentsType,
+    TestFrameworkExecutionType
+  ] =>
+
+  private val atomicSeq: AtomicReference[Seq[BaklavaSerializableCall]] =
+    new AtomicReference(Seq.empty)
+
+  override protected def store(request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
+    val call = BaklavaSerializableCall(BaklavaRequestContextSerializable(request), BaklavaResponseContextSerializable(response))
+    atomicSeq.updateAndGet(seq => seq :+ call)
+    ()
+  }
+
+  def listCalls: Seq[BaklavaSerializableCall] = atomicSeq.get()
+
 }
