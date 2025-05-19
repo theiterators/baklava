@@ -6,6 +6,7 @@ import org.apache.pekko.http.scaladsl.model.HttpMethods.*
 import org.apache.pekko.http.scaladsl.model.StatusCodes.*
 import pl.iterators.baklava.{
   ApiKeyInHeader,
+  FormOf,
   OAuth2InBearer,
   OAuthFlows,
   OAuthImplicitFlow,
@@ -97,6 +98,19 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
     )(
       onRequest(body = examplePet, security = petOauthSecurity("pet-token"), headers = "application/json")
         .respondsWith[Pet](OK, description = "Update an existent pet in the store")
+        .assert { ctx =>
+          ctx.performRequest(routes)
+        },
+      onRequest(body =
+        FormOf[Pet](
+          "id"        -> "1",
+          "name"      -> "doggie",
+          "photoUrls" -> "url1",
+          "photoUrls" -> "url2",
+          "status"    -> "available"
+        )
+      )
+        .respondsWith[Pet](OK, description = "Update an existent pet in the store with form")
         .assert { ctx =>
           ctx.performRequest(routes)
         },
@@ -261,6 +275,27 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
         },
       onRequest(pathParameters = 23, headers = ("application/json", None))
         .respondsWith[String](OK, description = "Unauthorized") // api_key is ignored :shrug:
+        .assert { ctx =>
+          ctx.performRequest(routes)
+        }
+    )
+  )
+
+  private val file = Seq.fill(128)(0).map(_.toByte).toArray
+
+  path("/pet/{petId}/uploadImage")(
+    supports(
+      POST,
+      securitySchemes = Seq(petSecurityOauthScheme),
+      pathParameters = p[Int]("petId"),
+      headers = h[String]("Accept"),
+      summary = "uploads an image",
+      description = "uploads an image",
+      operationId = "uploadFile",
+      tags = Seq("pet")
+    )(
+      onRequest(pathParameters = 1, body = file, headers = "application/json")
+        .respondsWith[Pet](OK, description = "successful operation")
         .assert { ctx =>
           ctx.performRequest(routes)
         }

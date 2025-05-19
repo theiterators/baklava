@@ -143,7 +143,10 @@ object Schema extends SchemaDerivation {
     val default: Option[Map[String, T]]    = None
     val description: Option[String]        = None
   }
-  implicit def uuidSchema: PrimitiveSchema[java.util.UUID] = PrimitiveSchema[java.util.UUID]("UUID", SchemaType.StringType, Some("uuid"))
+  implicit val uuidSchema: PrimitiveSchema[java.util.UUID] = PrimitiveSchema[java.util.UUID]("UUID", SchemaType.StringType, Some("uuid"))
+
+  implicit val byteArraySchema: PrimitiveSchema[Array[Byte]] =
+    PrimitiveSchema[Array[Byte]]("Array[Byte]", SchemaType.StringType, Some("binary"))
   // TODO: arrays, collections
 }
 

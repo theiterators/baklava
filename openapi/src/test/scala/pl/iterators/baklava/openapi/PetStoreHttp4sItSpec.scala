@@ -6,7 +6,7 @@ import com.dimafeng.testcontainers.GenericContainer
 import com.dimafeng.testcontainers.scalatest.TestContainerForAll
 import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport
 import org.http4s.ember.client.EmberClientBuilder
-import org.http4s.{HttpRoutes, Request, Response, Uri}
+import org.http4s.{EntityDecoder, HttpRoutes, Request, Response, Uri}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.testcontainers.containers.wait.strategy.Wait
@@ -39,6 +39,10 @@ trait PetStoreHttp4sItSpec
     IO(Response[IO]())
   }
   implicit val runtime: IORuntime = IORuntime.global
+
+  // needed to override circe's always-JSON unmarshaller
+  implicit val stringUnmarshaller: BaklavaHttp4s.FromEntityUnmarshaller[String] =
+    EntityDecoder.text[IO]
 
   def performRequest(routes: HttpRoutes[IO], request: Request[IO]): Response[IO] = {
     withContainers { petstoreApiContainer =>
