@@ -2,7 +2,7 @@ package pl.iterators.baklava.pekkohttp
 
 import org.apache.pekko.http.scaladsl.client.RequestBuilding.RequestBuilder
 import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, Marshalling, ToEntityMarshaller}
-import org.apache.pekko.http.scaladsl.model.{HttpEntity, HttpHeader, MessageEntity}
+import org.apache.pekko.http.scaladsl.model.{FormData, HttpEntity, HttpHeader, MessageEntity}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
@@ -19,7 +19,10 @@ import pl.iterators.baklava.{
   BaklavaResponseContext,
   BaklavaTestFrameworkDsl,
   EmptyBody,
-  EmptyBodyInstance
+  EmptyBodyInstance,
+  FormOf,
+  FreeFormSchema,
+  Schema
 }
 
 import scala.concurrent.duration.Duration
@@ -170,6 +173,13 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
 
   override implicit protected def emptyToRequestBodyType: ToEntityMarshaller[EmptyBody] =
     Marshaller.strict[EmptyBody, MessageEntity](_ => Marshalling.Opaque(() => HttpEntity.Empty))
+
+  override implicit protected def formUrlencodedToRequestBodyType[T]: ToEntityMarshaller[FormOf[T]] =
+    implicitly[ToEntityMarshaller[FormData]].compose { formUrlencoded =>
+      FormData(formUrlencoded.fields*)
+    }
+
+  implicit val formDataSchema: Schema[FormData] = FreeFormSchema("FormData")
 
   override implicit protected def emptyToResponseBodyType: FromEntityUnmarshaller[EmptyBody] =
     Unmarshaller.strict(_ => EmptyBodyInstance)

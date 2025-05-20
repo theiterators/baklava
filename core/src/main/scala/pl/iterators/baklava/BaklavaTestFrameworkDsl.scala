@@ -288,6 +288,29 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                       )
                     timesCalled += 1
 
+                    body match {
+                      case b: FormOf[_] =>
+                        val allFields = implicitly[Schema[RequestBody]].properties.keys.toList
+                        val requiredFields = implicitly[Schema[RequestBody]].properties
+                          .filter(_._2.required)
+                          .keys
+                          .toList
+
+                        val missingFields = requiredFields.filterNot(f => b.fields.exists(_._1 == f))
+                        if (missingFields.nonEmpty) {
+                          throw new BaklavaAssertionException(
+                            s"Missing required fields in form: ${missingFields.mkString(", ")}"
+                          )
+                        }
+                        val extraFields = b.fields.map(_._1).filterNot(allFields.contains)
+                        if (extraFields.nonEmpty) {
+                          throw new BaklavaAssertionException(
+                            s"Extra fields in form: ${extraFields.mkString(", ")}"
+                          )
+                        }
+                      case _ =>
+                    }
+
                     if (responseContext.status != statusCode) {
                       throw new BaklavaAssertionException(
                         s"Expected ${statusCode.status} -> ${implicitly[Schema[ResponseBody]].className}, but got ${responseContext.status.status} -> ${responseContext.responseBodyString.take(maxBodyLengthInAssertion)}"

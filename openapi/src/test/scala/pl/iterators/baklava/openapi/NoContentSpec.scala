@@ -12,7 +12,7 @@ import org.apache.pekko.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import org.apache.pekko.stream.Materializer
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import pl.iterators.baklava.{BaklavaGenerate, EmptyBody}
+import pl.iterators.baklava.EmptyBody
 import pl.iterators.baklava.pekkohttp.BaklavaPekkoHttp
 import pl.iterators.baklava.scalatest.{BaklavaScalatest, ScalatestAsExecution}
 import pl.iterators.kebs.circe.KebsCirce
@@ -55,9 +55,5 @@ class NoContentSpec
         ctx.performRequest(routes)
       }
     )
-  }
-
-  override def afterAll(): Unit = {
-    BaklavaGenerate.main(Array.empty)
   }
 }

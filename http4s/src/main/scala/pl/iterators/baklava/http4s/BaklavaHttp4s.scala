@@ -2,7 +2,21 @@ package pl.iterators.baklava.http4s
 
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
-import org.http4s.{EntityDecoder, EntityEncoder, Header, Headers, HttpRoutes, HttpVersion, Method, Request, Response, Status, Uri, headers}
+import org.http4s.{
+  EntityDecoder,
+  EntityEncoder,
+  Header,
+  Headers,
+  HttpRoutes,
+  HttpVersion,
+  Method,
+  Request,
+  Response,
+  Status,
+  Uri,
+  UrlForm,
+  headers
+}
 import org.typelevel.ci.CIString
 import pl.iterators.baklava.{
   BaklavaAssertionException,
@@ -15,7 +29,10 @@ import pl.iterators.baklava.{
   BaklavaResponseContext,
   BaklavaTestFrameworkDsl,
   EmptyBody,
-  EmptyBodyInstance
+  EmptyBodyInstance,
+  FormOf,
+  FreeFormSchema,
+  Schema
 }
 
 import scala.reflect.ClassTag
@@ -48,6 +65,15 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
 
   override implicit protected def emptyToRequestBodyType: BaklavaHttp4s.ToEntityMarshaller[EmptyBody] =
     EntityEncoder.unitEncoder[IO].contramap(_ => ())
+
+  override implicit protected def formUrlencodedToRequestBodyType[T]: BaklavaHttp4s.ToEntityMarshaller[FormOf[T]] =
+    implicitly[EntityEncoder[IO, UrlForm]].contramap { formUrlEncoded =>
+      UrlForm(
+        formUrlEncoded.fields*
+      )
+    }
+
+  implicit val urlFormSchema: Schema[UrlForm] = FreeFormSchema("UrlForm")
 
   override implicit protected def emptyToResponseBodyType: BaklavaHttp4s.FromEntityUnmarshaller[EmptyBody] =
     EntityDecoder.void[IO].map(_ => EmptyBodyInstance)

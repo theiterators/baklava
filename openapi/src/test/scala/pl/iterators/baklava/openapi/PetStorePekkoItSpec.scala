@@ -5,7 +5,7 @@ import com.dimafeng.testcontainers.scalatest.TestContainerForAll
 import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.Http
-import org.apache.pekko.http.scaladsl.marshalling.ToEntityMarshaller
+import org.apache.pekko.http.scaladsl.marshalling.{PredefinedToEntityMarshallers, ToEntityMarshaller}
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives.complete
 import org.apache.pekko.http.scaladsl.server.Route
@@ -50,6 +50,9 @@ trait PetStorePekkoItSpec
 
   // needed to override circe's always-JSON unmarshaller
   implicit val stringUnmarshaller: FromEntityUnmarshaller[String] = Unmarshaller.stringUnmarshaller
+
+  // ditto for Array[Byte] marshaller
+  implicit val byteArrayMarshaller: ToEntityMarshaller[Array[Byte]] = PredefinedToEntityMarshallers.ByteArrayMarshaller
 
   override def performRequest(routes: Route, request: HttpRequest): HttpResponse = {
     withContainers { petstoreApiContainer =>
