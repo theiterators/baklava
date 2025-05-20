@@ -11,7 +11,7 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.testcontainers.containers.wait.strategy.Wait
 import pl.iterators.baklava.http4s.BaklavaHttp4s
-import pl.iterators.baklava.scalatest.{BaklavaScalatest, ScalatestAsExecution}
+import pl.iterators.baklava.scalatest.ScalatestAsExecution
 import pl.iterators.kebs.circe.KebsCirce
 import pl.iterators.kebs.circe.enums.KebsCirceEnumsLowercase
 import pl.iterators.kebs.enumeratum.KebsEnumeratum
@@ -19,7 +19,7 @@ import pl.iterators.kebs.enumeratum.KebsEnumeratum
 trait PetStoreHttp4sItSpec
     extends AnyFunSpec
     with Matchers
-    with BaklavaScalatest[HttpRoutes[IO], BaklavaHttp4s.ToEntityMarshaller, BaklavaHttp4s.FromEntityUnmarshaller]
+    with BaklavaScalatestDebug[HttpRoutes[IO], BaklavaHttp4s.ToEntityMarshaller, BaklavaHttp4s.FromEntityUnmarshaller]
     with BaklavaHttp4s[Unit, Unit, ScalatestAsExecution]
     with FailFastCirceSupport
     with KebsCirce
