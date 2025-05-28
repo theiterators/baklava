@@ -16,6 +16,8 @@ val Scala3   = "3.3.3"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion       := Scala213
 
+ThisBuild / tlMimaPreviousVersions := Set.empty
+
 scalacOptions += "-Xmax-inlines:64"
 // TODO: add -Yretain-trees to scalacOptions to enable magnolia features
 
@@ -47,14 +49,20 @@ lazy val core = project
   .in(file("core"))
   .settings(
     name := "baklava-core",
-    libraryDependencies ++= Seq(
-      "pl.iterators"   %% "kebs-core"    % kebsV,
-      "org.reflections" % "reflections"  % reflectionsV,
-      "pl.iterators"   %% "kebs-circe"   % kebsV,
-      "io.circe"       %% "circe-parser" % circeV,
-      if (scalaVersion.value.startsWith("3")) "com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaS3V
-      else "com.softwaremill.magnolia1_2"                                    %% "magnolia" % magnoliaS2V
-    )
+    libraryDependencies ++=
+      Seq(
+        "org.reflections" % "reflections"  % reflectionsV,
+        "io.circe"       %% "circe-parser" % circeV,
+        if (scalaVersion.value.startsWith("3")) "com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaS3V
+        else "com.softwaremill.magnolia1_2"                                    %% "magnolia" % magnoliaS2V
+      ) ++ (
+        if (scalaVersion.value.startsWith("3")) Nil
+        else
+          Seq(
+            "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided",
+            "org.scala-lang" % "scala-reflect"  % scalaVersion.value
+          )
+      )
   )
 
 lazy val openapi = project
