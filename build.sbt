@@ -166,5 +166,21 @@ lazy val sbtplugin = project
     }
   )
 
+lazy val docs = project
+  .in(file("baklava-docs"))
+  .dependsOn(core.jvm % "test->test;compile->compile")
+  .enablePlugins(MdocPlugin, DocusaurusPlugin)
+  .settings(noPublishSettings *)
+  .settings(
+    name        := "docs",
+    description := "Baklava documentation",
+    moduleName  := "baklava-docs"
+  )
+  .settings(
+    mdocVariables := Map(
+      "VERSION" -> version.value
+    )
+  )
+
 Test / scalafmtOnCompile      := true
 ThisBuild / scalafmtOnCompile := true
