@@ -21,6 +21,11 @@ ThisBuild / tlMimaPreviousVersions := Set.empty
 scalacOptions += "-Xmax-inlines:64"
 // TODO: add -Yretain-trees to scalacOptions to enable magnolia features
 
+lazy val noPublishSettings =
+  Seq(
+    publishArtifact := false
+  )
+
 lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, pekkohttproutes, http4s, specs2, scalatest, munit, sbtplugin)
 
 val swaggerV       = "2.2.27"
@@ -164,6 +169,22 @@ lazy val sbtplugin = project
         case "2.12" => "1.3.10" // set minimum sbt version
       }
     }
+  )
+
+lazy val docs = project
+  .in(file("baklava-docs"))
+  .dependsOn(core % "test->test;compile->compile")
+  .enablePlugins(MdocPlugin, DocusaurusPlugin)
+  .settings(noPublishSettings *)
+  .settings(
+    name        := "docs",
+    description := "Baklava documentation",
+    moduleName  := "baklava-docs"
+  )
+  .settings(
+    mdocVariables := Map(
+      "VERSION" -> version.value
+    )
   )
 
 Test / scalafmtOnCompile      := true
