@@ -9,13 +9,16 @@ ThisBuild / licenses               := Seq(License.Apache2)
 ThisBuild / developers := List(
   tlGitHubDev("luksow", "Łukasz Sowa")
 )
-ThisBuild / sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeLegacy
 
 val Scala213 = "2.13.16"
 val Scala3   = "3.3.3"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion       := Scala213
-
+ThisBuild / publishTo := {
+  val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
+  if (isSnapshot.value) Some("central-snapshots" at centralSnapshots)
+  else localStaging.value
+}
 ThisBuild / tlMimaPreviousVersions := Set.empty
 
 scalacOptions += "-Xmax-inlines:64"
