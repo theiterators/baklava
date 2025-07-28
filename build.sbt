@@ -61,6 +61,7 @@ lazy val core = project
       Seq(
         "org.reflections" % "reflections"  % reflectionsV,
         "io.circe"       %% "circe-parser" % circeV,
+        "org.scalatest"  %% "scalatest"    % scalatestV % "test",
         if (scalaVersion.value.startsWith("3")) "com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaS3V
         else "com.softwaremill.magnolia1_2"                                    %% "magnolia" % magnoliaS2V
       ) ++ (
@@ -78,6 +79,12 @@ lazy val openapi = project
   .dependsOn(core, pekkohttp % "test", http4s % "test", scalatest % "test")
   .settings(
     name := "baklava-openapi",
+    scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _)) => Seq("-Xmax-inlines:64")
+        case _            => Nil
+      }
+    },
     libraryDependencies ++= Seq(
       "io.swagger.core.v3"    % "swagger-core"                   % swaggerV,
       "io.swagger.parser.v3"  % "swagger-parser"                 % swaggerParserV,

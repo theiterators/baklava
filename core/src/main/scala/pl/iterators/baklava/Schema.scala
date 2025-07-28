@@ -70,7 +70,33 @@ trait Schema[T] {
   }
 }
 
-object Schema extends SchemaDerivation {
+case class PrimitiveSchema[T](
+    className: String,
+    `type`: SchemaType,
+    format: Option[String]
+) extends Schema[T] {
+  val properties: Map[String, Schema[?]] = Map.empty
+  val items: Option[Schema[?]]           = None
+  val `enum`: Option[Set[String]]        = None
+  val required: Boolean                  = true
+  val additionalProperties: Boolean      = false
+  val default: Option[T]                 = None
+  val description: Option[String]        = None
+}
+
+case class FreeFormSchema[T](className: String) extends Schema[T] {
+  val `type`: SchemaType                 = SchemaType.ObjectType
+  val format: Option[String]             = None
+  val properties: Map[String, Schema[?]] = Map.empty
+  val items: Option[Schema[?]]           = None
+  val `enum`: Option[Set[String]]        = None
+  val required: Boolean                  = true
+  val additionalProperties: Boolean      = true
+  val default: Option[T]                 = None
+  val description: Option[String]        = None
+}
+
+trait SchemaDefaults {
   implicit val emptyBodySchema: Schema[EmptyBody] = new Schema[EmptyBody] {
     val className: String                  = "EmptyBody"
     val `type`: SchemaType                 = SchemaType.NullType
@@ -147,31 +173,9 @@ object Schema extends SchemaDerivation {
 
   implicit val byteArraySchema: PrimitiveSchema[Array[Byte]] =
     PrimitiveSchema[Array[Byte]]("Array[Byte]", SchemaType.StringType, Some("binary"))
+
   // TODO: arrays, collections
+
 }
 
-case class PrimitiveSchema[T](
-    className: String,
-    `type`: SchemaType,
-    format: Option[String]
-) extends Schema[T] {
-  val properties: Map[String, Schema[?]] = Map.empty
-  val items: Option[Schema[?]]           = None
-  val `enum`: Option[Set[String]]        = None
-  val required: Boolean                  = true
-  val additionalProperties: Boolean      = false
-  val default: Option[T]                 = None
-  val description: Option[String]        = None
-}
-
-case class FreeFormSchema[T](className: String) extends Schema[T] {
-  val `type`: SchemaType                 = SchemaType.ObjectType
-  val format: Option[String]             = None
-  val properties: Map[String, Schema[?]] = Map.empty
-  val items: Option[Schema[?]]           = None
-  val `enum`: Option[Set[String]]        = None
-  val required: Boolean                  = true
-  val additionalProperties: Boolean      = true
-  val default: Option[T]                 = None
-  val description: Option[String]        = None
-}
+object Schema extends SchemaDerivation with SchemaDefaults {}

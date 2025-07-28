@@ -1,8 +1,8 @@
-package pl.iterators.baklava
-
 import io.circe.{Encoder, Json, Printer}
 import io.circe.parser.*
 import io.circe.syntax.EncoderOps
+
+import pl.iterators.baklava.*
 
 import java.io.{File, FileWriter, PrintWriter}
 

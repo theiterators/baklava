@@ -1,10 +1,9 @@
 package pl.iterators.baklava.sbtplugin
 
 import org.typelevel.scalaccompat.annotation.unused
-import sbt.Keys.*
 import sbt.*
+import sbt.Keys.*
 import sbt.internal.util.Attributed.data
-import sbt.dsl.LinterLevel.Ignore
 
 import java.util.Base64
 
@@ -20,7 +19,7 @@ object BaklavaSbtPlugin extends AutoPlugin {
   }
 
   def settings(@unused configuration: Configuration): Seq[Setting[_]] = {
-    import BaklavaSbtPlugin.autoImport._
+    import BaklavaSbtPlugin.autoImport.*
 
     val clazz = "pl.iterators.baklava.BaklavaGenerate"
 
@@ -35,13 +34,22 @@ object BaklavaSbtPlugin extends AutoPlugin {
             |    "version" : "1.0.7"
             |  }
             |}
+            |""".stripMargin,
+        "ts-rest-package-contract-json" ->
+          """
+            |{
+            |  "name": "contracts",
+            |  "version": "VERSION",
+            |  "main": "index.js",
+            |  "types": "index.d.ts"
+            |}
             |""".stripMargin
       ),
       baklavaGenerate := {
-        val configurationClassPath = (Test / fullClasspath).value
-        val r                      = (Test / run / runner).value
-        val s                      = streams.value
-        val config                 = baklavaGenerateConfigs.value
+        val configurationClassPath = (Test / fullClasspath).value: @sbtUnchecked
+        val r                      = (Test / run / runner).value: @sbtUnchecked
+        val s                      = streams.value: @sbtUnchecked
+        val config                 = baklavaGenerateConfigs.value: @sbtUnchecked
         val serializedConfig = config.map { case (key, value) =>
           val base64EncodedValue = Base64.getEncoder.encodeToString(value.getBytes("UTF-8"))
           s"$key|$base64EncodedValue"
@@ -51,7 +59,7 @@ object BaklavaSbtPlugin extends AutoPlugin {
         r.run(clazz, data(configurationClassPath), serializedConfig, s.log).get
       },
       baklavaClean := {
-        val s = streams.value
+        val s = streams.value: @sbtUnchecked
         s.log.log(Level.Info, "Running baklava cleanup")
         val baklavaDir = new File("target/baklava")
 
@@ -63,10 +71,10 @@ object BaklavaSbtPlugin extends AutoPlugin {
       Test / testOptions += Tests.Cleanup { () =>
         // Here we got copy paster code from baklavaGenerate task. I do not know how to use baklavaGenerate task here.
         // If I paste directly baklavaGenerate.value its invoked before the test.
-        val configurationClassPath = (Test / fullClasspath).value
-        val r                      = (Test / run / runner).value
-        val s                      = streams.value
-        val config                 = baklavaGenerateConfigs.value
+        val configurationClassPath = (Test / fullClasspath).value: @sbtUnchecked
+        val r                      = (Test / run / runner).value: @sbtUnchecked
+        val s                      = streams.value: @sbtUnchecked
+        val config                 = baklavaGenerateConfigs.value: @sbtUnchecked
         val serializedConfig = config.map { case (key, value) =>
           val base64EncodedValue = Base64.getEncoder.encodeToString(value.getBytes("UTF-8"))
           s"$key|$base64EncodedValue"
