@@ -265,6 +265,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     val nonTrivial = zods.filter(z => z.startsWith("z.object"))
     if (nonTrivial.size == 1) nonTrivial.head
     else if (zods.size == 1) zods.head
+    else if (zods.isEmpty) "z.undefined()"
     else s"z.union([${zods.mkString(", ")}])"
   }
 
