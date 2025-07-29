@@ -2,50 +2,61 @@ package pl.iterators.baklava
 
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
+import pl.iterators.kebs.opaque.Opaque
+import pl.iterators.kebs.baklava.schema.KebsBaklavaSchema
 
 import java.util.UUID
 
-class SchemaSpec extends AnyFunSpec with Matchers {
+opaque type OInt = Int
+object OInt extends Opaque[OInt, Int]
 
-  describe("Schema derivation") {
+opaque type OString = String
+object OString extends Opaque[OString, String]
 
-    it("for Int") {
-      val derived  = implicitly[Schema[Int]]
+opaque type OUUID = UUID
+object OUUID extends Opaque[OUUID, UUID]
+
+class SchemaOpaqueSpec extends AnyFunSpec with Matchers with KebsBaklavaSchema {
+
+  describe("Schema opaque derivation") {
+
+    it("for OInt") {
+      val derived  = implicitly[Schema[OInt]]
       val expected = Schema.intSchema
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
-    it("for Option[Int]") {
-      val derived  = implicitly[Schema[Option[Int]]]
+    it("for Option[OInt]") {
+      val derived  = implicitly[Schema[Option[OInt]]]
       val expected = Schema.optionSchema(Schema.intSchema)
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
-    it("for String") {
-      val derived  = implicitly[Schema[String]]
+    it("for OString") {
+      val derived  = implicitly[Schema[OString]]
       val expected = Schema.stringSchema
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
-    it("for Option[String]") {
-      val derived  = implicitly[Schema[Option[String]]]
+    it("for Option[OString]") {
+      val derived  = implicitly[Schema[Option[OString]]]
       val expected = Schema.optionSchema(Schema.stringSchema)
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
-    it("for UUID") {
-      val derived  = implicitly[Schema[UUID]]
+    it("for OUUID") {
+      val derived  = implicitly[Schema[OUUID]]
       val expected = Schema.uuidSchema
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
-    it("for Option[UUID]") {
-      val derived  = implicitly[Schema[Option[UUID]]]
+    it("for Option[OUUID]") {
+      val derived  = implicitly[Schema[Option[OUUID]]]
       val expected = Schema.optionSchema(Schema.uuidSchema)
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
-    case class TestClass(x: Int, y: Option[String], z: Option[UUID])
+    case class TestClass(x: OInt, y: Option[OString], z: Option[OUUID])
 
     it("for TestClass") {
       val derived = implicitly[Schema[TestClass]]
