@@ -29,6 +29,15 @@ lazy val noPublishSettings =
     publishArtifact := false
   )
 
+lazy val perScalaVersionTestSources = Test / unmanagedSourceDirectories ++= {
+  val base = baseDirectory.value
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((3, _)) => Seq(base / "src" / "test" / "scala-3")
+    case Some((2, _)) => Seq(base / "src" / "test" / "scala-2")
+    case _            => Seq()
+  }
+}
+
 lazy val baklava =
   tlCrossRootProject.aggregate(core, simple, openapi, tsrest, pekkohttp, pekkohttproutes, http4s, specs2, scalatest, munit, sbtplugin)
 
@@ -36,7 +45,7 @@ val swaggerV       = "2.2.27"
 val swaggerParserV = "2.1.24"
 val pekkoHttpV     = "1.1.0"
 val pekkoV         = "1.1.2"
-val kebsV          = "2.1.0"
+val kebsV          = "2.1.3"
 val circeV         = "0.14.0"
 val specs2V        = "4.20.9"
 val scalatestV     = "3.2.19"
@@ -58,6 +67,7 @@ lazy val core = project
   .in(file("core"))
   .settings(
     name := "baklava-core",
+    perScalaVersionTestSources,
     libraryDependencies ++=
       Seq(
         "org.reflections" % "reflections"  % reflectionsV,
@@ -66,8 +76,9 @@ lazy val core = project
         if (scalaVersion.value.startsWith("3")) "com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaS3V
         else "com.softwaremill.magnolia1_2"                                    %% "magnolia" % magnoliaS2V
       ) ++ (
-        if (scalaVersion.value.startsWith("3")) Nil
-        else
+        if (scalaVersion.value.startsWith("3")) {
+          Seq("pl.iterators" %% "kebs-opaque" % kebsV % "test", "pl.iterators" %% "kebs-baklava" % kebsV % "test")
+        } else
           Seq(
             "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided",
             "org.scala-lang" % "scala-reflect"  % scalaVersion.value

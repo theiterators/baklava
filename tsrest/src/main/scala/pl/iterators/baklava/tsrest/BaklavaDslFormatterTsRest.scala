@@ -128,10 +128,16 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       else {
         val zds =
           if (pathParamsSchemas.size == 1)
-            Seq("z.object({" + pathParamsSchemas.head.map(p => s"${p.name}: ${zod(p.schema)}").mkString(", ") + "})")
+            Seq(
+              "z.object({" + pathParamsSchemas.head
+                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
+                .mkString(", ") + "})"
+            )
           else
             pathParamsSchemas.map { params =>
-              "z.object({" + params.map(p => s"${p.name}: ${zod(p.schema)}").mkString(", ") + "})"
+              "z.object({" + params
+                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
+                .mkString(", ") + "})"
             }
         Some(collapseZodUnion(zds))
       }
@@ -144,10 +150,16 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       else {
         val zds =
           if (queryParamsSchemas.size == 1)
-            Seq("z.object({" + queryParamsSchemas.head.map(p => s"${p.name}: ${zod(p.schema)}").mkString(", ") + "})")
+            Seq(
+              "z.object({" + queryParamsSchemas.head
+                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
+                .mkString(", ") + "})"
+            )
           else
             queryParamsSchemas.map { params =>
-              "z.object({" + params.map(p => s"${p.name}: ${zod(p.schema)}").mkString(", ") + "})"
+              "z.object({" + params
+                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
+                .mkString(", ") + "})"
             }
         Some(collapseZodUnion(zds))
       }
@@ -160,14 +172,19 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       else {
         val zds =
           if (headersSchemas.size == 1)
-            Seq("z.object({" + headersSchemas.head.map(p => s""""${p.name}": ${zod(p.schema)}""").mkString(", ") + "})")
+            Seq(
+              "z.object({" + headersSchemas.head
+                .map(p => s""""${p.name}": ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}""")
+                .mkString(", ") + "})"
+            )
           else
             headersSchemas.map { params =>
-              "z.object({" + params.map(p => s""""${p.name}": ${zod(p.schema)}""").mkString(", ") + "})"
+              "z.object({" + params
+                .map(p => s""""${p.name}": ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}""")
+                .mkString(", ") + "})"
             }
         Some(collapseZodUnion(zds))
       }
-
     // --- Body ---
     val bodySchemas = calls.flatMap(_.request.bodySchema).distinct
     val bodyZods =
@@ -182,6 +199,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     // --- Responses ---
     val responses = calls
       .groupBy(_.response.status.status)
+      .toList
+      .sortBy(_._1)
       .map { case (status, respCalls) =>
         val schemas = respCalls.flatMap(_.response.bodySchema).distinct.map(zod)
         val zodStr  = collapseZodUnion(schemas)
@@ -213,7 +232,6 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
         )
       )
     lines.mkString("\n")
-
   }
 
   private def isEmptyBodyInstance(schema: BaklavaSchemaSerializable): Boolean =
@@ -240,6 +258,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
           val e = schema.`enum`.get.map(s => "\"" + s + "\"").mkString(",")
           s"z.enum([$e])$desc"
         } else if (schema.format.contains("email")) s"z.string().email()$desc"
+        else if (schema.format.contains("uuid")) s"z.string.uuid()$desc"
         else if (schema.format.contains("date-time")) s"z.coerce.date()$desc"
         else s"z.string()$desc"
       case SchemaType.BooleanType => s"z.boolean()$desc"
@@ -252,8 +271,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
         if (schema.properties.isEmpty) s"z.object({})$desc"
         else {
           val props = schema.properties.toSeq
-            .sortBy(_._1)
-            .map { case (k, v) => s"$k: ${zod(v)}${if (!v.required) ".optional()" else ""}" }
+            .map { case (k, v) => s"$k: ${zod(v)}${if (!v.required) ".nullish()" else ""}" }
             .mkString("\n        ", ",\n        ", "")
           s"z.object({$props})$desc"
         }
