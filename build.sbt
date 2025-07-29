@@ -29,7 +29,8 @@ lazy val noPublishSettings =
     publishArtifact := false
   )
 
-lazy val baklava = tlCrossRootProject.aggregate(core, openapi, pekkohttp, pekkohttproutes, http4s, specs2, scalatest, munit, sbtplugin)
+lazy val baklava =
+  tlCrossRootProject.aggregate(core, simple, openapi, tsrest, pekkohttp, pekkohttproutes, http4s, specs2, scalatest, munit, sbtplugin)
 
 val swaggerV       = "2.2.27"
 val swaggerParserV = "2.1.24"
@@ -72,6 +73,20 @@ lazy val core = project
             "org.scala-lang" % "scala-reflect"  % scalaVersion.value
           )
       )
+  )
+
+lazy val simple = project
+  .in(file("simple"))
+  .dependsOn(core, scalatest % "test")
+  .settings(
+    name := "baklava-simple"
+  )
+
+lazy val tsrest = project
+  .in(file("tsrest"))
+  .dependsOn(core, scalatest % "test")
+  .settings(
+    name := "baklava-tsrest"
   )
 
 lazy val openapi = project

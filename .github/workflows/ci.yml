@@ -75,11 +75,11 @@ jobs:
 
       - name: Make target directories
         if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
-        run: mkdir -p scalatest/target http4s/target openapi/target pekkohttproutes/target sbtplugin/target munit/target core/target specs2/target pekkohttp/target project/target
+        run: mkdir -p scalatest/target http4s/target openapi/target pekkohttproutes/target simple/target sbtplugin/target munit/target core/target tsrest/target specs2/target pekkohttp/target project/target
 
       - name: Compress target directories
         if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
-        run: tar cf targets.tar scalatest/target http4s/target openapi/target pekkohttproutes/target sbtplugin/target munit/target core/target specs2/target pekkohttp/target project/target
+        run: tar cf targets.tar scalatest/target http4s/target openapi/target pekkohttproutes/target simple/target sbtplugin/target munit/target core/target tsrest/target specs2/target pekkohttp/target project/target
 
       - name: Upload target directories
         if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
