@@ -1,3 +1,5 @@
+package pl.iterators.baklava.simple
+
 import io.circe.{Encoder, Json, Printer}
 import io.circe.parser.*
 import io.circe.syntax.EncoderOps
