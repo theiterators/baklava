@@ -258,7 +258,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
           val e = schema.`enum`.get.map(s => "\"" + s + "\"").mkString(",")
           s"z.enum([$e])$desc"
         } else if (schema.format.contains("email")) s"z.string().email()$desc"
-        else if (schema.format.contains("uuid")) s"z.string.uuid()$desc"
+        else if (schema.format.contains("uuid")) s"z.string().uuid()$desc"
         else if (schema.format.contains("date-time")) s"z.coerce.date()$desc"
         else s"z.string()$desc"
       case SchemaType.BooleanType => s"z.boolean()$desc"
