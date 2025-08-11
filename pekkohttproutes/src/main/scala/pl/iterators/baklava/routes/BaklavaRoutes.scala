@@ -52,13 +52,17 @@ object BaklavaRoutes {
     }
 
   private def openApiFileContent(implicit internalConfig: BaklavaRoutes.Config): String = {
-    val source  = Source.fromFile(s"${internalConfig.fileSystemPath}/openapi/openapi.yml")
-    val parser  = new OpenAPIV3Parser
-    val openApi = parser.readContents(source.mkString, null, null).getOpenAPI
-    val server  = new Server()
-    server.setUrl(internalConfig.apiPublicPathPrefix)
-    openApi.setServers(List(server).asJava)
-    Yaml.pretty(openApi)
+    val parser = new OpenAPIV3Parser
+    val source = Source.fromFile(s"${internalConfig.fileSystemPath}/openapi/openapi.yml")
+    try {
+      val openApi = parser.readContents(source.mkString, null, null).getOpenAPI
+      val server  = new Server()
+      server.setUrl(internalConfig.apiPublicPathPrefix)
+      openApi.setServers(List(server).asJava)
+      Yaml.pretty(openApi)
+    } finally {
+      source.close()
+    }
   }
 
   private def swaggerInitializerContent(implicit internalConfig: BaklavaRoutes.Config): String = {
