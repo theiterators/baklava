@@ -16,8 +16,6 @@ import pl.iterators.baklava.{
   ToQueryParam
 }
 
-import java.net.URI
-
 sealed trait Status extends EnumEntry with Lowercase
 object Status extends Enum[Status] {
   case object Available extends Status
@@ -71,7 +69,7 @@ class PetStorePetSpec extends PetStorePekkoItSpec {
     OAuthFlows(
       implicitFlow = Some(
         OAuthImplicitFlow(
-          new URI("https://petstore3.swagger.io/oauth/authorize"),
+          "https://petstore3.swagger.io/oauth/authorize",
           scopes = Map(
             "write:pets" -> "modify pets in your account",
             "read:pets"  -> "read your pets"

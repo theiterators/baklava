@@ -1,11 +1,16 @@
 package pl.iterators.baklava
 
-import java.io.{ByteArrayOutputStream, File, FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
-import java.nio.file.{Files, Path, Paths}
+import com.github.plokhotnyuk.jsoniter_scala.core.*
+import com.github.plokhotnyuk.jsoniter_scala.macros.*
+
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.security.MessageDigest
 import java.util.Base64
 import scala.jdk.CollectionConverters.*
-import scala.util.{Try, Using}
+import scala.util.Try
 
 case class BaklavaSecuritySerializable(
     httpBearer: Option[HttpBearer] = None,
@@ -241,47 +246,47 @@ object BaklavaSerialize {
 
   private val dirName       = "target/baklava/calls"
   private val dirFile       = new File(dirName)
-  private val fileExtension = "call"
+  private val fileExtension = "json"
+
+  // JSON codec for BaklavaSerializableCall
+  implicit val serializableCallCodec: JsonValueCodec[BaklavaSerializableCall] = JsonCodecMaker.make(
+    CodecMakerConfig.withAllowRecursiveTypes(true)
+  )
 
   def serializeCall(
       request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       response: BaklavaResponseContext[?, ?, ?]
-  ): Unit = {
-    dirFile.mkdirs()
+  ): Try[Unit] = {
+    for {
+      _ <- Try(dirFile.mkdirs())
+      context   = BaklavaSerializableCall(BaklavaRequestContextSerializable(request), BaklavaResponseContextSerializable(response))
+      jsonBytes = writeToArray(context)
+      hashBytes = MessageDigest.getInstance("SHA-256").digest(jsonBytes)
+      chunkName = Base64.getUrlEncoder.encodeToString(hashBytes).replaceAll("=", "")
+      chunkFile = new File(s"$dirName/$chunkName.$fileExtension")
+      _ <- Try(Files.write(chunkFile.toPath, jsonBytes))
+    } yield ()
+  }
 
-    val context = BaklavaSerializableCall(BaklavaRequestContextSerializable(request), BaklavaResponseContextSerializable(response))
-
-    val digest    = MessageDigest.getInstance("SHA-256")
-    val jsonBytes = serializeToBytes(context)
-    val hashBytes = digest.digest(jsonBytes)
-
-    // Generate a unique filename based on the hash
-    val chunkName = Base64.getUrlEncoder.encodeToString(hashBytes).replaceAll("=", "")
-    val chunkFile = new File(s"$dirName/$chunkName.$fileExtension")
-
-    Using(new ObjectOutputStream(new FileOutputStream(chunkFile))) { outputStream =>
-      outputStream.writeObject(context)
-    }.recover { case e: Exception =>
-      println(s"Failed to write to file: $e")
+  def listSerializedCalls(): Try[Seq[BaklavaSerializableCall]] = {
+    Try {
+      dirFile.mkdirs()
+      Option(dirFile.listFiles())
+        .getOrElse(Array.empty[File])
+        .filter(_.getName.endsWith(fileExtension))
+        .flatMap(readCallFromFile)
+        .toSeq
     }
-    ()
   }
 
-  def listSerializedCalls(): Seq[BaklavaSerializableCall] = {
-    dirFile.mkdirs()
-
-    Option(dirFile.listFiles())
-      .getOrElse(Array.empty[File])
-      .filter(_.getName.endsWith(fileExtension))
-      .flatMap { file =>
-        Using(new ObjectInputStream(new FileInputStream(file))) { inputStream =>
-          inputStream.readObject().asInstanceOf[BaklavaSerializableCall]
-        }.toOption
-      }
-      .toSeq
+  private def readCallFromFile(file: File): Option[BaklavaSerializableCall] = {
+    Try {
+      val jsonBytes = Files.readAllBytes(file.toPath)
+      readFromArray[BaklavaSerializableCall](jsonBytes)
+    }.toOption
   }
 
-  def cleanSerializedCalls(): Unit = {
+  def cleanSerializedCalls(): Try[Unit] = {
     val dir: Path = Paths.get(dirFile.getPath)
 
     if (Files.exists(dir) && Files.isDirectory(dir)) {
@@ -293,15 +298,9 @@ object BaklavaSerialize {
           .asScala
           .foreach(Files.delete)
       }
-      ()
+    } else {
+      Try(())
     }
   }
 
-  private def serializeToBytes(obj: Any): Array[Byte] = {
-    val byteArrayOutputStream = new ByteArrayOutputStream()
-    val objectOutputStream    = new ObjectOutputStream(byteArrayOutputStream)
-    objectOutputStream.writeObject(obj)
-    objectOutputStream.flush()
-    byteArrayOutputStream.toByteArray
-  }
 }

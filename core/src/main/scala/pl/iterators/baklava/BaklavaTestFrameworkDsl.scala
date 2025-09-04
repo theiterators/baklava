@@ -407,7 +407,11 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
   ): TestFrameworkFragmentType
 
   protected def store(request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
-    BaklavaSerialize.serializeCall(request, response)
+    BaklavaSerialize.serializeCall(request, response) match {
+      case scala.util.Failure(exception) =>
+        System.err.println(s"Failed to serialize call: $exception")
+      case scala.util.Success(_) => // Success, no action needed
+    }
   }
 }
 
