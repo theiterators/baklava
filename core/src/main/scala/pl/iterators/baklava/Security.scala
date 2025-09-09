@@ -1,7 +1,5 @@
 package pl.iterators.baklava
 
-import java.net.URI
-
 sealed trait Security {
   val `type`: String
   val description: String
@@ -57,13 +55,13 @@ case class MutualTls(description: String = "") extends Security with Serializabl
   def apply(): AppliedSecurity = AppliedSecurity(this, Map.empty)
 }
 
-case class OpenIdConnectInBearer(openIdConnectUrl: URI, description: String = "") extends Security with Serializable {
+case class OpenIdConnectInBearer(openIdConnectUrl: String, description: String = "") extends Security with Serializable {
   override val `type`: String = "openIdConnect"
 
   def apply(token: String): AppliedSecurity = AppliedSecurity(this, Map("token" -> token))
 }
 
-case class OpenIdConnectInCookie(openIdConnectUrl: URI, description: String = "") extends Security with Serializable {
+case class OpenIdConnectInCookie(openIdConnectUrl: String, description: String = "") extends Security with Serializable {
   override val `type`: String = "openIdConnect"
 
   def apply(name: String, token: String): AppliedSecurity = AppliedSecurity(this, Map("name" -> name, "token" -> token))
@@ -91,26 +89,26 @@ case class OAuthFlows(
 )
 
 case class OAuthImplicitFlow(
-    authorizationUrl: URI,
-    refreshUrl: Option[URI] = None,
+    authorizationUrl: String,
+    refreshUrl: Option[String] = None,
     scopes: Map[String, String] = Map.empty
 )
 
 case class OAuthPasswordFlow(
-    tokenUrl: URI,
-    refreshUrl: Option[URI] = None,
+    tokenUrl: String,
+    refreshUrl: Option[String] = None,
     scopes: Map[String, String] = Map.empty
 )
 
 case class OAuthClientCredentialsFlow(
-    tokenUrl: URI,
-    refreshUrl: Option[URI] = None,
+    tokenUrl: String,
+    refreshUrl: Option[String] = None,
     scopes: Map[String, String] = Map.empty
 )
 
 case class OAuthAuthorizationCodeFlow(
-    authorizationUrl: URI,
-    tokenUrl: URI,
-    refreshUrl: Option[URI] = None,
+    authorizationUrl: String,
+    tokenUrl: String,
+    refreshUrl: Option[String] = None,
     scopes: Map[String, String] = Map.empty
 )

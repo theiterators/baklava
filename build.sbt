@@ -47,6 +47,7 @@ val pekkoHttpV     = "1.1.0"
 val pekkoV         = "1.1.2"
 val kebsV          = "2.1.3"
 val circeV         = "0.14.0"
+val jsoniterV      = "2.13.8"
 val specs2V        = "4.20.9"
 val scalatestV     = "3.2.19"
 val munitV         = "1.0.2"
@@ -70,9 +71,11 @@ lazy val core = project
     perScalaVersionTestSources,
     libraryDependencies ++=
       Seq(
-        "org.reflections" % "reflections"  % reflectionsV,
-        "io.circe"       %% "circe-parser" % circeV,
-        "org.scalatest"  %% "scalatest"    % scalatestV % "test",
+        "org.reflections"                        % "reflections"           % reflectionsV,
+        "io.circe"                              %% "circe-parser"          % circeV,
+        "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core"   % jsoniterV,
+        "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % jsoniterV  % "provided",
+        "org.scalatest"                         %% "scalatest"             % scalatestV % "test",
         if (scalaVersion.value.startsWith("3")) "com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaS3V
         else "com.softwaremill.magnolia1_2"                                    %% "magnolia" % magnoliaS2V
       ) ++ (
