@@ -19,7 +19,7 @@ ThisBuild / publishTo          := {
   if (isSnapshot.value) Some("central-snapshots" at centralSnapshots)
   else localStaging.value
 }
-ThisBuild / tlMimaPreviousVersions := Set.empty
+ThisBuild / tlMimaPreviousVersions     := Set.empty
 ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
 
 scalacOptions += "-Xmax-inlines:64"
