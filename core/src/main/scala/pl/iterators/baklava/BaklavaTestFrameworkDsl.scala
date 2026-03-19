@@ -80,7 +80,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     new BaklavaMethodDefinition {
       override def apply(ctx: BaklavaRequestContext[Nothing, Any, Any, Any, Any, Any, Any]): TestFrameworkFragmentsType = {
         val finalSummary = if (summary.trim.isEmpty) "" else ": " + summary.trim
-        val newCtx = BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit, Headers, Unit](
+        val newCtx       = BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit, Headers, Unit](
           symbolicPath = ctx.symbolicPath,
           path = ctx.path,
           pathDescription = ctx.pathDescription,
@@ -184,7 +184,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
               // TODO: e.g. cookie concatenation by hand?!
               val additionalSecurityHeaders = security match {
                 case AppliedSecurity(_: HttpBearer, params) => Map("Authorization" -> s"Bearer ${params("token")}")
-                case AppliedSecurity(_: HttpBasic, params) =>
+                case AppliedSecurity(_: HttpBasic, params)  =>
                   Map("Authorization" -> s"Basic ${Base64.getEncoder.encodeToString(s"${params("id")}:${params("secret")}".getBytes)}")
                 case AppliedSecurity(s: ApiKeyInHeader, params)        => Map(s.name -> params("apiKey"))
                 case AppliedSecurity(_: ApiKeyInQuery, _)              => Map.empty[String, String]
@@ -197,23 +197,23 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                 case AppliedSecurity(_: NoopSecurity.type, _)          => Map.empty[String, String]
               }
               val headersWithCookieModifiedForSecurity: Map[String, String] = security match {
-                case AppliedSecurity(_: HttpBearer, _)     => headersToInclude
-                case AppliedSecurity(_: HttpBasic, _)      => headersToInclude
-                case AppliedSecurity(_: ApiKeyInHeader, _) => headersToInclude
-                case AppliedSecurity(_: ApiKeyInQuery, _)  => headersToInclude
+                case AppliedSecurity(_: HttpBearer, _)          => headersToInclude
+                case AppliedSecurity(_: HttpBasic, _)           => headersToInclude
+                case AppliedSecurity(_: ApiKeyInHeader, _)      => headersToInclude
+                case AppliedSecurity(_: ApiKeyInQuery, _)       => headersToInclude
                 case AppliedSecurity(s: ApiKeyInCookie, params) =>
                   headersToInclude.find(_._1.toLowerCase == "cookie") match {
                     case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${s.name}=${params("apiKey")}")
                     case None             => headersToInclude + ("Cookie" -> s"${s.name}=${params("apiKey")}")
                   }
-                case AppliedSecurity(_: MutualTls, _)             => headersToInclude
-                case AppliedSecurity(_: OpenIdConnectInBearer, _) => headersToInclude
+                case AppliedSecurity(_: MutualTls, _)                  => headersToInclude
+                case AppliedSecurity(_: OpenIdConnectInBearer, _)      => headersToInclude
                 case AppliedSecurity(_: OpenIdConnectInCookie, params) =>
                   headersToInclude.find(_._1.toLowerCase == "cookie") match {
                     case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
                     case None             => headersToInclude + ("Cookie" -> s"${params("name")}=${params("token")}")
                   }
-                case AppliedSecurity(_: OAuth2InBearer, _) => headersToInclude
+                case AppliedSecurity(_: OAuth2InBearer, _)      => headersToInclude
                 case AppliedSecurity(_: OAuth2InCookie, params) =>
                   headersToInclude.find(_._1.toLowerCase == "cookie") match {
                     case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
@@ -290,7 +290,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
 
                     body match {
                       case b: FormOf[_] =>
-                        val allFields = implicitly[Schema[RequestBody]].properties.keys.toList
+                        val allFields      = implicitly[Schema[RequestBody]].properties.keys.toList
                         val requiredFields = implicitly[Schema[RequestBody]].properties
                           .filter(_._2.required)
                           .keys
@@ -325,7 +325,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
 
                     val headersParsed = headers.map { h =>
                       responseContext.headers.headers.get(h.name) match { // TODO: should be case insensitive
-                        case None => throw new BaklavaAssertionException(s"Header ${h.name} not found but expected")
+                        case None        => throw new BaklavaAssertionException(s"Header ${h.name} not found but expected")
                         case Some(value) =>
                           h.name ->
                           h.tsm

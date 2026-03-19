@@ -6,15 +6,15 @@ ThisBuild / organization           := "pl.iterators"
 ThisBuild / organizationName       := "Iterators"
 ThisBuild / startYear              := Some(2024)
 ThisBuild / licenses               := Seq(License.Apache2)
-ThisBuild / developers := List(
+ThisBuild / developers             := List(
   tlGitHubDev("luksow", "Łukasz Sowa")
 )
 
-val Scala213 = "2.13.16"
-val Scala3   = "3.3.3"
+val Scala213 = "2.13.18"
+val Scala3   = "3.3.7"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion       := Scala213
-ThisBuild / publishTo := {
+ThisBuild / publishTo          := {
   val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
   if (isSnapshot.value) Some("central-snapshots" at centralSnapshots)
   else localStaging.value
@@ -41,28 +41,28 @@ lazy val perScalaVersionTestSources = Test / unmanagedSourceDirectories ++= {
 lazy val baklava =
   tlCrossRootProject.aggregate(core, simple, openapi, tsrest, pekkohttp, pekkohttproutes, http4s, specs2, scalatest, munit, sbtplugin)
 
-val swaggerV       = "2.2.27"
-val swaggerParserV = "2.1.24"
-val pekkoHttpV     = "1.1.0"
-val pekkoV         = "1.1.2"
-val kebsV          = "2.1.3"
-val circeV         = "0.14.0"
-val jsoniterV      = "2.13.8"
-val specs2V        = "4.20.9"
+val swaggerV       = "2.2.45"
+val swaggerParserV = "2.1.39"
+val pekkoHttpV     = "1.3.0"
+val pekkoV         = "1.1.5"
+val kebsV          = "2.1.4"
+val circeV         = "0.14.15"
+val jsoniterV      = "2.13.39"
+val specs2V        = "4.23.0"
 val scalatestV     = "3.2.19"
-val munitV         = "1.0.2"
-val http4sV        = "0.23.29"
+val munitV         = "1.2.4"
+val http4sV        = "0.23.33"
 val reflectionsV   = "0.10.2"
-val magnoliaS2V    = "1.1.10"
-val magnoliaS3V    = "1.3.8"
+val magnoliaS2V    = "1.1.13"
+val magnoliaS3V    = "1.3.18"
 
-val enumeratumV     = "1.7.5"
-val pekkoHttpJsonV  = "3.0.0"
-val testcontainersV = "0.41.8"
+val enumeratumV     = "1.9.6"
+val pekkoHttpJsonV  = "3.9.0"
+val testcontainersV = "0.44.1"
 
 val webjarsLocatorV = "0.52"
-val swaggerUiV      = "5.17.11"
-val typesafeConfigV = "1.4.3"
+val swaggerUiV      = "5.32.1"
+val typesafeConfigV = "1.4.6"
 
 lazy val core = project
   .in(file("core"))
@@ -200,9 +200,9 @@ lazy val sbtplugin = project
   .in(file("sbtplugin"))
   .enablePlugins(SbtPlugin)
   .settings(
-    name               := "baklava-sbt-plugin",
-    scalaVersion       := "2.12.17",
-    crossScalaVersions := Seq("2.12.17"),
+    name                          := "baklava-sbt-plugin",
+    scalaVersion                  := "2.12.21",
+    crossScalaVersions            := Seq("2.12.21"),
     pluginCrossBuild / sbtVersion := {
       scalaBinaryVersion.value match {
         case "2.12" => "1.3.10" // set minimum sbt version

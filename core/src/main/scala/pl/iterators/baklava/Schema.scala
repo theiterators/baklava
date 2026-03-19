@@ -64,7 +64,7 @@ trait Schema[T] {
       case SchemaType.IntegerType => "integer"
       case SchemaType.NumberType  => "number"
       case SchemaType.ArrayType   => s"array(${items.getOrElse("unknown")})"
-      case SchemaType.ObjectType =>
+      case SchemaType.ObjectType  =>
         s"object(${properties.map { case (k, v) => k + (if (v.required) "*" else "") + ": " + v.toString }.mkString(", ")})"
     }
   }

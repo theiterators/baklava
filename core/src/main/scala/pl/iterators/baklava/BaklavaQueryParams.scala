@@ -2364,7 +2364,7 @@ trait BaklavaQueryParams {
       })
 
       val baseWithQuery = if (baseUri.contains("?")) s"$baseUri&" else s"$baseUri?"
-      val queryString = queryParameters
+      val queryString   = queryParameters
         .flatMap { case (param, values) =>
           values.map(value => s"${encode(param)}=${encode(value)}")
         }

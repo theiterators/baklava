@@ -193,7 +193,7 @@ object BaklavaDslFormatterOpenAPIWorker {
         val requestBody = new io.swagger.v3.oas.models.parameters.RequestBody()
         val content     = new Content()
 
-        val successfulCalls = calls.filter(_.response.status.status / 100 == 2).sortBy(_.response.status.status)
+        val successfulCalls    = calls.filter(_.response.status.status / 100 == 2).sortBy(_.response.status.status)
         val responsesToProcess =
           if (successfulCalls.isEmpty) calls else successfulCalls // sometimes there are no successful responses
         responsesToProcess.groupBy(_.response.requestContentType).foreach { case (contentType, calls) =>

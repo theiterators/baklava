@@ -205,7 +205,7 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
         "description" -> baklavaSchema.description.asJson,
         "default"     -> baklavaSchema.default.asJson,
         "enum"        -> baklavaSchema.`enum`.map(_.toList.asJson).getOrElse(Json.Null),
-        "properties" -> (if (baklavaSchema.`type` == SchemaType.ObjectType)
+        "properties"  -> (if (baklavaSchema.`type` == SchemaType.ObjectType)
                            baklavaSchema.properties.view.mapValues(j => toJsonSchemaV7(j)).toMap.asJson
                          else Json.Null),
         "required" -> Json.arr(baklavaSchema.properties.collect {

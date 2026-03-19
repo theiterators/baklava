@@ -94,7 +94,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       endpointsWithCalls: Seq[((Option[BaklavaHttpMethod], String), Seq[BaklavaSerializableCall])]
   ): String = {
     val contractConstName = toCamelCase(contractName) + "Contract"
-    val code =
+    val code              =
       s"""export const $contractConstName = initContract().router({
          |${endpointsWithCalls.sortBy(_._1._1.map(_.toString).getOrElse("")).map(createContractForEndpoint).mkString(",\n")}
          |});
@@ -123,7 +123,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     // --- Path Params ---
     val pathParamsSchemas = calls.map(_.request.pathParametersSeq).distinct
     val showPathParams    = pathParamsSchemas.exists(_.nonEmpty)
-    val pathParamsZodOpt =
+    val pathParamsZodOpt  =
       if (!showPathParams) None
       else {
         val zds =
@@ -145,7 +145,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     // --- Query Params ---
     val queryParamsSchemas = calls.map(_.request.queryParametersSeq).distinct
     val showQueryParams    = queryParamsSchemas.exists(_.nonEmpty)
-    val queryParamsZodOpt =
+    val queryParamsZodOpt  =
       if (!showQueryParams) None
       else {
         val zds =
@@ -167,7 +167,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     // --- Headers ---
     val headersSchemas = calls.map(_.request.headersSeq).distinct
     val showHeaders    = headersSchemas.exists(_.nonEmpty)
-    val headersZodOpt =
+    val headersZodOpt  =
       if (!showHeaders) None
       else {
         val zds =
@@ -187,7 +187,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       }
     // --- Body ---
     val bodySchemas = calls.flatMap(_.request.bodySchema).distinct
-    val bodyZods =
+    val bodyZods    =
       if (bodySchemas.isEmpty) Seq("z.undefined()")
       else if (bodySchemas.size == 1 && isEmptyBodyInstance(bodySchemas.head)) Seq("z.undefined()")
       else {
@@ -264,7 +264,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       case SchemaType.BooleanType => s"z.boolean()$desc"
       case SchemaType.IntegerType => s"z.number().int()$desc"
       case SchemaType.NumberType  => s"z.number()$desc"
-      case SchemaType.ArrayType =>
+      case SchemaType.ArrayType   =>
         val item = schema.items.map(zod).getOrElse("z.any()")
         s"z.array($item)$desc"
       case SchemaType.ObjectType =>

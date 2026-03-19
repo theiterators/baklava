@@ -17,7 +17,7 @@ import pl.iterators.baklava.{
 }
 
 sealed trait Status extends EnumEntry with Lowercase
-object Status extends Enum[Status] {
+object Status       extends Enum[Status] {
   case object Available extends Status
   case object Pending   extends Status
   case object Sold      extends Status

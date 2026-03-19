@@ -6,9 +6,9 @@ trait SchemaDerivation {
   type Typeclass[T] = Schema[T]
 
   def join[T](ctx: CaseClass[Schema, T]): Schema[T] = new Schema[T] {
-    val className: String      = ctx.typeName.short
-    val `type`: SchemaType     = SchemaType.ObjectType
-    val format: Option[String] = None
+    val className: String                  = ctx.typeName.short
+    val `type`: SchemaType                 = SchemaType.ObjectType
+    val format: Option[String]             = None
     val properties: Map[String, Schema[?]] = ctx.parameters.map { p =>
       p.default match {
         case Some(default) => p.label -> p.typeclass.withDefault(default) // certainly not perfect as it depends on JSON serialization

@@ -18,7 +18,7 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
     val openapiFile = new File(s"$dirName/openapi.yml")
 
     Using(new FileOutputStream(openapiFile)) { outputStream =>
-      val parser = new OpenAPIV3Parser
+      val parser  = new OpenAPIV3Parser
       val openAPI = config
         .get("openapi-info")
         .flatMap { openApiHeader =>

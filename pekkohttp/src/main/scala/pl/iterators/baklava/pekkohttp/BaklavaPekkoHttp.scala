@@ -108,7 +108,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       request: HttpRequest,
       response: HttpResponse
   ): BaklavaResponseContext[T, HttpRequest, HttpResponse] = {
-    val dataBytes = Await.result(response.entity.dataBytes.runWith(Sink.fold(ByteString.empty)(_ ++ _)), Duration.Inf)
+    val dataBytes           = Await.result(response.entity.dataBytes.runWith(Sink.fold(ByteString.empty)(_ ++ _)), Duration.Inf)
     val firstResponseEntity = HttpEntity.apply(
       response.entity.contentType,
       dataBytes
@@ -126,7 +126,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       response.status,
       response.headers,
       Try(Await.result(implicitly[FromEntityUnmarshaller[T]].apply(firstResponseEntity), Duration.Inf)) match {
-        case Success(value) => value
+        case Success(value)     => value
         case Failure(exception) =>
           throw new BaklavaAssertionException(
             s"Failed to decode response body: ${exception.getMessage}\n" +

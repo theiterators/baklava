@@ -127,7 +127,7 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
       response.status,
       response.headers,
       Try(newResponse.as[T].unsafeRunSync()) match {
-        case Success(value) => value
+        case Success(value)     => value
         case Failure(exception) =>
           throw new BaklavaAssertionException(
             s"Failed to decode response body: ${exception.getMessage}\n" +

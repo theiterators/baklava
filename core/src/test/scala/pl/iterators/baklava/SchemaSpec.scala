@@ -51,9 +51,9 @@ class SchemaSpec extends AnyFunSpec with Matchers {
       val derived = implicitly[Schema[TestClass]]
 
       val expected = new Schema[TestClass] {
-        val className: String      = "TestClass"
-        val `type`: SchemaType     = SchemaType.ObjectType
-        val format: Option[String] = None
+        val className: String                  = "TestClass"
+        val `type`: SchemaType                 = SchemaType.ObjectType
+        val format: Option[String]             = None
         val properties: Map[String, Schema[?]] =
           Map(
             "x" -> Schema.intSchema,

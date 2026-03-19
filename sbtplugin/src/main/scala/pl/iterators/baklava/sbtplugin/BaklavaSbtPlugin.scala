@@ -50,7 +50,7 @@ object BaklavaSbtPlugin extends AutoPlugin {
         val r                      = (Test / run / runner).value: @sbtUnchecked
         val s                      = streams.value: @sbtUnchecked
         val config                 = baklavaGenerateConfigs.value: @sbtUnchecked
-        val serializedConfig = config.map { case (key, value) =>
+        val serializedConfig       = config.map { case (key, value) =>
           val base64EncodedValue = Base64.getEncoder.encodeToString(value.getBytes("UTF-8"))
           s"$key|$base64EncodedValue"
         }.toList
@@ -75,7 +75,7 @@ object BaklavaSbtPlugin extends AutoPlugin {
         val r                      = (Test / run / runner).value: @sbtUnchecked
         val s                      = streams.value: @sbtUnchecked
         val config                 = baklavaGenerateConfigs.value: @sbtUnchecked
-        val serializedConfig = config.map { case (key, value) =>
+        val serializedConfig       = config.map { case (key, value) =>
           val base64EncodedValue = Base64.getEncoder.encodeToString(value.getBytes("UTF-8"))
           s"$key|$base64EncodedValue"
         }.toList
