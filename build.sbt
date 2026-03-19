@@ -22,6 +22,13 @@ ThisBuild / publishTo          := {
 ThisBuild / tlMimaPreviousVersions := Set.empty
 
 scalacOptions += "-Xmax-inlines:64"
+// Suppress magnolia macro type parameter shadowing warning (magnolia 1.1.x generates shadowed type params)
+ThisBuild / scalacOptions ++= {
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2, _)) => Seq("-Wconf:msg=shadows type:s")
+    case _            => Nil
+  }
+}
 // TODO: add -Yretain-trees to scalacOptions to enable magnolia features
 
 lazy val noPublishSettings =
