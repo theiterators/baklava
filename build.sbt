@@ -20,6 +20,7 @@ ThisBuild / publishTo          := {
   else localStaging.value
 }
 ThisBuild / tlMimaPreviousVersions := Set.empty
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
 
 scalacOptions += "-Xmax-inlines:64"
 // Suppress magnolia macro type parameter shadowing warning (magnolia 1.1.x generates shadowed type params)
