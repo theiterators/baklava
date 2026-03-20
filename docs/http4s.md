@@ -159,7 +159,6 @@ Most convenient way to use Baklava with ScalaTest is to define base class for al
 ```scala
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
-import cats.effect.testing.specs2.CatsEffect
 import org.http4s.{HttpRoutes, Request}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -170,7 +169,6 @@ import com.example.users.UserRoutes
 
 trait BaseRouteSpec
     extends AnyFunSpec
-    with CatsEffect
     with Matchers
     with BaklavaHttp4s[Unit, Unit, ScalatestAsExecution]
     with BaklavaScalatest[HttpRoutes[IO], BaklavaHttp4s.ToEntityMarshaller, BaklavaHttp4s.FromEntityUnmarshaller] {

@@ -22,7 +22,7 @@ addSbtPlugin("pl.iterators" % "baklava-sbt-plugin" % "VERSION")
 
 Enable the plugin in your `build.sbt`:
 ```scala
-enablePlugins(BaklavaPlugin)
+enablePlugins(BaklavaSbtPlugin)
 ```
 
 ### 2. Choose Your Dependencies
@@ -173,7 +173,7 @@ inConfig(Test)(
 
 ```scala
 // build.sbt
-enablePlugins(BaklavaPlugin)
+enablePlugins(BaklavaSbtPlugin)
 
 libraryDependencies ++= Seq(
   "pl.iterators" %% "baklava-pekko-http" % "VERSION" % Test,
@@ -205,7 +205,7 @@ inConfig(Test)(
 
 ```scala
 // build.sbt
-enablePlugins(BaklavaPlugin)
+enablePlugins(BaklavaSbtPlugin)
 
 libraryDependencies ++= Seq(
   "pl.iterators" %% "baklava-http4s" % "VERSION" % Test,
@@ -224,7 +224,7 @@ inConfig(Test)(
 
 ```scala
 // build.sbt
-enablePlugins(BaklavaPlugin)
+enablePlugins(BaklavaSbtPlugin)
 
 libraryDependencies ++= Seq(
   "pl.iterators" %% "baklava-pekko-http" % "VERSION" % Test,

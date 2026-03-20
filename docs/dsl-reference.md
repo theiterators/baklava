@@ -589,7 +589,7 @@ Baklava uses a [`Schema[T]`](https://github.com/theiterators/baklava/blob/v1.0.8
 You can define custom schemas for your types:
 
 ```scala
-implicit val myTypeSchema: Schema[MyType] = Schema.derived[MyType]
+implicit val myTypeSchema: Schema[MyType] = implicitly[Schema[MyType]]
   .withDescription("Description of MyType")
   .withDefault(MyType.default)
 ```

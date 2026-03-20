@@ -5,7 +5,7 @@ title: Configuration
 
 # Configuration
 
-Most of the configuration is already covered in [[installation.md]]. Here are some specific and advance options.
+Most of the configuration is already covered in [[installation.md]]. Here are some specific and advanced options.
 
 ## Open API info section configuration
 
