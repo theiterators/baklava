@@ -252,7 +252,7 @@ class DeleteUsersUserIdRouteSpec extends BaseRouteSpec {
         .assert { ctx =>
           val response = ctx.performRequest(allRoutes)
 
-          response.status.status should beEqualTo(NoContent.status)
+          response.status.status should beEqualTo(204)
         },
       onRequest(pathParameters = (999L))
         .respondsWith[ErrorResponse](NotFound, description = "Return 404 for non-existent user")
@@ -275,7 +275,7 @@ Define security schema in test case:
 ```scala
 import pl.iterators.baklava.{HttpBearer, SecurityScheme}
 
-  val bearer: HttpBearer           = HttpBearer("Bearer ", "")
+  val bearer: HttpBearer           = HttpBearer(bearerFormat = "JWT")
   val bearerScheme: SecurityScheme = SecurityScheme("bearer", bearer)
 ```
 
@@ -292,7 +292,7 @@ import pl.iterators.example.baklava.UserApiServer.*
 
 class GetUsersRouteSpec extends BaseRouteSpec {
 
-  val bearer: HttpBearer           = HttpBearer("Bearer ", "")
+  val bearer: HttpBearer           = HttpBearer(bearerFormat = "JWT")
   val bearerScheme: SecurityScheme = SecurityScheme("bearer", bearer)
 
   path(path = "/users")(

@@ -83,3 +83,13 @@ class TagOpenApiPostProcessor extends BaklavaOpenApiPostProcessor {
 **Note:**
 - To use post-processing, simply implement the `BaklavaOpenApiPostProcessor` trait. No additional registration or configuration is required.
 - If you place your post processor in your application's main source directory, make sure to add the `baklava-openapi` dependency to your main project dependencies (not just test dependencies).
+
+## Test Configuration
+
+### Response Body Truncation
+
+By default, Baklava truncates response bodies in assertion error messages to 8192 characters. You can override this in your base test trait:
+
+```scala
+override def maxBodyLengthInAssertion: Int = 16384
+```

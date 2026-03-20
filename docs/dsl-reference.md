@@ -108,7 +108,7 @@ path(
 
 ## Root Element: `path`
 
-The [`path()`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L21) function is the root element of the DSL tree. It defines an API endpoint path and contains one or more HTTP method definitions.
+The [`path()`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L21) function is the root element of the DSL tree. It defines an API endpoint path and contains one or more HTTP method definitions.
 
 ### Signature
 
@@ -129,7 +129,7 @@ def path(
 | `path` | `String` | Yes | The URL path pattern, supporting path parameters in `{paramName}` format (e.g., `/users/{userId}`) |
 | `description` | `String` | No | Detailed description of the path and its purpose |
 | `summary` | `String` | No | Brief summary of the path |
-| `steps` | `BaklavaMethodDefinition*` | Yes | One or more [`supports()`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L63) definitions for HTTP methods |
+| `steps` | `BaklavaMethodDefinition*` | Yes | One or more [`supports()`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L63) definitions for HTTP methods |
 
 ### Example
 
@@ -147,7 +147,7 @@ path(
 
 ## HTTP Method Element: `supports`
 
-The [`supports()`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L63) function defines an HTTP method operation on a path. It specifies the method, parameters, security, and contains test cases.
+The [`supports()`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L63) function defines an HTTP method operation on a path. It specifies the method, parameters, security, and contains test cases.
 
 ### Signature
 
@@ -207,7 +207,7 @@ supports(
 
 ## Test Case Element: `onRequest`
 
-The [`onRequest()`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L377) function defines a specific test case for an HTTP operation. It specifies the request parameters and must be followed by [`respondsWith()`](#response-definition-respondswith) and [`assert()`](#assertion-block-assert).
+The [`onRequest()`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L377) function defines a specific test case for an HTTP operation. It specifies the request parameters and must be followed by [`respondsWith()`](#response-definition-respondswith) and [`assert()`](#assertion-block-assert).
 
 ### Signature
 
@@ -245,7 +245,7 @@ onRequest(
 
 ## Response Definition: `respondsWith`
 
-The [`respondsWith()`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L152) method defines the expected HTTP response for a test case.
+The [`respondsWith()`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L152) method defines the expected HTTP response for a test case.
 
 ### Signature
 
@@ -287,7 +287,7 @@ def respondsWith[ResponseBody](
 
 ## Assertion Block: `assert`
 
-The [`assert()`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L123) method contains the test framework-specific assertions. It receives a context object that provides access to the request/response.
+The [`assert()`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaTestFrameworkDsl.scala#L123) method contains the test framework-specific assertions. It receives a context object that provides access to the request/response.
 
 ### Signature
 
@@ -299,7 +299,7 @@ def assert[R](
 
 ### Context Object
 
-The assertion block receives a [`BaklavaCaseContext`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaHttpDsl.scala#L110) with:
+The assertion block receives a [`BaklavaCaseContext`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaHttpDsl.scala#L110) with:
 
 - `ctx`: The request context containing all request parameters
 - `performRequest(route)`: Method to execute the HTTP request against your routes
@@ -317,7 +317,7 @@ The assertion block receives a [`BaklavaCaseContext`](https://github.com/theiter
   response.body.email should include("@example.com")
 
   // Access response metadata
-  response.status shouldBe OK
+  response.status.status shouldBe 200
   response.headers.headers should contain key "X-Request-ID"
 }
 ```
@@ -326,7 +326,7 @@ The assertion block receives a [`BaklavaCaseContext`](https://github.com/theiter
 
 ### Path Parameters
 
-Path parameters are defined using the [`p[T]()`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaPathParams.scala#L27) function and represent dynamic segments in the URL path.
+Path parameters are defined using the [`p[T]()`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaPathParams.scala#L27) function and represent dynamic segments in the URL path.
 
 #### Signature
 
@@ -362,7 +362,7 @@ onRequest(pathParameters = ("org-123", 456L))
 
 ### Query Parameters
 
-Query parameters are defined using the [`q[T]()`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaQueryParams.scala#L24) function and represent URL query string parameters.
+Query parameters are defined using the [`q[T]()`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaQueryParams.scala#L24) function and represent URL query string parameters.
 
 #### Signature
 
@@ -403,7 +403,7 @@ onRequest(queryParameters = (Seq("scala", "api")))
 
 ### Headers
 
-Headers are defined using the [`h[T]()`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaHeaders.scala#L26) function and represent HTTP headers.
+Headers are defined using the [`h[T]()`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaHeaders.scala#L26) function and represent HTTP headers.
 
 #### Signature
 
@@ -453,7 +453,7 @@ onRequest(
 
 ### Form Data
 
-Use [`FormOf[T]`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/BaklavaHttpDsl.scala#L17) for `application/x-www-form-urlencoded` data:
+Use [`FormOf[T]`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/BaklavaHttpDsl.scala#L17) for `application/x-www-form-urlencoded` data:
 
 ```scala
 case class LoginForm(username: String, password: String)
@@ -541,18 +541,49 @@ onRequest(
 
 ### Available Security Types
 
-All security types are defined in [`Security.scala`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L1):
+All security types are defined in [`Security.scala`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L1):
 
-- [`HttpBearer`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L20): Bearer token authentication
-- [`HttpBasic`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L27): Basic authentication
-- [`ApiKeyInHeader`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L36): API key in header
-- [`ApiKeyInQuery`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L42): API key in query parameter
-- [`ApiKeyInCookie`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L48): API key in cookie
-- [`MutualTls`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L54): Mutual TLS authentication
-- [`OpenIdConnectInBearer`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L60): OpenID Connect in bearer token
-- [`OpenIdConnectInCookie`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L66): OpenID Connect in cookie
-- [`OAuth2InBearer`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L72): OAuth2 in bearer token
-- [`OAuth2InCookie`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Security.scala#L78): OAuth2 in cookie
+- [`HttpBearer`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L20): Bearer token authentication
+- [`HttpBasic`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L27): Basic authentication
+- [`ApiKeyInHeader`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L36): API key in header
+- [`ApiKeyInQuery`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L42): API key in query parameter
+- [`ApiKeyInCookie`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L48): API key in cookie
+- [`MutualTls`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L54): Mutual TLS authentication
+- [`OpenIdConnectInBearer`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L60): OpenID Connect in bearer token
+- [`OpenIdConnectInCookie`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L66): OpenID Connect in cookie
+- [`OAuth2InBearer`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L72): OAuth2 in bearer token
+- [`OAuth2InCookie`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Security.scala#L78): OAuth2 in cookie
+
+#### OAuth2 Flows
+
+When using `OAuth2InBearer` or `OAuth2InCookie`, you can specify OAuth2 flows via `OAuthFlows`:
+
+```scala
+val oauth2 = OAuth2InBearer(
+  flows = OAuthFlows(
+    implicitFlow = Some(OAuthImplicitFlow(
+      authorizationUrl = "https://example.com/oauth/authorize",
+      scopes = Map("read:users" -> "Read user data", "write:users" -> "Modify users")
+    )),
+    authorizationCodeFlow = Some(OAuthAuthorizationCodeFlow(
+      authorizationUrl = "https://example.com/oauth/authorize",
+      tokenUrl = "https://example.com/oauth/token",
+      scopes = Map("read:users" -> "Read user data")
+    ))
+  )
+)
+```
+
+Available flow types: `OAuthImplicitFlow`, `OAuthPasswordFlow`, `OAuthClientCredentialsFlow`, `OAuthAuthorizationCodeFlow`.
+
+#### Cookie-based security
+
+Cookie-based variants (`ApiKeyInCookie`, `OpenIdConnectInCookie`, `OAuth2InCookie`) take two parameters — the cookie name and its value:
+
+```scala
+security = ApiKeyInCookie(name = "api_key")("session-cookie-name", "cookie-value")
+security = OAuth2InCookie(flows)("session-cookie-name", "oauth-token")
+```
 
 ## HTTP Methods
 
@@ -565,6 +596,8 @@ Baklava supports all standard HTTP methods:
 - `DELETE`: Delete resources
 - `HEAD`: Retrieve headers only
 - `OPTIONS`: Retrieve supported methods
+- `TRACE`: Diagnostic trace
+- `CONNECT`: Establish tunnel
 
 ## HTTP Status Codes
 
@@ -577,21 +610,25 @@ Common status codes available:
 
 ## Schema System
 
-Baklava uses a [`Schema[T]`](https://github.com/theiterators/baklava/blob/v1.0.8/core/src/main/scala/pl/iterators/baklava/Schema.scala#L20) type class to describe data types for documentation generation. Schemas are automatically derived for:
+Baklava uses a [`Schema[T]`](https://github.com/theiterators/baklava/blob/v1.1.0/core/src/main/scala/pl/iterators/baklava/Schema.scala#L20) type class to describe data types for documentation generation. Schemas are automatically derived via [Magnolia](https://github.com/softwaremill/magnolia) for:
 
-- Primitive types (String, Int, Long, Boolean, etc.)
-- Collections (Seq, List, Map)
-- Option types
-- Case classes (using automatic derivation)
+- Primitive types (`String`, `Int`, `Long`, `Double`, `Boolean`, `UUID`, `BigDecimal`, etc.)
+- Collections (`Seq`, `List`, `Set`, `Map`)
+- `Option` types
+- `Array[Byte]` (mapped to binary format in OpenAPI)
+- Case classes (automatic derivation via Magnolia — works on both Scala 2.13 and Scala 3)
+- Sealed traits / enums (derived as `enum` in OpenAPI)
+
+Each schema has a `SchemaType` which maps to OpenAPI types: `StringType`, `IntegerType`, `NumberType`, `BooleanType`, `ArrayType`, `ObjectType`, `NullType`.
 
 ### Custom Schemas
 
-You can define custom schemas for your types:
+You can customize automatically derived schemas:
 
 ```scala
 implicit val myTypeSchema: Schema[MyType] = implicitly[Schema[MyType]]
   .withDescription("Description of MyType")
-  .withDefault(MyType.default)
+  .withDefault(MyType("example", 42))
 ```
 
 ## Best Practices
