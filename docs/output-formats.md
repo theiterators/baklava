@@ -5,26 +5,151 @@ title: Output Formats
 
 # Output Formats
 
-Baklava provides flexible output format options to accommodate various documentation and integration requirements. You can choose one or multiple output formats depending on your project's needs, allowing you to generate documentation that best suits your development workflow and API consumption patterns.
-
-## OpenAPI Format
-
-The OpenAPI format generates a standards-compliant OpenAPI specification file that can be used with various API documentation and testing tools. To use this format, you need to add the [`baklava-openapi`](installation.md#output-format-dependencies-required) dependency to your project and configure the OpenAPI information settings as described in the [OpenAPI Configuration](installation.md#openapi-configuration-required-for-openapi-format) section of the installation guide.
-
-When you run your tests using `sbt test` or explicitly invoke the `sbt baklavaGenerate` command, Baklava will automatically generate an `openapi.yml` file in the `target/baklava/openapi/` directory. This YAML file conforms to the OpenAPI 3.0.1 specification and contains comprehensive documentation of all your API endpoints, including request/response schemas, parameters, headers, and security requirements.
-
-If you're using Pekko HTTP as your HTTP server framework, you can also expose this generated OpenAPI specification through SwaggerUI for interactive API exploration. To enable this feature, add the [`baklava-pekko-http-routes`](installation.md#optional-swaggerui-support) dependency and configure the SwaggerUI routes as detailed in the [SwaggerUI and Routes Configuration](installation.md#swaggerui-and-routes-configuration) section. This allows developers and API consumers to interact with your API documentation directly through a web interface.
+Baklava supports three output formats. You can use one or more simultaneously — each is an independent SBT dependency that produces its own output in `target/baklava/`.
 
 ## Simple Format
 
-The Simple format provides a straightforward HTML-based documentation output that's easy to view and share without requiring additional tools or infrastructure. To enable this format, you only need to add the [`baklava-simple`](installation.md#output-format-dependencies-required) dependency to your project—no additional configuration is required, making it the quickest option to get started with Baklava.
+**Dependency:** `"pl.iterators" %% "baklava-simple" % "VERSION" % Test`
+**Configuration:** None required
+**Output:** `target/baklava/simple/`
 
-When you execute `sbt test` or `sbt baklavaGenerate`, Baklava will generate a collection of HTML files in the `target/baklava/simple/` directory. These files provide a clean, readable representation of your API documentation that can be opened directly in any web browser. The Simple format is particularly useful for quick reference during development or for sharing documentation with team members who prefer a lightweight, no-setup-required documentation format.
+Generates self-contained HTML files you can open in any browser:
 
-## TypeScript REST Format
+- `index.html` — navigation page listing all endpoints (method + route), linking to individual pages
+- One HTML file per endpoint, named by method and path (e.g., `GET__user__username__.html`)
 
-The TypeScript REST (TS-REST) format generates a complete TypeScript package that provides type-safe client code for consuming your API. This format is especially valuable for full-stack TypeScript projects where you want to ensure type safety between your backend API and frontend client code. To use this format, you need to add the [`baklava-tsrest`](installation.md#output-format-dependencies-required) dependency and provide the TypeScript package configuration as described in the [TS-REST Configuration](installation.md#ts-rest-configuration-required-for-ts-rest-format) section.
+Each endpoint page contains an HTML table with:
+- Method, route, summary, description
+- Authentication schemes (if any)
+- Headers, path parameters, query parameters (with types and required indicators)
+- Status codes from test cases
+- Request body examples (JSON pretty-printed)
+- Request body schema (JSON Schema Draft 7)
+- Response body examples per status code
+- Response body schema per status code
 
-When you run `sbt test` or `sbt baklavaGenerate`, Baklava will generate a complete TypeScript package in the `target/baklava/tsrest/` directory. This package includes TypeScript type definitions, contract definitions, and all the necessary files to publish it as an npm package. You can then import this package into your frontend applications to get full type safety and autocompletion when making API calls, significantly reducing the likelihood of runtime errors caused by API contract mismatches.
+This is the simplest format to get started — no configuration, no external tools needed.
 
-The generated TypeScript package can be published to your organization's private npm registry or used directly as a local dependency, providing a seamless integration between your Scala backend and TypeScript frontend applications.
+## OpenAPI Format
+
+**Dependency:** `"pl.iterators" %% "baklava-openapi" % "VERSION" % Test`
+**Configuration:** Required — `openapi-info` key in `baklavaGenerateConfigs`
+**Output:** `target/baklava/openapi/openapi.yml`
+
+Generates a single OpenAPI 3.0.1 YAML specification file containing:
+
+- **Paths** organized by route and HTTP method, each with:
+  - `operationId`, `summary`, `description`, `tags`
+  - Parameters (query, path, header) with schemas, types, required flags, enum values
+  - Request body with media type, schema, and multiple examples from different test cases
+  - Responses grouped by status code, each with schema, examples, and response headers
+- **Security schemes** auto-detected from your test cases (bearer, basic, API key, OAuth2, OpenID Connect, mutual TLS)
+- **Components** section with all referenced security scheme definitions
+
+When multiple test cases cover the same endpoint with different inputs/outputs, they appear as separate examples in the OpenAPI spec.
+
+### Configuration
+
+```scala
+baklavaGenerateConfigs := Map(
+  "openapi-info" ->
+    s"""
+      |openapi: 3.0.1
+      |info:
+      |  title: My API
+      |  version: 1.0.0
+      |""".stripMargin
+)
+```
+
+The `openapi-info` value can be JSON or YAML and supports all OpenAPI info fields (title, version, description, contact, license, termsOfService).
+
+### SwaggerUI (Pekko HTTP only)
+
+Add `"pl.iterators" %% "baklava-pekko-http-routes" % "VERSION"` (not test-scoped) to serve the generated spec via SwaggerUI at runtime. See [Installation — SwaggerUI](installation.md#optional-swaggerui-support) for setup.
+
+### Post-Processing
+
+You can programmatically modify the generated OpenAPI spec by implementing `BaklavaOpenApiPostProcessor`. Implementations are discovered automatically via reflection — no registration needed. See [Configuration — Post-Processing](configuration.md#open-api-post-processing) for details.
+
+## TypeScript REST (TS-REST) Format
+
+**Dependency:** `"pl.iterators" %% "baklava-tsrest" % "VERSION" % Test`
+**Configuration:** Required — `ts-rest-package-contract-json` key in `baklavaGenerateConfigs`
+**Output:** `target/baklava/tsrest/`
+
+Generates a complete TypeScript npm package using [ts-rest](https://ts-rest.com/) and [Zod](https://zod.dev/) for type-safe API contracts. The output can be published to npm or used as a local dependency in your frontend project.
+
+### Generated Files
+
+- `package.json` — npm package with build scripts, peer dependencies on `@ts-rest/core` and `zod`
+- `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
+- `src/contracts.ts` — main exports file re-exporting all contracts
+- `src/{name}.contract.ts` — one contract file per route group
+
+### Contract Organization
+
+Each unique path becomes its own contract file. The path is converted to a filename:
+- `/` → `root.contract.ts`
+- `/user/login` → `user-login.contract.ts`
+- `/pet/{petId}` → `pet---petId.contract.ts`
+- `/user/{id}/profile` → `user---id-profile.contract.ts`
+
+Path parameters `{param}` are replaced with `--param`, dots with `---`, and segments are joined with `-`.
+
+Endpoints sharing the same path but with different HTTP methods are grouped into one contract file. Each contract file exports a `ts-rest` router with typed endpoints.
+
+### Zod Schema Mapping
+
+Baklava schemas are converted to Zod validators:
+
+| Baklava Schema | Zod Output |
+|---|---|
+| `String` | `z.string()` |
+| `String` (email format) | `z.string().email()` |
+| `String` (uuid format) | `z.string().uuid()` |
+| `String` (date-time format) | `z.coerce.date()` |
+| `String` (enum) | `z.enum(["val1", "val2"])` |
+| `Int`, `Long` | `z.number().int()` |
+| `Double`, `Float` | `z.number()` |
+| `Boolean` | `z.boolean()` |
+| `Seq[T]`, `List[T]` | `z.array(innerSchema)` |
+| Case class | `z.object({ field: schema, ... })` |
+| `Option[T]` | `schema.nullish()` |
+
+When multiple test cases produce different schemas for the same endpoint input/output, they are combined into `z.union([...])`.
+
+### Configuration
+
+```scala
+baklavaGenerateConfigs := Map(
+  "ts-rest-package-contract-json" ->
+    """
+      |{
+      |  "name": "@company/backend-contracts",
+      |  "version": "1.0.0",
+      |  "main": "index.js",
+      |  "types": "index.d.ts"
+      |}
+      |""".stripMargin
+)
+```
+
+### Usage in Frontend
+
+After generating and building the package:
+
+```bash
+cd target/baklava/tsrest
+pnpm install
+pnpm run build
+```
+
+Then import in your TypeScript project:
+
+```typescript
+import { contracts } from "@company/backend-contracts";
+
+// Full type safety and autocompletion for API calls
+const userContract = contracts.user;
+```

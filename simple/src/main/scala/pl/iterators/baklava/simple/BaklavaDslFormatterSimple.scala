@@ -13,178 +13,169 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
   private val dirName = "target/baklava/simple"
   private val dirFile = new File(dirName)
 
+  private val css =
+    """<style>
+      |  *, *::before, *::after { box-sizing: border-box; }
+      |  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px 40px; background: #f8f9fa; color: #1a1a2e; line-height: 1.5; }
+      |  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 20px; color: #16213e; }
+      |  a { color: #0d6efd; text-decoration: none; }
+      |  a:hover { text-decoration: underline; }
+      |  .endpoint-list { list-style: none; padding: 0; margin: 0; }
+      |  .endpoint-list li { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 8px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+      |  .endpoint-list li:hover { border-color: #0d6efd; }
+      |  .method { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; min-width: 56px; text-align: center; color: #fff; }
+      |  .method-GET { background: #198754; } .method-POST { background: #0d6efd; } .method-PUT { background: #fd7e14; }
+      |  .method-PATCH { background: #6f42c1; } .method-DELETE { background: #dc3545; } .method-HEAD { background: #6c757d; }
+      |  .method-OPTIONS { background: #20c997; } .method-TRACE { background: #6c757d; } .method-CONNECT { background: #6c757d; }
+      |  .path { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9rem; }
+      |  .card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+      |  .card-header { padding: 12px 16px; font-weight: 600; font-size: 0.85rem; color: #495057; background: #f1f3f5; border-bottom: 1px solid #dee2e6; text-transform: uppercase; letter-spacing: 0.05em; }
+      |  .card-body { padding: 16px; }
+      |  .card-body p { margin: 0 0 8px; }
+      |  .meta-grid { display: grid; grid-template-columns: 140px 1fr; gap: 0; }
+      |  .meta-grid dt { padding: 8px 12px; font-weight: 600; font-size: 0.8rem; color: #495057; background: #f8f9fa; border-bottom: 1px solid #eee; }
+      |  .meta-grid dd { padding: 8px 12px; margin: 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+      |  .tag { display: inline-block; background: #e9ecef; color: #495057; padding: 1px 8px; border-radius: 4px; font-size: 0.8rem; margin-right: 4px; }
+      |  .required { color: #dc3545; font-weight: 700; }
+      |  pre { background: #212529; color: #e9ecef; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; line-height: 1.5; margin: 0; }
+      |  .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #fff; }
+      |  .status-2xx { background: #198754; } .status-3xx { background: #0dcaf0; color: #000; } .status-4xx { background: #fd7e14; } .status-5xx { background: #dc3545; }
+      |  .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
+      |</style>""".stripMargin
+
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
     dirFile.mkdirs()
 
-    val indexContent = """
-                         |<style>
-                         |table {
-                         |  border: 1px solid #1C6EA4;
-                         |  background-color: #EEEEEE;
-                         |  text-align: left;
-                         |  border-collapse: collapse;
-                         |}
-                         |table td, table th {
-                         |  border: 1px solid #AAAAAA;
-                         |  padding: 5px 5px 5px 5px;
-                         |}
-                         |table tbody td {
-                         |  font-size: 16px;
-                         |}
-                         |table tr:nth-child(even) {
-                         |  background: #D0E4F5;
-                         |}
-                         |a {
-                         |  text-decoration: none;
-                         |}
-                         |a:link {
-                         |  color: black;
-                         |}
-                         |a:visited {
-                         |  color: black;
-                         |}
-                         |a:hover {
-                         |  color: #444444;
-                         |}
-                         |a:active {
-                         |  color: #888888;
-                         |}
-                         |</style>
-                         |""".stripMargin +
-      "<table>" +
-      calls
-        .groupBy(c => (c.request.method, c.request.symbolicPath))
-        .toList
-        .sortBy(s => (s._1._2, s._1._1.map(_.value).getOrElse("UNDEFINED")))
-        .map { case ((method, symbolicPath), call) =>
-          val methodName = method.map(_.value).getOrElse("UNDEFINED")
-          val name       = s"$methodName $symbolicPath"
+    val endpoints = calls
+      .groupBy(c => (c.request.method, c.request.symbolicPath))
+      .toList
+      .sortBy(s => (s._1._2, s._1._1.map(_.value).getOrElse("UNDEFINED")))
 
-          val filename = name
-            .replaceAll("/", "_")
-            .replaceAll(" ", "_")
-            .replaceAll("\\{", "__")
-            .replaceAll("}", "__") + ".html"
+    val indexRows = endpoints.map { case ((method, symbolicPath), endpointCalls) =>
+      val methodName = method.map(_.value).getOrElse("UNDEFINED")
+      val filename   = toFilename(s"$methodName $symbolicPath")
 
-          val fileWriter  = new FileWriter(s"$dirName/$filename")
-          val printWriter = new PrintWriter(fileWriter)
+      writeFile(s"$dirName/$filename", generateEndpointPage(endpointCalls.sortBy(_.response.status.status)))
 
-          printWriter.print(generateForCall(call.sortBy(_.response.status.status)))
-          printWriter.close()
-          fileWriter.close()
+      s"""<li><a href="$filename"><span class="method method-$methodName">$methodName</span> <span class="path">$symbolicPath</span></a></li>"""
+    }
 
-          s"""<tr><td style="width: 70px"><b><a href="$filename">${methodName}</b></td>
-             |<td><a href="$filename">${symbolicPath}</a></b></td></tr>""".stripMargin
+    val indexHtml =
+      s"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>API Documentation</title>$css</head><body>
+         |<h1>API Documentation</h1>
+         |<ul class="endpoint-list">
+         |${indexRows.mkString("\n")}
+         |</ul>
+         |</body></html>""".stripMargin
 
-        }
-        .mkString("\n") + "</table>"
-
-    val fileWriter  = new FileWriter(s"$dirName/index.html")
-    val printWriter = new PrintWriter(fileWriter)
-
-    printWriter.print(indexContent)
-    printWriter.close()
-    fileWriter.close()
+    writeFile(s"$dirName/index.html", indexHtml)
   }
 
-  private def generateForCall(calls: Seq[BaklavaSerializableCall]): String = {
-    val request  = calls.head.request
-    val response = calls.head.response
+  private def generateEndpointPage(calls: Seq[BaklavaSerializableCall]): String = {
+    val request    = calls.head.request
+    val methodName = request.method.map(_.value).getOrElse("UNDEFINED")
 
-    """
-      |<style>
-      |table {
-      |  border: 1px solid #1C6EA4;
-      |  background-color: #EEEEEE;
-      |  text-align: left;
-      |  border-collapse: collapse;
-      |}
-      |table td, table th {
-      |  border: 1px solid #AAAAAA;
-      |  padding: 5px 5px 5px 5px;
-      |}
-      |table tbody td {
-      |  font-size: 16px;
-      |}
-      |table tr:nth-child(even) {
-      |  background: #D0E4F5;
-      |}
-      |</style>
-      |""".stripMargin +
-    "<table>" +
-    List(
-      Some(s"<tr><td><b>METHOD</b></td><td>${request.method.map(_.value).getOrElse("UNDEFINED")}</td></tr>"),
-      Some(s"<tr><td><b>ROUTE</b></td><td>${request.symbolicPath}</td></tr>"),
-      Some(s"<tr><td><b>SUMMARY</b></td><td>${request.operationSummary}</td></tr>"),
-      Some(s"<tr><td><b>DESCRIPTION</b></td><td>${request.operationDescription}</td></tr>"),
-//        r.extendedDescription.map(s => s"<tr><td><b>EXTENDED DESCRIPTION</b></td><td>$s</td></tr>"),
-      Option.when(request.securitySchemes.nonEmpty) {
-        s"<tr><td><b>AUTHENTICATION</b></td><td><ul>${request.securitySchemes.map(ss => "<li>" ++ ss.name ++ " " ++ ss.security.`type`.getOrElse("") ++ "</li>").mkString}</ul></td></tr>"
-      },
-//        Some(s"<tr><td><b>BEHAVIOUR</b></td><td>${p.enrichDescriptions
-//          .map { enrichedDescription =>
-//            s"${enrichedDescription.description} ${enrichedDescription.statusCodeOpt.map(c => s"-> [$c]").getOrElse("")}"
-//          }
-//          .mkString("<br/>")}</td></tr>"),
-      Option.when(request.headersSeq.nonEmpty)(
-        s"<tr><td><b>HEADERS</b></td><td>" +
-          s"${request.headersSeq.map(h => s"${h.name}${Option.when(h.schema.required)("<b style='color: red'>*</b>").getOrElse("")}").mkString("<br/>")}" +
-          s"</td></tr>"
-      ),
-      Option.when(request.pathParametersSeq.nonEmpty) {
-        s"<tr><td><b>PATHS PARAMETERS</b></td><td>" +
-        s"${request.pathParametersSeq
-            .map(h =>
-              s"${h.name}${if (h.schema.`type` == SchemaType.ArrayType) "[]" else ""}${Option.when(h.schema.required)(s"<b style='color: red'>*</b>").getOrElse("")}: ${h.schema.className}${
-                  if (h.schema.`type` == SchemaType.ArrayType) "[]"
-                  else ""
-                } " +
-              s"(${h.schema.`enum`
-                  .map(enums => enums.mkString("possible values: ", ", ", ""))
-                  .getOrElse("")})"
-              // .getOrElse(s"example: ${h.valueGenerator()}")})"
-            )
-            .mkString("<br/>")}" +
-        s"</td></tr>"
-      },
-      Option.when(request.queryParametersSeq.nonEmpty) {
-        s"<tr><td><b>QUERY PARAMETERS</b></td><td>" +
-        s"${request.pathParametersSeq
-            .map(h =>
-              s"${h.name}${if (h.schema.`type` == SchemaType.ArrayType) "[]" else ""}${Option.when(h.schema.required)(s"<b style='color: red'>*</b>").getOrElse("")}: ${h.schema.className}${
-                  if (h.schema.`type` == SchemaType.ArrayType) "[]"
-                  else ""
-                } " +
-              s"(${h.schema.`enum`
-                  .map(enums => enums.mkString("possible values: ", ", ", ""))
-                  .getOrElse("")})"
-              // .getOrElse(s"example: ${h.valueGenerator()}")})"
-            )
-            .mkString("<br/>")}" +
-        s"</td></tr>"
-      },
-      Some(s"<tr><td><b>STATUS CODES</b></td><td>${calls.map(_.response.status.status).mkString("<br/>")}</td></tr>"),
-      Some(s"<tr><td><b>REQUEST BODY</b></td><td><pre>${jsonStr(response.requestBodyString)}</pre></td></tr>"),
-      request.bodySchema.map(schema =>
-        s"<tr><td><b>REQUEST BODY SCHEMA</b></td><td><pre>${baklavaSchemaToJsonSchemaV7(schema)}</pre></td></tr>"
+    val metaRows = List(
+      request.operationSummary.map(s => metaRow("Summary", escHtml(s))),
+      request.operationDescription.map(s => metaRow("Description", escHtml(s))),
+      request.operationId.map(s => metaRow("Operation ID", s"""<code>$s</code>""")),
+      Option.when(request.operationTags.nonEmpty)(
+        metaRow("Tags", request.operationTags.map(t => s"""<span class="tag">$t</span>""").mkString(" "))
       )
-//todo
-//s"<tr><td><b>ROUTE WITH MINIMAL PARAMS</b></td><td>${r.routePathWithRequiredParameters}</td></tr>" +//
-//s"<tr><td><b>ROUTE WITH ALL PARAMS</b></td><td>${r.routePathWithAllParameters}</td></tr>"
     ).flatten
-      .concat(calls.sortBy(_.response.status.status).flatMap { c =>
-        List(
-          Some(
-            s"<tr><td><b>RESPONSE BODY ${c.response.status.status}</b></td><td><pre>${jsonStr(response.responseBodyString)}</pre></td></tr>"
-          ),
-          c.response.bodySchema
-            .map(schema =>
-              s"<tr><td><b>RESPONSE BODY SCHEMA ${c.response.status.status}</b></td><td><pre>${baklavaSchemaToJsonSchemaV7(schema)}</pre></td></tr>"
-            )
-        ).flatten
-      })
-      .mkString("\n") +
-    "</table>"
+
+    val securitySection = Option.when(request.securitySchemes.nonEmpty) {
+      card(
+        "Security",
+        request.securitySchemes
+          .map(ss => s"<p>${escHtml(ss.name)} <span class=\"tag\">${ss.security.`type`.getOrElse("")}</span></p>")
+          .mkString
+      )
+    }
+
+    val headersSection = Option.when(request.headersSeq.nonEmpty) {
+      card(
+        "Headers",
+        s"<dl class=\"meta-grid\">${request.headersSeq.map { h =>
+            metaRow(h.name + (if (h.schema.required) " <span class=\"required\">*</span>" else ""), s"<code>${h.schema.className}</code>")
+          }.mkString}</dl>"
+      )
+    }
+
+    val pathParamsSection = Option.when(request.pathParametersSeq.nonEmpty) {
+      card("Path Parameters", s"<dl class=\"meta-grid\">${request.pathParametersSeq.map(paramRow).mkString}</dl>")
+    }
+
+    val queryParamsSection = Option.when(request.queryParametersSeq.nonEmpty) {
+      card("Query Parameters", s"<dl class=\"meta-grid\">${request.queryParametersSeq.map(paramRow).mkString}</dl>")
+    }
+
+    val requestBodySection = {
+      val bodyJson = jsonStr(calls.head.response.requestBodyString)
+      val parts    = List(
+        Option.when(bodyJson.nonEmpty)(s"<pre>${escHtml(bodyJson)}</pre>"),
+        request.bodySchema.map(schema =>
+          s"<details><summary>Schema (JSON Schema v7)</summary><pre>${escHtml(baklavaSchemaToJsonSchemaV7(schema))}</pre></details>"
+        )
+      ).flatten
+      Option.when(parts.nonEmpty)(card("Request Body", parts.mkString))
+    }
+
+    val responseSections = calls.sortBy(_.response.status.status).map { c =>
+      val status    = c.response.status.status
+      val statusCss = if (status < 300) "2xx" else if (status < 400) "3xx" else if (status < 500) "4xx" else "5xx"
+      val desc      = c.request.responseDescription.map(d => s"<p>${escHtml(d)}</p>").getOrElse("")
+      val bodyJson  = jsonStr(c.response.responseBodyString)
+      val bodyPre   = Option.when(bodyJson.nonEmpty)(s"<pre>${escHtml(bodyJson)}</pre>")
+      val schemaPre = c.response.bodySchema
+        .map(schema => s"<details><summary>Schema</summary><pre>${escHtml(baklavaSchemaToJsonSchemaV7(schema))}</pre></details>")
+      card(
+        s"""<span class="status-badge status-$statusCss">$status</span> Response""",
+        (List(Some(desc)) ++ List(bodyPre, schemaPre)).flatten.mkString
+      )
+    }
+
+    s"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>$methodName ${request.symbolicPath}</title>$css</head><body>
+       |<a href="index.html" class="back-link">&larr; Back to index</a>
+       |<h1><span class="method method-$methodName">$methodName</span> <span class="path">${request.symbolicPath}</span></h1>
+       |${if (metaRows.nonEmpty) card("Overview", s"<dl class=\"meta-grid\">${metaRows.mkString}</dl>") else ""}
+       |${List(securitySection, headersSection, pathParamsSection, queryParamsSection, requestBodySection).flatten.mkString("\n")}
+       |${responseSections.mkString("\n")}
+       |</body></html>""".stripMargin
+  }
+
+  private def card(title: String, body: String): String =
+    s"""<div class="card"><div class="card-header">$title</div><div class="card-body">$body</div></div>"""
+
+  private def metaRow(label: String, value: String): String =
+    s"<dt>$label</dt><dd>$value</dd>"
+
+  private def paramRow(p: BaklavaPathParamSerializable): String = {
+    val arrayFlag = if (p.schema.`type` == SchemaType.ArrayType) "[]" else ""
+    val req       = if (p.schema.required) " <span class=\"required\">*</span>" else ""
+    val enumInfo  = p.schema.`enum`.map(enums => s" <span class=\"tag\">${enums.mkString(" | ")}</span>").getOrElse("")
+    metaRow(s"${p.name}$arrayFlag$req", s"<code>${p.schema.className}$arrayFlag</code>$enumInfo")
+  }
+
+  private def paramRow(p: BaklavaQueryParamSerializable): String = {
+    val arrayFlag = if (p.schema.`type` == SchemaType.ArrayType) "[]" else ""
+    val req       = if (p.schema.required) " <span class=\"required\">*</span>" else ""
+    val enumInfo  = p.schema.`enum`.map(enums => s" <span class=\"tag\">${enums.mkString(" | ")}</span>").getOrElse("")
+    metaRow(s"${p.name}$arrayFlag$req", s"<code>${p.schema.className}$arrayFlag</code>$enumInfo")
+  }
+
+  private def toFilename(name: String): String =
+    name.replaceAll("/", "_").replaceAll(" ", "_").replaceAll("\\{", "__").replaceAll("}", "__") + ".html"
+
+  private def escHtml(s: String): String =
+    s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+  private def writeFile(path: String, content: String): Unit = {
+    val fw = new FileWriter(path)
+    val pw = new PrintWriter(fw)
+    pw.print(content)
+    pw.close()
+    fw.close()
   }
 
   private def jsonStr(str: String): String =
@@ -195,6 +186,7 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
     val printer    = Printer.spaces2
     printer.print(jsonSchema)
   }
+
   private def toJsonSchemaV7(baklavaSchema: BaklavaSchemaSerializable, root: Boolean = false): Json = {
     Json
       .obj(
@@ -215,7 +207,7 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
                                    else Json.Null),
         "items" -> baklavaSchema.items.map(j => toJsonSchemaV7(j)).getOrElse(Json.Null)
       )
-      .deepDropNullValues // Drop any null values from JSON for cleaner output
+      .deepDropNullValues
   }
 
   private implicit val encodeSchemaType: Encoder[SchemaType] = Encoder.encodeString.contramap {
