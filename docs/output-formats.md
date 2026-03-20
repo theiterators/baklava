@@ -7,6 +7,24 @@ title: Output Formats
 
 Baklava supports three output formats. You can use one or more simultaneously — each is an independent SBT dependency that produces its own output in `target/baklava/`.
 
+## How It Works
+
+Formatters are **automatically discovered** via reflection. Any formatter on the test classpath is picked up and run — no registration or configuration needed (beyond format-specific config like `openapi-info`). Just add the dependency and it works:
+
+```scala
+libraryDependencies ++= Seq(
+  "pl.iterators" %% "baklava-simple"  % "VERSION" % Test,  // adds Simple format
+  "pl.iterators" %% "baklava-openapi" % "VERSION" % Test,  // adds OpenAPI format
+  "pl.iterators" %% "baklava-tsrest"  % "VERSION" % Test   // adds TS-REST format
+)
+```
+
+The generation pipeline:
+1. During `sbt test`, each test case is serialized to a JSON file in `target/baklava/calls/`
+2. After tests complete, the SBT plugin runs `BaklavaGenerate` which reads all call files
+3. Every formatter found on the classpath processes the calls and writes its output
+4. The call files are cleaned up
+
 ## Simple Format
 
 **Dependency:** `"pl.iterators" %% "baklava-simple" % "VERSION" % Test`

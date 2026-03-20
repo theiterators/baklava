@@ -93,3 +93,21 @@ By default, Baklava truncates response bodies in assertion error messages to 819
 ```scala
 override def maxBodyLengthInAssertion: Int = 16384
 ```
+
+### Debug Mode
+
+For development, you can use `BaklavaTestFrameworkDslDebug` instead of the standard `BaklavaTestFrameworkDsl`. The debug variant collects test calls in memory rather than serializing to disk, and exposes them via `listCalls`. This lets you process calls inline — for example, generating OpenAPI output directly in your test's `afterAll`:
+
+```scala
+trait MyDebugSpec
+    extends BaklavaScalatest[Route, ToEntityMarshaller, FromEntityUnmarshaller]
+    with BaklavaTestFrameworkDslDebug[Route, ToEntityMarshaller, FromEntityUnmarshaller, Unit, Unit, ScalatestAsExecution] {
+
+  override def afterAll(): Unit = {
+    val calls = listCalls  // Seq[BaklavaSerializableCall]
+    // Process calls however you like — generate OpenAPI, dump to console, etc.
+  }
+}
+```
+
+This is useful for quick iteration without running the full SBT plugin pipeline.
