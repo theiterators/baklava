@@ -88,7 +88,12 @@ class GetUsersUserIdRouteSpec extends BaseRouteSpec {
 
 ### MUnit
 
-Most convenient way to use Baklava with MUnit is to define base class for all tests. This can look like below:
+Most convenient way to use Baklava with MUnit is to define base class for all tests. Note that this requires the `pekko-http-testkit-munit` dependency in addition to the standard `pekko-http-testkit`:
+```scala
+libraryDependencies += "org.apache.pekko" %% "pekko-http-testkit-munit" % pekkoHttpVersion % Test
+```
+
+This can look like below:
 ```scala
 import org.apache.pekko.http.scaladsl.marshalling.ToEntityMarshaller
 import org.apache.pekko.http.scaladsl.server.Route
