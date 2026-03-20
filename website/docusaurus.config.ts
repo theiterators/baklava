@@ -65,7 +65,7 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
+    image: 'https://raw.githubusercontent.com/theiterators/baklava/master/logo.png',
     navbar: {
       title: 'Baklava',
       logo: {
@@ -77,7 +77,7 @@ const config: Config = {
           type: 'docSidebar',
           sidebarId: 'tutorialSidebar',
           position: 'left',
-          label: 'Tutorial',
+          label: 'Docs',
         },
         {
           href: 'https://github.com/theiterators/baklava',
@@ -117,6 +117,10 @@ const config: Config = {
             {
               label: 'GitHub',
               href: 'https://github.com/theiterators/baklava',
+            },
+            {
+              label: 'Maven Central',
+              href: 'https://central.sonatype.com/namespace/pl.iterators',
             },
           ],
         },
