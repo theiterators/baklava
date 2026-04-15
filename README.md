@@ -124,13 +124,13 @@ All formatters are auto-discovered from the classpath. Just add the dependency a
 
 Full documentation is available at [theiterators.github.io/baklava](https://theiterators.github.io/baklava/).
 
-- [Installation](https://theiterators.github.io/baklava/installation)
-- [Pekko HTTP Integration](https://theiterators.github.io/baklava/pekko-http)
-- [http4s Integration](https://theiterators.github.io/baklava/http4s)
-- [DSL Reference](https://theiterators.github.io/baklava/dsl-reference)
-- [Examples](https://theiterators.github.io/baklava/examples)
-- [Output Formats](https://theiterators.github.io/baklava/output-formats)
-- [Configuration](https://theiterators.github.io/baklava/configuration)
+- [Installation](https://theiterators.github.io/baklava/docs/installation)
+- [Pekko HTTP Integration](https://theiterators.github.io/baklava/docs/pekko-http)
+- [http4s Integration](https://theiterators.github.io/baklava/docs/http4s)
+- [DSL Reference](https://theiterators.github.io/baklava/docs/dsl-reference)
+- [Examples](https://theiterators.github.io/baklava/docs/examples)
+- [Output Formats](https://theiterators.github.io/baklava/docs/output-formats)
+- [Configuration](https://theiterators.github.io/baklava/docs/configuration)
 
 ## License
 
