@@ -142,6 +142,113 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
 
   def maxBodyLengthInAssertion: Int = 8192
 
+  private[baklava] def resolveRequestContext[
+      RequestBody,
+      PathParameters,
+      PathParametersProvided,
+      QueryParameters,
+      QueryParametersProvided,
+      Headers,
+      HeadersProvided
+  ](
+      requestContext: BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit, Headers, Unit],
+      body: RequestBody,
+      bodySchema: Schema[RequestBody],
+      security: AppliedSecurity,
+      pathParametersProvided: PathParametersProvided,
+      queryParametersProvided: QueryParametersProvided,
+      headersProvided: HeadersProvided,
+      responseDescription: Option[String],
+      responseHeaders: Seq[Header[?]]
+  )(implicit
+      providePathParams: ProvidePathParams[PathParameters, PathParametersProvided],
+      provideQueryParams: ProvideQueryParams[QueryParameters, QueryParametersProvided],
+      provideHeaders: ProvideHeaders[Headers, HeadersProvided]
+  ): BaklavaRequestContext[
+    RequestBody,
+    PathParameters,
+    PathParametersProvided,
+    QueryParameters,
+    QueryParametersProvided,
+    Headers,
+    HeadersProvided
+  ] = {
+    val headersToInclude          = provideHeaders.apply(requestContext.headersDefinition, headersProvided)
+    val additionalSecurityHeaders = security match {
+      case AppliedSecurity(_: HttpBearer, params) => Map("Authorization" -> s"Bearer ${params("token")}")
+      case AppliedSecurity(_: HttpBasic, params)  =>
+        Map("Authorization" -> s"Basic ${Base64.getEncoder.encodeToString(s"${params("id")}:${params("secret")}".getBytes)}")
+      case AppliedSecurity(s: ApiKeyInHeader, params)        => Map(s.name -> params("apiKey"))
+      case AppliedSecurity(_: ApiKeyInQuery, _)              => Map.empty[String, String]
+      case AppliedSecurity(_: ApiKeyInCookie, _)             => Map.empty[String, String]
+      case AppliedSecurity(_: MutualTls, _)                  => Map.empty[String, String]
+      case AppliedSecurity(_: OpenIdConnectInBearer, params) => Map("Authorization" -> s"Bearer ${params("token")}")
+      case AppliedSecurity(_: OpenIdConnectInCookie, _)      => Map.empty[String, String]
+      case AppliedSecurity(_: OAuth2InBearer, params)        => Map("Authorization" -> s"Bearer ${params("token")}")
+      case AppliedSecurity(_: OAuth2InCookie, _)             => Map.empty[String, String]
+      case AppliedSecurity(_: NoopSecurity.type, _)          => Map.empty[String, String]
+    }
+    val headersWithCookieModifiedForSecurity: Map[String, String] = security match {
+      case AppliedSecurity(_: HttpBearer, _)          => headersToInclude
+      case AppliedSecurity(_: HttpBasic, _)           => headersToInclude
+      case AppliedSecurity(_: ApiKeyInHeader, _)      => headersToInclude
+      case AppliedSecurity(_: ApiKeyInQuery, _)       => headersToInclude
+      case AppliedSecurity(s: ApiKeyInCookie, params) =>
+        headersToInclude.find(_._1.toLowerCase == "cookie") match {
+          case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${s.name}=${params("apiKey")}")
+          case None             => headersToInclude + ("Cookie" -> s"${s.name}=${params("apiKey")}")
+        }
+      case AppliedSecurity(_: MutualTls, _)                  => headersToInclude
+      case AppliedSecurity(_: OpenIdConnectInBearer, _)      => headersToInclude
+      case AppliedSecurity(_: OpenIdConnectInCookie, params) =>
+        headersToInclude.find(_._1.toLowerCase == "cookie") match {
+          case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
+          case None             => headersToInclude + ("Cookie" -> s"${params("name")}=${params("token")}")
+        }
+      case AppliedSecurity(_: OAuth2InBearer, _)      => headersToInclude
+      case AppliedSecurity(_: OAuth2InCookie, params) =>
+        headersToInclude.find(_._1.toLowerCase == "cookie") match {
+          case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
+          case None             => headersToInclude + ("Cookie" -> s"${params("name")}=${params("token")}")
+        }
+      case AppliedSecurity(_: NoopSecurity.type, _) => headersToInclude
+    }
+    val securityQueryParameters = security match {
+      case AppliedSecurity(_: HttpBearer, _)            => Map.empty[String, Seq[String]]
+      case AppliedSecurity(_: HttpBasic, _)             => Map.empty[String, Seq[String]]
+      case AppliedSecurity(_: ApiKeyInHeader, _)        => Map.empty[String, Seq[String]]
+      case AppliedSecurity(s: ApiKeyInQuery, params)    => Map(s.name -> Seq(params("apiKey")))
+      case AppliedSecurity(_: ApiKeyInCookie, _)        => Map.empty[String, Seq[String]]
+      case AppliedSecurity(_: MutualTls, _)             => Map.empty[String, Seq[String]]
+      case AppliedSecurity(_: OpenIdConnectInBearer, _) => Map.empty[String, Seq[String]]
+      case AppliedSecurity(_: OpenIdConnectInCookie, _) => Map.empty[String, Seq[String]]
+      case AppliedSecurity(_: OAuth2InBearer, _)        => Map.empty[String, Seq[String]]
+      case AppliedSecurity(_: OAuth2InCookie, _)        => Map.empty[String, Seq[String]]
+      case AppliedSecurity(_: NoopSecurity.type, _)     => Map.empty[String, Seq[String]]
+    }
+
+    requestContext.copy(
+      path = provideQueryParams.apply(
+        requestContext.queryParameters,
+        queryParametersProvided,
+        providePathParams.apply(
+          requestContext.pathParameters,
+          pathParametersProvided,
+          addQueryParametersToUri(requestContext.path, securityQueryParameters)
+        )
+      ),
+      body = if (body != EmptyBodyInstance) Some(body) else None,
+      bodySchema = Some(bodySchema),
+      headers = BaklavaHttpHeaders(headersWithCookieModifiedForSecurity ++ additionalSecurityHeaders),
+      headersProvided = headersProvided,
+      security = security,
+      pathParametersProvided = pathParametersProvided,
+      queryParametersProvided = queryParametersProvided,
+      responseDescription = responseDescription,
+      responseHeaders = responseHeaders
+    )
+  }
+
   case class OnRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
       body: RequestBody,
       security: AppliedSecurity,
@@ -179,83 +286,25 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
               val finalDescription = if (description.trim.isEmpty) "" else ": " + description.trim
               var timesCalled: Int = 0
 
-              val headersToInclude = provideHeaders.apply(requestContext.headersDefinition, headersProvided)
-              // TODO: this security logic is duplicated in multiple places and messy and NEEDS TESTS
-              // TODO: e.g. cookie concatenation by hand?!
-              val additionalSecurityHeaders = security match {
-                case AppliedSecurity(_: HttpBearer, params) => Map("Authorization" -> s"Bearer ${params("token")}")
-                case AppliedSecurity(_: HttpBasic, params)  =>
-                  Map("Authorization" -> s"Basic ${Base64.getEncoder.encodeToString(s"${params("id")}:${params("secret")}".getBytes)}")
-                case AppliedSecurity(s: ApiKeyInHeader, params)        => Map(s.name -> params("apiKey"))
-                case AppliedSecurity(_: ApiKeyInQuery, _)              => Map.empty[String, String]
-                case AppliedSecurity(_: ApiKeyInCookie, _)             => Map.empty[String, String]
-                case AppliedSecurity(_: MutualTls, _)                  => Map.empty[String, String]
-                case AppliedSecurity(_: OpenIdConnectInBearer, params) => Map("Authorization" -> s"Bearer ${params("token")}")
-                case AppliedSecurity(_: OpenIdConnectInCookie, _)      => Map.empty[String, String]
-                case AppliedSecurity(_: OAuth2InBearer, params)        => Map("Authorization" -> s"Bearer ${params("token")}")
-                case AppliedSecurity(_: OAuth2InCookie, _)             => Map.empty[String, String]
-                case AppliedSecurity(_: NoopSecurity.type, _)          => Map.empty[String, String]
-              }
-              val headersWithCookieModifiedForSecurity: Map[String, String] = security match {
-                case AppliedSecurity(_: HttpBearer, _)          => headersToInclude
-                case AppliedSecurity(_: HttpBasic, _)           => headersToInclude
-                case AppliedSecurity(_: ApiKeyInHeader, _)      => headersToInclude
-                case AppliedSecurity(_: ApiKeyInQuery, _)       => headersToInclude
-                case AppliedSecurity(s: ApiKeyInCookie, params) =>
-                  headersToInclude.find(_._1.toLowerCase == "cookie") match {
-                    case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${s.name}=${params("apiKey")}")
-                    case None             => headersToInclude + ("Cookie" -> s"${s.name}=${params("apiKey")}")
-                  }
-                case AppliedSecurity(_: MutualTls, _)                  => headersToInclude
-                case AppliedSecurity(_: OpenIdConnectInBearer, _)      => headersToInclude
-                case AppliedSecurity(_: OpenIdConnectInCookie, params) =>
-                  headersToInclude.find(_._1.toLowerCase == "cookie") match {
-                    case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
-                    case None             => headersToInclude + ("Cookie" -> s"${params("name")}=${params("token")}")
-                  }
-                case AppliedSecurity(_: OAuth2InBearer, _)      => headersToInclude
-                case AppliedSecurity(_: OAuth2InCookie, params) =>
-                  headersToInclude.find(_._1.toLowerCase == "cookie") match {
-                    case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
-                    case None             => headersToInclude + ("Cookie" -> s"${params("name")}=${params("token")}")
-                  }
-                case AppliedSecurity(_: NoopSecurity.type, _) => headersToInclude
-              }
-              val securityQueryParameters = security match {
-                case AppliedSecurity(_: HttpBearer, _)            => Map.empty[String, Seq[String]]
-                case AppliedSecurity(_: HttpBasic, _)             => Map.empty[String, Seq[String]]
-                case AppliedSecurity(_: ApiKeyInHeader, _)        => Map.empty[String, Seq[String]]
-                case AppliedSecurity(s: ApiKeyInQuery, params)    => Map(s.name -> Seq(params("apiKey")))
-                case AppliedSecurity(_: ApiKeyInCookie, _)        => Map.empty[String, Seq[String]]
-                case AppliedSecurity(_: MutualTls, _)             => Map.empty[String, Seq[String]]
-                case AppliedSecurity(_: OpenIdConnectInBearer, _) => Map.empty[String, Seq[String]]
-                case AppliedSecurity(_: OpenIdConnectInCookie, _) => Map.empty[String, Seq[String]]
-                case AppliedSecurity(_: OAuth2InBearer, _)        => Map.empty[String, Seq[String]]
-                case AppliedSecurity(_: OAuth2InCookie, _)        => Map.empty[String, Seq[String]]
-                case AppliedSecurity(_: NoopSecurity.type, _)     => Map.empty[String, Seq[String]]
-              }
-
-              val finalRequestCtx =
-                requestContext.copy(
-                  path = provideQueryParams.apply(
-                    requestContext.queryParameters,
-                    queryParametersProvided,
-                    providePathParams.apply(
-                      requestContext.pathParameters,
-                      pathParametersProvided,
-                      addQueryParametersToUri(requestContext.path, securityQueryParameters)
-                    )
-                  ),
-                  body = if (body != EmptyBodyInstance) Some(body) else None,
-                  bodySchema = Some(implicitly[Schema[RequestBody]]),
-                  headers = BaklavaHttpHeaders(headersWithCookieModifiedForSecurity ++ additionalSecurityHeaders),
-                  headersProvided = headersProvided,
-                  security = security,
-                  pathParametersProvided = pathParametersProvided,
-                  queryParametersProvided = queryParametersProvided,
-                  responseDescription = if (description.trim.isEmpty) None else Some(description.trim),
-                  responseHeaders = headers
-                )
+              val finalRequestCtx = resolveRequestContext[
+                RequestBody,
+                PathParameters,
+                PathParametersProvided,
+                QueryParameters,
+                QueryParametersProvided,
+                Headers,
+                HeadersProvided
+              ](
+                requestContext = requestContext,
+                body = body,
+                bodySchema = implicitly[Schema[RequestBody]],
+                security = security,
+                pathParametersProvided = pathParametersProvided,
+                queryParametersProvided = queryParametersProvided,
+                headersProvided = headersProvided,
+                responseDescription = if (description.trim.isEmpty) None else Some(description.trim),
+                responseHeaders = headers
+              )
 
               requestLevelTextWithExecution(
                 statusCode.status.toString + finalDescription,
