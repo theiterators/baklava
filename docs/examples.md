@@ -343,3 +343,34 @@ class GetUsersRouteSpec extends BaseRouteSpec {
 
 }
 ```
+
+## Example: deferred path parameter from seeded data
+
+When a test needs to derive request inputs from setup work (database seeding, token generation, etc.), use `withSetup`:
+
+```scala
+path("/v1/auctions/{auctionId}")(
+  supports(
+    GET,
+    pathParameters = p[AuctionId]("auctionId"),
+    tags = Seq("Auctions")
+  )(
+    withSetup {
+      application.transactor
+        .inSession(seedUser(seller) *> seedAuction(AuctionId(UUID.randomUUID()), seller.id))
+        .unsafeRunSync()
+    }.request { (auction: Auction) =>
+      onRequest(pathParameters = auction.id)
+    }.respondsWith[AuctionDto](OK, description = "Auction found")
+      .assert { case (ctx, auction) =>
+        val response = ctx.performRequest(allRoutes)
+        response.body.id shouldBe auction.id
+      }
+  )
+)
+```
+
+The setup block runs once per scenario at test execution time. Its return value is threaded into both `.request` (to construct the `OnRequest`) and `.assert` (as the second argument of the two-argument lambda).
+
+On Scala 2.13, the lambda parameter must be explicitly typed (`(auction: Auction) => ...`). On Scala 3, type inference resolves it automatically.
+
