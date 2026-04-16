@@ -251,6 +251,103 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     )
   }
 
+  private[baklava] def validateResponseAndStore[
+      RequestBody,
+      ResponseBody,
+      PathParameters,
+      PathParametersProvided,
+      QueryParameters,
+      QueryParametersProvided,
+      Headers,
+      HeadersProvided
+  ](
+      body: RequestBody,
+      requestContext: BaklavaRequestContext[
+        RequestBody,
+        PathParameters,
+        PathParametersProvided,
+        QueryParameters,
+        QueryParametersProvided,
+        Headers,
+        HeadersProvided
+      ],
+      responseContext: BaklavaResponseContext[ResponseBody, HttpRequest, HttpResponse],
+      requestBodySchema: Schema[RequestBody],
+      responseBodySchema: Schema[ResponseBody],
+      statusCode: BaklavaHttpStatus,
+      expectedResponseHeaders: Seq[Header[?]],
+      strictHeaderCheck: Boolean
+  ): Unit = {
+    body match {
+      case b: FormOf[_] =>
+        val allFields      = requestBodySchema.properties.keys.toList
+        val requiredFields = requestBodySchema.properties
+          .filter(_._2.required)
+          .keys
+          .toList
+
+        val missingFields = requiredFields.filterNot(f => b.fields.exists(_._1 == f))
+        if (missingFields.nonEmpty) {
+          throw new BaklavaAssertionException(
+            s"Missing required fields in form: ${missingFields.mkString(", ")}"
+          )
+        }
+        val extraFields = b.fields.map(_._1).filterNot(allFields.contains)
+        if (extraFields.nonEmpty) {
+          throw new BaklavaAssertionException(
+            s"Extra fields in form: ${extraFields.mkString(", ")}"
+          )
+        }
+      case _ =>
+    }
+
+    if (responseContext.status != statusCode) {
+      throw new BaklavaAssertionException(
+        s"Expected ${statusCode.status} -> ${responseBodySchema.className}, but got ${responseContext.status.status} -> ${responseContext.responseBodyString.take(maxBodyLengthInAssertion)}"
+      )
+    }
+
+    if (responseContext.responseBodyString.nonEmpty && responseBodySchema == Schema.emptyBodySchema) {
+      throw new BaklavaAssertionException(
+        "Expected empty response body, but got: " + responseContext.responseBodyString.take(maxBodyLengthInAssertion)
+      )
+    }
+
+    val headersParsed = expectedResponseHeaders.map { h =>
+      responseContext.headers.headers.get(h.name) match { // TODO: should be case insensitive
+        case None        => throw new BaklavaAssertionException(s"Header ${h.name} not found but expected")
+        case Some(value) =>
+          h.name ->
+          h.tsm
+            .unapply(value)
+            .getOrElse(
+              throw new BaklavaAssertionException(
+                s"Header ${h.name} with value $value could not be parsed as ${h.schema.className}"
+              )
+            )
+      }
+    }
+    if (strictHeaderCheck && headersParsed.distinctBy(_._1).length != responseContext.headers.headers.size) {
+      throw new BaklavaAssertionException(
+        s"Strict headers check is on, expected following headers: [${expectedResponseHeaders
+            .map(h => h.name)
+            .sorted
+            .mkString(", ")}], but got: [${responseContext.headers.headers.keys.toList.sorted.mkString(", ")}]"
+      )
+    }
+
+    if (
+      requestContext.security.security != NoopSecurity && !requestContext.securitySchemes
+        .exists(_.security == requestContext.security.security)
+    ) {
+      throw new BaklavaAssertionException(
+        s"Used security ${requestContext.security.security.`type`} is not defined in security schemes: [${requestContext.securitySchemes.map(ss => s"${ss.name} -> ${ss.security.`type`}").mkString(", ")}]"
+      )
+    }
+
+    store(requestContext, responseContext.copy(bodySchema = Some(responseBodySchema)))
+  }
+
   case class OnRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
       body: RequestBody,
       security: AppliedSecurity,
@@ -339,74 +436,25 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                       )
                     timesCalled += 1
 
-                    body match {
-                      case b: FormOf[_] =>
-                        val allFields      = implicitly[Schema[RequestBody]].properties.keys.toList
-                        val requiredFields = implicitly[Schema[RequestBody]].properties
-                          .filter(_._2.required)
-                          .keys
-                          .toList
-
-                        val missingFields = requiredFields.filterNot(f => b.fields.exists(_._1 == f))
-                        if (missingFields.nonEmpty) {
-                          throw new BaklavaAssertionException(
-                            s"Missing required fields in form: ${missingFields.mkString(", ")}"
-                          )
-                        }
-                        val extraFields = b.fields.map(_._1).filterNot(allFields.contains)
-                        if (extraFields.nonEmpty) {
-                          throw new BaklavaAssertionException(
-                            s"Extra fields in form: ${extraFields.mkString(", ")}"
-                          )
-                        }
-                      case _ =>
-                    }
-
-                    if (responseContext.status != statusCode) {
-                      throw new BaklavaAssertionException(
-                        s"Expected ${statusCode.status} -> ${implicitly[Schema[ResponseBody]].className}, but got ${responseContext.status.status} -> ${responseContext.responseBodyString.take(maxBodyLengthInAssertion)}"
-                      )
-                    }
-
-                    if (responseContext.responseBodyString.nonEmpty && implicitly[Schema[ResponseBody]] == Schema.emptyBodySchema) {
-                      throw new BaklavaAssertionException(
-                        "Expected empty response body, but got: " + responseContext.responseBodyString.take(maxBodyLengthInAssertion)
-                      )
-                    }
-
-                    val headersParsed = headers.map { h =>
-                      responseContext.headers.headers.get(h.name) match { // TODO: should be case insensitive
-                        case None        => throw new BaklavaAssertionException(s"Header ${h.name} not found but expected")
-                        case Some(value) =>
-                          h.name ->
-                          h.tsm
-                            .unapply(value)
-                            .getOrElse(
-                              throw new BaklavaAssertionException(
-                                s"Header ${h.name} with value $value could not be parsed as ${h.schema.className}"
-                              )
-                            )
-                      }
-                    }
-                    if (strictHeaderCheck && headersParsed.distinctBy(_._1).length != responseContext.headers.headers.size) {
-                      throw new BaklavaAssertionException(
-                        s"Strict headers check is on, expected following headers: [${headers
-                            .map(h => h.name)
-                            .sorted
-                            .mkString(", ")}], but got: [${responseContext.headers.headers.keys.toList.sorted.mkString(", ")}]"
-                      )
-                    }
-
-                    if (
-                      requestContext.security.security != NoopSecurity && !requestContext.securitySchemes
-                        .exists(_.security == requestContext.security.security)
-                    ) {
-                      throw new BaklavaAssertionException(
-                        s"Used security ${requestContext.security.security.`type`} is not defined in security schemes: [${requestContext.securitySchemes.map(ss => s"${ss.name} -> ${ss.security.`type`}").mkString(", ")}]"
-                      )
-                    }
-
-                    store(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
+                    validateResponseAndStore[
+                      RequestBody,
+                      ResponseBody,
+                      PathParameters,
+                      PathParametersProvided,
+                      QueryParameters,
+                      QueryParametersProvided,
+                      Headers,
+                      HeadersProvided
+                    ](
+                      body = body,
+                      requestContext = requestContext,
+                      responseContext = responseContext,
+                      requestBodySchema = implicitly[Schema[RequestBody]],
+                      responseBodySchema = implicitly[Schema[ResponseBody]],
+                      statusCode = statusCode,
+                      expectedResponseHeaders = headers,
+                      strictHeaderCheck = strictHeaderCheck
+                    )
                     responseContext
                   }
                   val baklavaCaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
@@ -662,74 +710,25 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                 )
               timesCalled += 1
 
-              onReq.body match {
-                case b: FormOf[_] =>
-                  val allFields      = implicitly[Schema[RequestBody]].properties.keys.toList
-                  val requiredFields = implicitly[Schema[RequestBody]].properties
-                    .filter(_._2.required)
-                    .keys
-                    .toList
-
-                  val missingFields = requiredFields.filterNot(f => b.fields.exists(_._1 == f))
-                  if (missingFields.nonEmpty) {
-                    throw new BaklavaAssertionException(
-                      s"Missing required fields in form: ${missingFields.mkString(", ")}"
-                    )
-                  }
-                  val extraFields = b.fields.map(_._1).filterNot(allFields.contains)
-                  if (extraFields.nonEmpty) {
-                    throw new BaklavaAssertionException(
-                      s"Extra fields in form: ${extraFields.mkString(", ")}"
-                    )
-                  }
-                case _ =>
-              }
-
-              if (responseContext.status != statusCode) {
-                throw new BaklavaAssertionException(
-                  s"Expected ${statusCode.status} -> ${implicitly[Schema[ResponseBody]].className}, but got ${responseContext.status.status} -> ${responseContext.responseBodyString.take(maxBodyLengthInAssertion)}"
-                )
-              }
-
-              if (responseContext.responseBodyString.nonEmpty && implicitly[Schema[ResponseBody]] == Schema.emptyBodySchema) {
-                throw new BaklavaAssertionException(
-                  "Expected empty response body, but got: " + responseContext.responseBodyString.take(maxBodyLengthInAssertion)
-                )
-              }
-
-              val headersParsed = expectedResponseHeaders.map { h =>
-                responseContext.headers.headers.get(h.name) match {
-                  case None        => throw new BaklavaAssertionException(s"Header ${h.name} not found but expected")
-                  case Some(value) =>
-                    h.name ->
-                    h.tsm
-                      .unapply(value)
-                      .getOrElse(
-                        throw new BaklavaAssertionException(
-                          s"Header ${h.name} with value $value could not be parsed as ${h.schema.className}"
-                        )
-                      )
-                }
-              }
-              if (strictHeaderCheck && headersParsed.distinctBy(_._1).length != responseContext.headers.headers.size) {
-                throw new BaklavaAssertionException(
-                  s"Strict headers check is on, expected following headers: [${expectedResponseHeaders
-                      .map(h => h.name)
-                      .sorted
-                      .mkString(", ")}], but got: [${responseContext.headers.headers.keys.toList.sorted.mkString(", ")}]"
-                )
-              }
-
-              if (
-                requestContext.security.security != NoopSecurity && !requestContext.securitySchemes
-                  .exists(_.security == requestContext.security.security)
-              ) {
-                throw new BaklavaAssertionException(
-                  s"Used security ${requestContext.security.security.`type`} is not defined in security schemes: [${requestContext.securitySchemes.map(ss => s"${ss.name} -> ${ss.security.`type`}").mkString(", ")}]"
-                )
-              }
-
-              store(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
+              validateResponseAndStore[
+                RequestBody,
+                ResponseBody,
+                PathParameters,
+                PathParametersProvided,
+                QueryParameters,
+                QueryParametersProvided,
+                Headers,
+                HeadersProvided
+              ](
+                body = onReq.body,
+                requestContext = requestContext,
+                responseContext = responseContext,
+                requestBodySchema = implicitly[Schema[RequestBody]],
+                responseBodySchema = implicitly[Schema[ResponseBody]],
+                statusCode = statusCode,
+                expectedResponseHeaders = expectedResponseHeaders,
+                strictHeaderCheck = strictHeaderCheck
+              )
               responseContext
             }
             val baklavaCaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
