@@ -425,6 +425,337 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       }
   }
 
+  trait WithSetupTestCase[S, RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] {
+    def assert[R: TestFrameworkExecutionType, PathParameters, QueryParameters, Headers](
+        r: (
+            BaklavaCaseContext[
+              RequestBody,
+              ResponseBody,
+              PathParameters,
+              PathParametersProvided,
+              QueryParameters,
+              QueryParametersProvided,
+              Headers,
+              HeadersProvided
+            ],
+            S
+        ) => R
+    )(implicit
+        providePathParams: ProvidePathParams[PathParameters, PathParametersProvided],
+        provideQueryParams: ProvideQueryParams[QueryParameters, QueryParametersProvided],
+        provideHeaders: ProvideHeaders[Headers, HeadersProvided]
+    ): BaklavaIntermediateTestCase[PathParameters, QueryParameters, Headers]
+  }
+
+  trait WithSetupRequestBuilder[S, RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] {
+    def respondsWith[ResponseBody: FromResponseBodyType: Schema: ClassTag](
+        statusCode: BaklavaHttpStatus,
+        headers: Seq[Header[?]] = Seq.empty,
+        description: String = "",
+        strictHeaderCheck: Boolean = strictHeaderCheckDefault
+    ): WithSetupTestCase[S, RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided]
+  }
+
+  trait WithSetupBuilder[S] {
+    def request[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
+        f: S => OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided]
+    ): WithSetupRequestBuilder[S, RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided]
+
+    def request[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
+        body: RequestBody = EmptyBodyInstance: EmptyBody,
+        security: AppliedSecurity = AppliedSecurity(NoopSecurity, Map.empty),
+        pathParameters: PathParametersProvided = (),
+        queryParameters: QueryParametersProvided = (),
+        headers: HeadersProvided = ()
+    ): WithSetupRequestBuilder[S, RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided]
+  }
+
+  def withSetup[S](setup: => S): WithSetupBuilder[S] = {
+    val setupThunk: () => S = () => setup
+    new WithSetupBuilder[S] {
+      override def request[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
+          f: S => OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided]
+      ): WithSetupRequestBuilder[S, RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
+        makeRequestBuilder(setupThunk, f)
+
+      override def request[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
+          body: RequestBody,
+          security: AppliedSecurity,
+          pathParameters: PathParametersProvided,
+          queryParameters: QueryParametersProvided,
+          headers: HeadersProvided
+      ): WithSetupRequestBuilder[S, RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
+        makeRequestBuilder(
+          setupThunk,
+          (_: S) =>
+            OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided](
+              body = body,
+              security = security,
+              headersProvided = headers,
+              pathParametersProvided = pathParameters,
+              queryParametersProvided = queryParameters
+            )
+        )
+    }
+  }
+
+  private def makeRequestBuilder[
+      S,
+      RequestBody: ToRequestBodyType: Schema,
+      PathParametersProvided,
+      QueryParametersProvided,
+      HeadersProvided
+  ](
+      setupThunk: () => S,
+      requestFn: S => OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided]
+  ): WithSetupRequestBuilder[S, RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
+    new WithSetupRequestBuilder[S, RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] {
+      override def respondsWith[ResponseBody: FromResponseBodyType: Schema: ClassTag](
+          statusCode: BaklavaHttpStatus,
+          headers: Seq[Header[?]],
+          description: String,
+          strictHeaderCheck: Boolean
+      ): WithSetupTestCase[S, RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
+        makeWithSetupTestCase(setupThunk, requestFn, statusCode, headers, description, strictHeaderCheck)
+    }
+
+  private def makeWithSetupTestCase[
+      S,
+      RequestBody: ToRequestBodyType: Schema,
+      ResponseBody: FromResponseBodyType: Schema: ClassTag,
+      PathParametersProvided,
+      QueryParametersProvided,
+      HeadersProvided
+  ](
+      setupThunk: () => S,
+      requestFn: S => OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided],
+      statusCode: BaklavaHttpStatus,
+      expectedResponseHeaders: Seq[Header[?]],
+      description: String,
+      strictHeaderCheck: Boolean
+  ): WithSetupTestCase[S, RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
+    new WithSetupTestCase[S, RequestBody, ResponseBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] {
+      override def assert[R: TestFrameworkExecutionType, PathParameters, QueryParameters, Headers](
+          r: (
+              BaklavaCaseContext[
+                RequestBody,
+                ResponseBody,
+                PathParameters,
+                PathParametersProvided,
+                QueryParameters,
+                QueryParametersProvided,
+                Headers,
+                HeadersProvided
+              ],
+              S
+          ) => R
+      )(implicit
+          providePathParams: ProvidePathParams[PathParameters, PathParametersProvided],
+          provideQueryParams: ProvideQueryParams[QueryParameters, QueryParametersProvided],
+          provideHeaders: ProvideHeaders[Headers, HeadersProvided]
+      ): BaklavaIntermediateTestCase[PathParameters, QueryParameters, Headers] =
+        withSetupExecute(
+          setupThunk,
+          requestFn,
+          statusCode,
+          expectedResponseHeaders,
+          description,
+          strictHeaderCheck,
+          r
+        )
+    }
+
+  private def withSetupExecute[
+      S,
+      R: TestFrameworkExecutionType,
+      RequestBody: ToRequestBodyType: Schema,
+      ResponseBody: FromResponseBodyType: Schema: ClassTag,
+      PathParameters,
+      PathParametersProvided,
+      QueryParameters,
+      QueryParametersProvided,
+      Headers,
+      HeadersProvided
+  ](
+      setupThunk: () => S,
+      requestFn: S => OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided],
+      statusCode: BaklavaHttpStatus,
+      expectedResponseHeaders: Seq[Header[?]],
+      description: String,
+      strictHeaderCheck: Boolean,
+      assertFn: (
+          BaklavaCaseContext[
+            RequestBody,
+            ResponseBody,
+            PathParameters,
+            PathParametersProvided,
+            QueryParameters,
+            QueryParametersProvided,
+            Headers,
+            HeadersProvided
+          ],
+          S
+      ) => R
+  )(implicit
+      providePathParams: ProvidePathParams[PathParameters, PathParametersProvided],
+      provideQueryParams: ProvideQueryParams[QueryParameters, QueryParametersProvided],
+      provideHeaders: ProvideHeaders[Headers, HeadersProvided]
+  ): BaklavaIntermediateTestCase[PathParameters, QueryParameters, Headers] =
+    new BaklavaIntermediateTestCase[PathParameters, QueryParameters, Headers] {
+      override def apply(
+          requestContext: BaklavaRequestContext[Unit, PathParameters, Unit, QueryParameters, Unit, Headers, Unit]
+      ): TestFrameworkFragmentType = {
+        val finalDescription = if (description.trim.isEmpty) "" else ": " + description.trim
+        var timesCalled: Int = 0
+
+        requestLevelTextWithExecution(
+          statusCode.status.toString + finalDescription,
+          requestContext, {
+            val setupValue = setupThunk()
+            val onReq      = requestFn(setupValue)
+
+            val finalRequestCtx = resolveRequestContext[
+              RequestBody,
+              PathParameters,
+              PathParametersProvided,
+              QueryParameters,
+              QueryParametersProvided,
+              Headers,
+              HeadersProvided
+            ](
+              requestContext = requestContext,
+              body = onReq.body,
+              bodySchema = implicitly[Schema[RequestBody]],
+              security = onReq.security,
+              pathParametersProvided = onReq.pathParametersProvided,
+              queryParametersProvided = onReq.queryParametersProvided,
+              headersProvided = onReq.headersProvided,
+              responseDescription = if (description.trim.isEmpty) None else Some(description.trim),
+              responseHeaders = expectedResponseHeaders
+            )
+
+            val wrappedPerformRequest = (
+                requestContext: BaklavaRequestContext[
+                  RequestBody,
+                  PathParameters,
+                  PathParametersProvided,
+                  QueryParameters,
+                  QueryParametersProvided,
+                  Headers,
+                  HeadersProvided
+                ],
+                route: RouteType
+            ) => {
+              val responseContext =
+                baklavaPerformRequest[
+                  RequestBody,
+                  ResponseBody,
+                  PathParameters,
+                  PathParametersProvided,
+                  QueryParameters,
+                  QueryParametersProvided,
+                  Headers,
+                  HeadersProvided
+                ](
+                  requestContext,
+                  route
+                )
+              timesCalled += 1
+
+              onReq.body match {
+                case b: FormOf[_] =>
+                  val allFields      = implicitly[Schema[RequestBody]].properties.keys.toList
+                  val requiredFields = implicitly[Schema[RequestBody]].properties
+                    .filter(_._2.required)
+                    .keys
+                    .toList
+
+                  val missingFields = requiredFields.filterNot(f => b.fields.exists(_._1 == f))
+                  if (missingFields.nonEmpty) {
+                    throw new BaklavaAssertionException(
+                      s"Missing required fields in form: ${missingFields.mkString(", ")}"
+                    )
+                  }
+                  val extraFields = b.fields.map(_._1).filterNot(allFields.contains)
+                  if (extraFields.nonEmpty) {
+                    throw new BaklavaAssertionException(
+                      s"Extra fields in form: ${extraFields.mkString(", ")}"
+                    )
+                  }
+                case _ =>
+              }
+
+              if (responseContext.status != statusCode) {
+                throw new BaklavaAssertionException(
+                  s"Expected ${statusCode.status} -> ${implicitly[Schema[ResponseBody]].className}, but got ${responseContext.status.status} -> ${responseContext.responseBodyString.take(maxBodyLengthInAssertion)}"
+                )
+              }
+
+              if (responseContext.responseBodyString.nonEmpty && implicitly[Schema[ResponseBody]] == Schema.emptyBodySchema) {
+                throw new BaklavaAssertionException(
+                  "Expected empty response body, but got: " + responseContext.responseBodyString.take(maxBodyLengthInAssertion)
+                )
+              }
+
+              val headersParsed = expectedResponseHeaders.map { h =>
+                responseContext.headers.headers.get(h.name) match {
+                  case None        => throw new BaklavaAssertionException(s"Header ${h.name} not found but expected")
+                  case Some(value) =>
+                    h.name ->
+                    h.tsm
+                      .unapply(value)
+                      .getOrElse(
+                        throw new BaklavaAssertionException(
+                          s"Header ${h.name} with value $value could not be parsed as ${h.schema.className}"
+                        )
+                      )
+                }
+              }
+              if (strictHeaderCheck && headersParsed.distinctBy(_._1).length != responseContext.headers.headers.size) {
+                throw new BaklavaAssertionException(
+                  s"Strict headers check is on, expected following headers: [${expectedResponseHeaders
+                      .map(h => h.name)
+                      .sorted
+                      .mkString(", ")}], but got: [${responseContext.headers.headers.keys.toList.sorted.mkString(", ")}]"
+                )
+              }
+
+              if (
+                requestContext.security.security != NoopSecurity && !requestContext.securitySchemes
+                  .exists(_.security == requestContext.security.security)
+              ) {
+                throw new BaklavaAssertionException(
+                  s"Used security ${requestContext.security.security.`type`} is not defined in security schemes: [${requestContext.securitySchemes.map(ss => s"${ss.name} -> ${ss.security.`type`}").mkString(", ")}]"
+                )
+              }
+
+              store(requestContext, responseContext.copy(bodySchema = Some(implicitly[Schema[ResponseBody]])))
+              responseContext
+            }
+            val baklavaCaseContext = BaklavaCaseContext(finalRequestCtx, wrappedPerformRequest)
+            val wrappedAssert: BaklavaCaseContext[
+              RequestBody,
+              ResponseBody,
+              PathParameters,
+              PathParametersProvided,
+              QueryParameters,
+              QueryParametersProvided,
+              Headers,
+              HeadersProvided
+            ] => R = ctx => assertFn(ctx, setupValue)
+            wrappedAssert.andThen { x =>
+              if (timesCalled == 0) {
+                throw new BaklavaAssertionException("performRequest was not called in a test, one request should be made")
+              } else if (timesCalled > 1) {
+                throw new RuntimeException("performRequest was called multiple times in a test, only one request should be made")
+              }
+              x
+            }(baklavaCaseContext)
+          }
+        )
+      }
+    }
+
   def onRequest: OnRequest[EmptyBody, Unit, Unit, Unit] =
     onRequest(EmptyBodyInstance: EmptyBody, AppliedSecurity(NoopSecurity, Map.empty), (), (), ())(
       emptyToRequestBodyType,
