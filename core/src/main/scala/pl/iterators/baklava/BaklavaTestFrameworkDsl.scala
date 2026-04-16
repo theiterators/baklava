@@ -173,7 +173,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     Headers,
     HeadersProvided
   ] = {
-    val headersToInclude          = provideHeaders.apply(requestContext.headersDefinition, headersProvided)
+    val headersToInclude = provideHeaders.apply(requestContext.headersDefinition, headersProvided)
+    // TODO: this security logic is duplicated in multiple places and messy and NEEDS TESTS
+    // TODO: e.g. cookie concatenation by hand?!
     val additionalSecurityHeaders = security match {
       case AppliedSecurity(_: HttpBearer, params) => Map("Authorization" -> s"Bearer ${params("token")}")
       case AppliedSecurity(_: HttpBasic, params)  =>
