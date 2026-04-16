@@ -116,8 +116,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
 
     val firstCall   = calls.head
     val req         = firstCall.request
-    val summary     = req.operationSummary.getOrElse("")
-    val description = req.operationDescription.getOrElse("")
+    val summary     = calls.flatMap(_.request.operationSummary).distinct.mkString(" / ")
+    val description = calls.flatMap(_.request.operationDescription).distinct.mkString("\\n\\n")
     val path        = req.symbolicPath.replaceAll("\\{", ":").replaceAll("}", "")
 
     // --- Path Params ---
