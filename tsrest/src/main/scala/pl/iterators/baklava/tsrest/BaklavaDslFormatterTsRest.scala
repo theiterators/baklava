@@ -82,6 +82,27 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private def writeTo(path: String, content: String): Unit =
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
 
+  private def buildParamsZod[P](
+      paramsPerCall: Seq[Seq[P]],
+      nameOf: P => String,
+      schemaOf: P => BaklavaSchemaSerializable,
+      quoteKeys: Boolean
+  ): Option[String] = {
+    val distinctSets = paramsPerCall.distinct
+    if (!distinctSets.exists(_.nonEmpty)) None
+    else {
+      val zds = distinctSets.map { params =>
+        val fields = params.map { p =>
+          val key          = if (quoteKeys) s""""${escapeTsDoubleQuoted(nameOf(p))}"""" else nameOf(p)
+          val nullishMaybe = if (!schemaOf(p).required) ".nullish()" else ""
+          s"$key: ${zod(schemaOf(p))}$nullishMaybe"
+        }
+        "z.object({" + fields.mkString(", ") + "})"
+      }
+      Some(collapseZodUnion(zds))
+    }
+  }
+
   private[tsrest] def contractNameFromSymbolicPath(path: String): String = {
     val cleaned = path.stripPrefix("/").stripSuffix("/")
     if (cleaned.isEmpty) "root"
@@ -121,8 +142,12 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private def createContractForEndpoint(
       endpoint: ((Option[BaklavaHttpMethod], String), Seq[BaklavaSerializableCall])
   ): String = {
-    val ((httpMethodOpt, symbolicPath), calls) = endpoint
-    val httpMethod                             = httpMethodOpt.map(_.value).getOrElse("ANY").toLowerCase
+    val ((httpMethodOpt, _), calls) = endpoint
+    require(
+      calls.nonEmpty,
+      s"createContractForEndpoint called with empty calls for method=${httpMethodOpt.map(_.value)}"
+    )
+    val httpMethod = httpMethodOpt.map(_.value).getOrElse("ANY").toLowerCase
 
     val firstCall   = calls.head
     val req         = firstCall.request
@@ -131,71 +156,24 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     // ts-rest path format: `{name}` → `:name`. Targeted regex so literal braces elsewhere in the path are preserved.
     val path = req.symbolicPath.replaceAll("""\{(\w+)\}""", ":$1")
 
-    // --- Path Params ---
-    val pathParamsSchemas = calls.map(_.request.pathParametersSeq).distinct
-    val showPathParams    = pathParamsSchemas.exists(_.nonEmpty)
-    val pathParamsZodOpt  =
-      if (!showPathParams) None
-      else {
-        val zds =
-          if (pathParamsSchemas.size == 1)
-            Seq(
-              "z.object({" + pathParamsSchemas.head
-                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
-                .mkString(", ") + "})"
-            )
-          else
-            pathParamsSchemas.map { params =>
-              "z.object({" + params
-                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
-                .mkString(", ") + "})"
-            }
-        Some(collapseZodUnion(zds))
-      }
-
-    // --- Query Params ---
-    val queryParamsSchemas = calls.map(_.request.queryParametersSeq).distinct
-    val showQueryParams    = queryParamsSchemas.exists(_.nonEmpty)
-    val queryParamsZodOpt  =
-      if (!showQueryParams) None
-      else {
-        val zds =
-          if (queryParamsSchemas.size == 1)
-            Seq(
-              "z.object({" + queryParamsSchemas.head
-                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
-                .mkString(", ") + "})"
-            )
-          else
-            queryParamsSchemas.map { params =>
-              "z.object({" + params
-                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
-                .mkString(", ") + "})"
-            }
-        Some(collapseZodUnion(zds))
-      }
-
-    // --- Headers ---
-    val headersSchemas = calls.map(_.request.headersSeq).distinct
-    val showHeaders    = headersSchemas.exists(_.nonEmpty)
-    val headersZodOpt  =
-      if (!showHeaders) None
-      else {
-        val zds =
-          if (headersSchemas.size == 1)
-            Seq(
-              "z.object({" + headersSchemas.head
-                .map(p => s""""${p.name}": ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}""")
-                .mkString(", ") + "})"
-            )
-          else
-            headersSchemas.map { params =>
-              "z.object({" + params
-                .map(p => s""""${p.name}": ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}""")
-                .mkString(", ") + "})"
-            }
-        Some(collapseZodUnion(zds))
-      }
+    val pathParamsZodOpt = buildParamsZod(
+      calls.map(_.request.pathParametersSeq),
+      (p: BaklavaPathParamSerializable) => p.name,
+      (p: BaklavaPathParamSerializable) => p.schema,
+      quoteKeys = false
+    )
+    val queryParamsZodOpt = buildParamsZod(
+      calls.map(_.request.queryParametersSeq),
+      (p: BaklavaQueryParamSerializable) => p.name,
+      (p: BaklavaQueryParamSerializable) => p.schema,
+      quoteKeys = false
+    )
+    val headersZodOpt = buildParamsZod(
+      calls.map(_.request.headersSeq),
+      (h: BaklavaHeaderSerializable) => h.name,
+      (h: BaklavaHeaderSerializable) => h.schema,
+      quoteKeys = true
+    )
     // --- Body ---
     val bodySchemas = calls.flatMap(_.request.bodySchema).distinct
     val bodyZods    =
