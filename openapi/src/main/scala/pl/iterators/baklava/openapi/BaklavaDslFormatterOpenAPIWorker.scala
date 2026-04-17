@@ -215,7 +215,10 @@ object BaklavaDslFormatterOpenAPIWorker {
           else securityRequirements
         operation.setSecurity(finalSecurityRequirements.asJava)
 
-        calls.head.request.queryParametersSeq
+        // Merge parameter declarations across every call in the operation so variants with different
+        // query/path/header sets all contribute. Previously only calls.head's parameters survived.
+        val mergedQueryParams = calls.flatMap(_.request.queryParametersSeq).distinctBy(_.name).sortBy(_.name)
+        mergedQueryParams
           .map { queryParam =>
             val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
             parameter.setName(queryParam.name)
@@ -224,12 +227,13 @@ object BaklavaDslFormatterOpenAPIWorker {
             parameter.setExplode(true) // I guess this is default?
             parameter.setSchema(baklavaSchemaToOpenAPISchema(queryParam.schema))
             queryParam.description.foreach(parameter.setDescription)
-            // TODO: we could add example best on provided in test case :shrug:
+            // Example values from captured test inputs are tracked separately in #68.
             parameter
           }
           .foreach(operation.addParametersItem)
 
-        calls.head.request.pathParametersSeq
+        val mergedPathParams = calls.flatMap(_.request.pathParametersSeq).distinctBy(_.name).sortBy(_.name)
+        mergedPathParams
           .map { pathParam =>
             val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
             parameter.setName(pathParam.name)
@@ -237,13 +241,17 @@ object BaklavaDslFormatterOpenAPIWorker {
             parameter.setRequired(pathParam.schema.required)
             parameter.setSchema(baklavaSchemaToOpenAPISchema(pathParam.schema))
             pathParam.description.foreach(parameter.setDescription)
-            // TODO: we could add example best on provided in test case :shrug:
+            // Example values from captured test inputs are tracked separately in #68.
             parameter
           }
           .foreach(operation.addParametersItem)
 
-        calls.head.request.headersSeq
+        val mergedHeaders = calls
+          .flatMap(_.request.headersSeq)
+          .distinctBy(_.name.toLowerCase)
           .filter(h => h.name.toLowerCase != "content-type" && h.name.toLowerCase != "accept" && h.name.toLowerCase != "authorization")
+          .sortBy(_.name.toLowerCase)
+        mergedHeaders
           .map { header =>
             val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
             parameter.setName(header.name)
@@ -251,7 +259,7 @@ object BaklavaDslFormatterOpenAPIWorker {
             parameter.setRequired(header.schema.required)
             parameter.setSchema(baklavaSchemaToOpenAPISchema(header.schema))
             header.description.foreach(parameter.setDescription)
-            // TODO: we could add example best on provided in test case :shrug:
+            // Example values from captured test inputs are tracked separately in #68.
             parameter
           }
           .foreach(operation.addParametersItem)
