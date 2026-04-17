@@ -46,8 +46,11 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
     messages.foreach(msg => System.err.println(s"Baklava: openapi-info parse message: $msg"))
 
     Option(result).flatMap(r => Option(r.getOpenAPI)).getOrElse {
+      // Don't echo the full raw content — it may contain URLs with tokens or large YAML.
+      // The parse messages (logged above) are the useful diagnostic.
       System.err.println(
-        s"Baklava: unable to parse openapi-info; falling back to empty OpenAPI. Raw content was: '$raw'"
+        s"Baklava: unable to parse openapi-info; falling back to empty OpenAPI. Raw content length: ${raw.length}, prefix: '${raw
+            .take(120)}${if (raw.length > 120) "..." else ""}'"
       )
       new OpenAPI()
     }

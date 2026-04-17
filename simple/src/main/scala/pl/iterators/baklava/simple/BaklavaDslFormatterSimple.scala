@@ -194,13 +194,14 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
   private def paramRow(p: BaklavaPathParamSerializable): String  = paramRow(p.name, p.schema)
   private def paramRow(p: BaklavaQueryParamSerializable): String = paramRow(p.name, p.schema)
 
-  /** Collision-free filename from a (method + path) combination. We can't make every transformation injective without ugly output, so we
-    * append a short deterministic hash of the original input. Paths like `/a/b` and `/a_b`, or `/x {y}` and `/x__y__`, no longer overwrite
-    * each other.
+  /** Collision-resistant filename from a (method + path) combination. The slash/space/brace substitutions are lossy, so we append a
+    * deterministic 32-bit hex hash of the original input to distinguish otherwise-equivalent names. Common collisions (`/a/b` vs `/a_b`,
+    * `/x {y}` vs `/x__y__`) no longer overwrite each other. A truly hostile caller could still craft a hashCode collision, but in practice
+    * this is impossible to hit accidentally.
     */
   private[simple] def toFilename(name: String): String = {
     val cleaned = name.replaceAll("/", "_").replaceAll(" ", "_").replaceAll("\\{", "__").replaceAll("}", "__")
-    f"$cleaned-${name.hashCode.abs & 0xffff}%04x.html"
+    f"$cleaned-${name.hashCode & 0xffffffffL}%08x.html"
   }
 
   private[simple] def jsonSchemaV7(baklavaSchema: BaklavaSchemaSerializable): String = baklavaSchemaToJsonSchemaV7(baklavaSchema)

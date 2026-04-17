@@ -88,9 +88,9 @@ object BaklavaDslFormatterOpenAPIWorker {
           val mergedResponseHeaders =
             commonStatusCalls
               .flatMap(_.request.responseHeaders)
-              .distinctBy(_.name)
+              .distinctBy(_.name.toLowerCase)
               .filterNot(_.name.toLowerCase == "content-type")
-              .sortBy(_.name)
+              .sortBy(_.name.toLowerCase)
           mergedResponseHeaders.foreach { header =>
             val h = new io.swagger.v3.oas.models.headers.Header()
             h.schema(baklavaSchemaToOpenAPISchema(header.schema))
