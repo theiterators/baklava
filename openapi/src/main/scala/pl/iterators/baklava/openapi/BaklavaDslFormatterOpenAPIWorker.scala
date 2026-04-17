@@ -152,19 +152,40 @@ object BaklavaDslFormatterOpenAPIWorker {
         val operation          = new io.swagger.v3.oas.models.Operation()
         val operationResponses = new ApiResponses()
         calls.groupBy(_.response.status).toList.sortBy(_._1.status).foreach { case (status, commonStatusCalls) =>
+          // One ApiResponse per status; all contentType media types accumulate into it.
+          val r       = new io.swagger.v3.oas.models.responses.ApiResponse()
+          val content = new Content()
+
+          val mergedResponseDescription =
+            commonStatusCalls.flatMap(_.request.responseDescription).distinct.sorted.mkString(" / ")
+          if (mergedResponseDescription.nonEmpty) r.setDescription(mergedResponseDescription)
+
+          val mergedResponseHeaders =
+            commonStatusCalls
+              .flatMap(_.request.responseHeaders)
+              .distinctBy(_.name)
+              .filterNot(_.name.toLowerCase == "content-type")
+              .sortBy(_.name)
+          mergedResponseHeaders.foreach { header =>
+            val h = new io.swagger.v3.oas.models.headers.Header()
+            h.schema(baklavaSchemaToOpenAPISchema(header.schema))
+            h.setRequired(header.schema.required)
+            header.description.foreach(h.setDescription)
+            caseInsensitiveHeaderLookup(commonStatusCalls, header.name).foreach(h.example)
+            r.addHeaderObject(header.name, h)
+          }
+
+          var anyMediaTypeEmitted = false
           commonStatusCalls
             .groupBy(_.response.responseContentType)
             .toList
             .sortBy(_._1.getOrElse(""))
             .foreach { case (contentType, unsortedContentTypeCalls) =>
               val commonContentTypeCalls = unsortedContentTypeCalls.sortBy(_.request.responseDescription.getOrElse(""))
-              val r                      = new io.swagger.v3.oas.models.responses.ApiResponse()
-              val content                = new Content()
               val mediaType              = new io.swagger.v3.oas.models.media.MediaType()
               val firstSchema            = commonContentTypeCalls.flatMap(_.response.bodySchema).headOption
-              firstSchema.foreach { schema =>
-                mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
-              }
+              firstSchema.foreach(schema => mediaType.schema(baklavaSchemaToOpenAPISchema(schema)))
+
               val usedExampleKeys = scala.collection.mutable.Set.empty[String]
               commonContentTypeCalls.zipWithIndex.foreach { case (BaklavaSerializableCall(ctx, response), idx) =>
                 val responseStr =
@@ -179,28 +200,15 @@ object BaklavaDslFormatterOpenAPIWorker {
                   new io.swagger.v3.oas.models.examples.Example().value(responseStr)
                 )
               }
-              val mergedResponseDescription =
-                commonStatusCalls.flatMap(_.request.responseDescription).distinct.sorted.mkString(" / ")
-              if (mergedResponseDescription.nonEmpty) r.setDescription(mergedResponseDescription)
-              val mergedResponseHeaders =
-                commonContentTypeCalls
-                  .flatMap(_.request.responseHeaders)
-                  .distinctBy(_.name)
-                  .filterNot(_.name.toLowerCase == "content-type")
-                  .sortBy(_.name)
-              mergedResponseHeaders.foreach { header =>
-                val h = new io.swagger.v3.oas.models.headers.Header()
-                h.schema(baklavaSchemaToOpenAPISchema(header.schema))
-                h.setRequired(header.schema.required)
-                header.description.foreach(h.setDescription)
-                caseInsensitiveHeaderLookup(commonContentTypeCalls, header.name).foreach(h.example)
-                r.addHeaderObject(header.name, h)
+
+              if (firstSchema.isDefined) {
+                content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
+                anyMediaTypeEmitted = true
               }
-              content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
-              if (firstSchema.isDefined)
-                r.setContent(content)
-              operationResponses.addApiResponse(status.status.toString, r)
             }
+
+          if (anyMediaTypeEmitted) r.setContent(content)
+          operationResponses.addApiResponse(status.status.toString, r)
         }
         operation.responses(operationResponses)
 
