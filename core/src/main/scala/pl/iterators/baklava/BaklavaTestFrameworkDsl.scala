@@ -505,11 +505,16 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
   }
 
   trait WithSetupBuilder[S] {
+
+    /** Lazy form: construct the request from the setup value at test-execution time. */
     def request[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
         f: S => OnRequest[RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided]
     ): WithSetupRequestBuilder[S, RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided]
 
-    def request[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
+    /** Eager form: when the request values don't depend on the setup value, use the same named arguments as the top-level
+      * `onRequest(...)`. The setup value still flows to `.assert`.
+      */
+    def onRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
         body: RequestBody = EmptyBodyInstance: EmptyBody,
         security: AppliedSecurity = AppliedSecurity(NoopSecurity, Map.empty),
         pathParameters: PathParametersProvided = (),
@@ -526,7 +531,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       ): WithSetupRequestBuilder[S, RequestBody, PathParametersProvided, QueryParametersProvided, HeadersProvided] =
         makeRequestBuilder(setupThunk, f)
 
-      override def request[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
+      override def onRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
           body: RequestBody,
           security: AppliedSecurity,
           pathParameters: PathParametersProvided,

@@ -332,14 +332,15 @@ When a scenario needs to produce request values from setup logic — for example
 def withSetup[S](setup: => S): WithSetupBuilder[S]
 ```
 
-`WithSetupBuilder[S]` has two overloaded `.request` methods:
+`WithSetupBuilder[S]` exposes two methods:
 
 ```scala
 // Lazy form — function of the setup value
 def request[...](f: S => OnRequest[...]): WithSetupRequestBuilder[...]
 
-// Eager form — static fields, same named arguments as the top-level onRequest(...)
-def request[...](
+// Eager form — static fields, same named arguments as the top-level onRequest(...).
+// Distinct method name (not an overload) so Scala 2.13 can infer the lazy lambda's type.
+def onRequest[...](
     body: RequestBody            = EmptyBodyInstance: EmptyBody,
     security: AppliedSecurity    = AppliedSecurity(NoopSecurity, Map.empty),
     pathParameters: ...          = (),
@@ -363,7 +364,7 @@ path("/v1/auctions/{auctionId}")(
       application.transactor
         .inSession(seedUser(seller) *> seedAuction(AuctionId(UUID.randomUUID()), seller.id))
         .unsafeRunSync()
-    }.request { (auction: Auction) =>
+    }.request { auction =>
       onRequest(pathParameters = auction.id)
     }.respondsWith[AuctionDto](OK, description = "Auction found")
       .assert { case (ctx, auction) =>
@@ -382,7 +383,7 @@ When the request values are static but the assertion needs data from setup:
 withSetup {
   application.transactor.inSession(seedUser(seller)).unsafeRunSync()
   seller
-}.request(body = sampleCreateRequest(), security = bearer.apply(validJwt(sellerAuth)))
+}.onRequest(body = sampleCreateRequest(), security = bearer.apply(validJwt(sellerAuth)))
   .respondsWith[AuctionDto](Created)
   .assert { case (ctx, seller) =>
     val response = ctx.performRequest(allRoutes)
@@ -394,7 +395,7 @@ withSetup {
 
 - `setup` is synchronous. If it runs IO, call `.unsafeRunSync()` (or equivalent) inside the block.
 - The setup block runs once per scenario, at test-execution time — not at class-construction time. Each scenario's setup is independent.
-- **Scala 2.13** requires an explicit type annotation on the lambda parameter of the lazy `.request { ... }` form (e.g., `.request { (id: Long) => ... }`). Scala 3 does not require this.
+- The lazy form uses `.request { s => onRequest(...) }` and the eager form uses `.onRequest(body = ..., ...)` — two distinct method names so Scala 2.13 infers the lazy lambda's parameter type without an explicit annotation.
 - OpenAPI output is unaffected by `withSetup`: parameter schemas still come from `supports(...)`, and request/response body examples still come from the live HTTP transaction.
 - The existing `onRequest(...).respondsWith(...).assert { ctx => ... }` chain remains fully supported and unchanged — `withSetup` is additive.
 
