@@ -116,8 +116,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
 
     val firstCall   = calls.head
     val req         = firstCall.request
-    val summary     = req.operationSummary.getOrElse("")
-    val description = req.operationDescription.getOrElse("")
+    val summary     = escapeTsSingleQuoted(calls.flatMap(_.request.operationSummary).distinct.mkString(" / "))
+    val description = escapeTsSingleQuoted(calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n"))
     val path        = req.symbolicPath.replaceAll("\\{", ":").replaceAll("}", "")
 
     // --- Path Params ---
@@ -249,6 +249,9 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       }
       .mkString
   }
+
+  private def escapeTsSingleQuoted(s: String): String =
+    s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
 
   private def zod(schema: BaklavaSchemaSerializable): String = {
     val desc = schema.description.map(d => s""".describe("${d.replace("\"", "'").replace("\n", "\\n")}")""").getOrElse("")

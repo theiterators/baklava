@@ -219,26 +219,36 @@ object BaklavaDslFormatterOpenAPIWorker {
         requestBody.setContent(content)
         if (!content.isEmpty) operation.setRequestBody(requestBody)
 
-        calls.head.request.operationId.foreach(operation.setOperationId)
-        calls.head.request.operationSummary.foreach(operation.setSummary)
-        calls.head.request.operationDescription.foreach(operation.setDescription)
-        operation.setTags(calls.head.request.operationTags.asJava)
+        val distinctOperationIds = calls.flatMap(_.request.operationId).distinct
+        if (distinctOperationIds.size == 1) operation.setOperationId(distinctOperationIds.head)
+        val mergedSummary = calls.flatMap(_.request.operationSummary).distinct.mkString(" / ")
+        if (mergedSummary.nonEmpty) operation.setSummary(mergedSummary)
+        val mergedDescription = calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n")
+        if (mergedDescription.nonEmpty) operation.setDescription(mergedDescription)
+        operation.setTags(calls.flatMap(_.request.operationTags).distinct.asJava)
 
-        operation.setSecurity(calls.head.request.securitySchemes.map { ss =>
-          def extractOAuthScopes(flows: OAuthFlows): Seq[String] = {
-            (flows.implicitFlow.toList.flatMap(_.scopes.keys) ++
-              flows.passwordFlow.toList.flatMap(_.scopes.keys) ++
-              flows.authorizationCodeFlow.toList.flatMap(_.scopes.keys) ++
-              flows.clientCredentialsFlow.toList.flatMap(_.scopes.keys)).distinct
-          }
+        def extractOAuthScopes(flows: OAuthFlows): Seq[String] = {
+          (flows.implicitFlow.toList.flatMap(_.scopes.keys) ++
+            flows.passwordFlow.toList.flatMap(_.scopes.keys) ++
+            flows.authorizationCodeFlow.toList.flatMap(_.scopes.keys) ++
+            flows.clientCredentialsFlow.toList.flatMap(_.scopes.keys)).distinct
+        }
 
+        val distinctSchemes           = calls.flatMap(_.request.securitySchemes).distinctBy(_.name)
+        val hasUnauthenticatedVariant = calls.exists(_.request.securitySchemes.isEmpty)
+        val securityRequirements      = distinctSchemes.map { ss =>
           val scopes = ss.security.oAuth2InBearer
             .map(oAuth2 => extractOAuthScopes(oAuth2.flows))
             .orElse(ss.security.oAuth2InCookie.map(oAuth2 => extractOAuthScopes(oAuth2.flows)))
             .getOrElse(Seq.empty)
 
           new io.swagger.v3.oas.models.security.SecurityRequirement().addList(ss.name, scopes.asJava)
-        }.asJava)
+        }
+        val finalSecurityRequirements =
+          if (hasUnauthenticatedVariant && distinctSchemes.nonEmpty)
+            new io.swagger.v3.oas.models.security.SecurityRequirement() +: securityRequirements
+          else securityRequirements
+        operation.setSecurity(finalSecurityRequirements.asJava)
 
         calls.head.request.queryParametersSeq
           .map { queryParam =>
