@@ -52,99 +52,24 @@ object BaklavaDslFormatterOpenAPIWorker {
       }
       scheme.security.oAuth2InBearer.foreach { case OAuth2InBearer(flows, _) =>
         securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OAUTH2)
-        val oauthFlows = new io.swagger.v3.oas.models.security.OAuthFlows()
-        flows.implicitFlow.foreach { implicitFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setAuthorizationUrl(implicitFlow.authorizationUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          implicitFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setImplicit(flow)
-        }
-        flows.passwordFlow.foreach { passwordFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setTokenUrl(passwordFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          passwordFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setPassword(flow)
-        }
-        flows.authorizationCodeFlow.foreach { authorizationCodeFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setAuthorizationUrl(authorizationCodeFlow.authorizationUrl.toString)
-          flow.setTokenUrl(authorizationCodeFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          authorizationCodeFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setAuthorizationCode(flow)
-        }
-        flows.clientCredentialsFlow.foreach { clientCredentialsFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setTokenUrl(clientCredentialsFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          clientCredentialsFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setClientCredentials(flow)
-        }
-        securityScheme.setFlows(oauthFlows)
+        securityScheme.setFlows(buildOAuthFlows(flows))
       }
       scheme.security.oAuth2InCookie.foreach { case OAuth2InCookie(flows, _) =>
         securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OAUTH2)
-        val oauthFlows = new io.swagger.v3.oas.models.security.OAuthFlows()
-        flows.implicitFlow.foreach { implicitFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setAuthorizationUrl(implicitFlow.authorizationUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          implicitFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setImplicit(flow)
-        }
-        flows.passwordFlow.foreach { passwordFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setTokenUrl(passwordFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          passwordFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setPassword(flow)
-        }
-        flows.authorizationCodeFlow.foreach { authorizationCodeFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setAuthorizationUrl(authorizationCodeFlow.authorizationUrl.toString)
-          flow.setTokenUrl(authorizationCodeFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          authorizationCodeFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setAuthorizationCode(flow)
-        }
-        flows.clientCredentialsFlow.foreach { clientCredentialsFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setTokenUrl(clientCredentialsFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          clientCredentialsFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setClientCredentials(flow)
-        }
-        securityScheme.setFlows(oauthFlows)
+        securityScheme.setFlows(buildOAuthFlows(flows))
       }
       scheme.name -> securityScheme
     }
-    openAPI.components(new io.swagger.v3.oas.models.Components().securitySchemes(securitySchemes.toMap.asJava))
+
+    // Merge generated security schemes into any user-supplied components (e.g. from openapi-info).
+    // distinctBy above keeps first; we preserve the first-wins semantics here too by skipping
+    // schemes the user has already declared under the same name.
+    val components      = Option(openAPI.getComponents).getOrElse(new io.swagger.v3.oas.models.Components())
+    val existingSchemes = Option(components.getSecuritySchemes).map(_.asScala.keySet.toSet).getOrElse(Set.empty)
+    securitySchemes.foreach { case (name, scheme) =>
+      if (!existingSchemes.contains(name)) components.addSecuritySchemes(name, scheme)
+    }
+    openAPI.components(components)
 
     calls.groupBy(_.request.symbolicPath).toList.sortBy(_._1).foreach { case (path, calls) =>
       val pathItem = new io.swagger.v3.oas.models.PathItem()
@@ -339,6 +264,44 @@ object BaklavaDslFormatterOpenAPIWorker {
       }
       openAPI.path(path, pathItem)
     }
+  }
+
+  private def buildOAuthFlows(flows: OAuthFlows): io.swagger.v3.oas.models.security.OAuthFlows = {
+    val oauthFlows = new io.swagger.v3.oas.models.security.OAuthFlows()
+
+    def scopesOf(entries: Map[String, String]): io.swagger.v3.oas.models.security.Scopes = {
+      val scopes = new io.swagger.v3.oas.models.security.Scopes()
+      entries.foreach { case (name, description) => scopes.addString(name, description) }
+      scopes
+    }
+
+    flows.implicitFlow.foreach { implicitFlow =>
+      val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+      flow.setAuthorizationUrl(implicitFlow.authorizationUrl.toString)
+      flow.setScopes(scopesOf(implicitFlow.scopes))
+      oauthFlows.setImplicit(flow)
+    }
+    flows.passwordFlow.foreach { passwordFlow =>
+      val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+      flow.setTokenUrl(passwordFlow.tokenUrl.toString)
+      flow.setScopes(scopesOf(passwordFlow.scopes))
+      oauthFlows.setPassword(flow)
+    }
+    flows.authorizationCodeFlow.foreach { authorizationCodeFlow =>
+      val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+      flow.setAuthorizationUrl(authorizationCodeFlow.authorizationUrl.toString)
+      flow.setTokenUrl(authorizationCodeFlow.tokenUrl.toString)
+      flow.setScopes(scopesOf(authorizationCodeFlow.scopes))
+      oauthFlows.setAuthorizationCode(flow)
+    }
+    flows.clientCredentialsFlow.foreach { clientCredentialsFlow =>
+      val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+      flow.setTokenUrl(clientCredentialsFlow.tokenUrl.toString)
+      flow.setScopes(scopesOf(clientCredentialsFlow.scopes))
+      oauthFlows.setClientCredentials(flow)
+    }
+
+    oauthFlows
   }
 
   private def disambiguateKey(baseKey: String, used: scala.collection.mutable.Set[String]): String = {

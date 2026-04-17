@@ -210,6 +210,37 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
       }
     }
 
+    describe("components merging") {
+      it("preserves user-supplied components (e.g. pre-parsed from openapi-info)") {
+        val openAPI       = new OpenAPI()
+        val userComponent = new io.swagger.v3.oas.models.Components()
+        val userSchema    = new io.swagger.v3.oas.models.media.Schema[AnyRef]()
+        userSchema.setType("string")
+        userComponent.addSchemas("UserProvidedSchema", userSchema)
+        openAPI.components(userComponent)
+
+        val c = call("GET", "/v1/merge", Some("m"), Some("d"), Nil, Some("m"), Seq(bearerScheme))
+        BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(c))
+
+        openAPI.getComponents.getSchemas.keySet.asScala should contain("UserProvidedSchema")
+        openAPI.getComponents.getSecuritySchemes.keySet.asScala should contain("bearerAuth")
+      }
+
+      it("respects a user-supplied securityScheme under the same name without overwriting") {
+        val openAPI       = new OpenAPI()
+        val userComponent = new io.swagger.v3.oas.models.Components()
+        val userAuth      = new io.swagger.v3.oas.models.security.SecurityScheme()
+        userAuth.setDescription("user-supplied")
+        userComponent.addSecuritySchemes("bearerAuth", userAuth)
+        openAPI.components(userComponent)
+
+        val c = call("GET", "/v1/dup", Some("m"), Some("d"), Nil, Some("m"), Seq(bearerScheme))
+        BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(c))
+
+        openAPI.getComponents.getSecuritySchemes.get("bearerAuth").getDescription shouldBe "user-supplied"
+      }
+    }
+
     describe("example key deduplication") {
       it("disambiguates duplicate response-example keys with numeric suffixes") {
         val sameDescription = "Some response"
