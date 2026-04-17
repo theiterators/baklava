@@ -152,39 +152,46 @@ object BaklavaDslFormatterOpenAPIWorker {
         val operation          = new io.swagger.v3.oas.models.Operation()
         val operationResponses = new ApiResponses()
         calls.groupBy(_.response.status).toList.sortBy(_._1.status).foreach { case (status, commonStatusCalls) =>
-          commonStatusCalls.groupBy(_.response.responseContentType).foreach { case (contentType, commonContentTypeCalls) =>
-            val r           = new io.swagger.v3.oas.models.responses.ApiResponse()
-            val content     = new Content()
-            val mediaType   = new io.swagger.v3.oas.models.media.MediaType()
-            val firstSchema = commonContentTypeCalls.flatMap(_.response.bodySchema).headOption
-            firstSchema.foreach { schema =>
-              mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
-            }
-            commonContentTypeCalls.zipWithIndex.foreach { case (BaklavaSerializableCall(ctx, response), idx) =>
-              val responseStr =
-                if (contentType.contains("application/json"))
-                  parse(response.responseBodyString).map(_.printWith(Printer.spaces2)).getOrElse(response.responseBodyString)
-                else response.responseBodyString
+          commonStatusCalls
+            .groupBy(_.response.responseContentType)
+            .toList
+            .sortBy(_._1.getOrElse(""))
+            .foreach { case (contentType, unsortedContentTypeCalls) =>
+              val commonContentTypeCalls = unsortedContentTypeCalls.sortBy(_.request.responseDescription.getOrElse(""))
+              val r                      = new io.swagger.v3.oas.models.responses.ApiResponse()
+              val content                = new Content()
+              val mediaType              = new io.swagger.v3.oas.models.media.MediaType()
+              val firstSchema            = commonContentTypeCalls.flatMap(_.response.bodySchema).headOption
+              firstSchema.foreach { schema =>
+                mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
+              }
+              commonContentTypeCalls.zipWithIndex.foreach { case (BaklavaSerializableCall(ctx, response), idx) =>
+                val responseStr =
+                  if (contentType.contains("application/json"))
+                    parse(response.responseBodyString).map(_.printWith(Printer.spaces2)).getOrElse(response.responseBodyString)
+                  else response.responseBodyString
 
-              mediaType.addExamples(
-                ctx.responseDescription.getOrElse(s"Example $idx"),
-                new io.swagger.v3.oas.models.examples.Example().value(responseStr)
-              )
+                mediaType.addExamples(
+                  ctx.responseDescription.getOrElse(s"Example $idx"),
+                  new io.swagger.v3.oas.models.examples.Example().value(responseStr)
+                )
+              }
+              val mergedResponseDescription =
+                commonStatusCalls.flatMap(_.request.responseDescription).distinct.mkString(" / ")
+              if (mergedResponseDescription.nonEmpty) r.setDescription(mergedResponseDescription)
+              commonContentTypeCalls.head.request.responseHeaders.filterNot { _.name == "content-type" }.foreach { header =>
+                val h = new io.swagger.v3.oas.models.headers.Header()
+                h.schema(baklavaSchemaToOpenAPISchema(header.schema))
+                h.setRequired(header.schema.required)
+                header.description.foreach(h.setDescription)
+                h.example(commonContentTypeCalls.head.response.headers.headers(header.name)) // TODO: make case-insensitive
+                r.addHeaderObject(header.name, h)
+              }
+              content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
+              if (firstSchema.isDefined)
+                r.setContent(content)
+              operationResponses.addApiResponse(status.status.toString, r)
             }
-            commonStatusCalls.head.request.responseDescription.foreach(r.setDescription)
-            commonContentTypeCalls.head.request.responseHeaders.filterNot { _.name == "content-type" }.foreach { header =>
-              val h = new io.swagger.v3.oas.models.headers.Header()
-              h.schema(baklavaSchemaToOpenAPISchema(header.schema))
-              h.setRequired(header.schema.required)
-              header.description.foreach(h.setDescription)
-              h.example(commonContentTypeCalls.head.response.headers.headers(header.name)) // TODO: make case-insensitive
-              r.addHeaderObject(header.name, h)
-            }
-            content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
-            if (firstSchema.isDefined)
-              r.setContent(content)
-            operationResponses.addApiResponse(status.status.toString, r)
-          }
         }
         operation.responses(operationResponses)
 
@@ -196,26 +203,31 @@ object BaklavaDslFormatterOpenAPIWorker {
         val successfulCalls    = calls.filter(_.response.status.status / 100 == 2).sortBy(_.response.status.status)
         val responsesToProcess =
           if (successfulCalls.isEmpty) calls else successfulCalls // sometimes there are no successful responses
-        responsesToProcess.groupBy(_.response.requestContentType).foreach { case (contentType, calls) =>
-          val mediaType   = new io.swagger.v3.oas.models.media.MediaType()
-          val firstSchema = calls.flatMap(_.request.bodySchema).headOption
-          firstSchema.foreach { schema =>
-            mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
-            calls.zipWithIndex.foreach { case (call, idx) =>
-              // todo this is wierd that requestBodyString is in response
-              val requestStr =
-                if (contentType.contains("application/json"))
-                  parse(call.response.requestBodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.response.requestBodyString)
-                else call.response.requestBodyString
+        responsesToProcess
+          .groupBy(_.response.requestContentType)
+          .toList
+          .sortBy(_._1.getOrElse(""))
+          .foreach { case (contentType, unsortedCalls) =>
+            val calls       = unsortedCalls.sortBy(_.request.responseDescription.getOrElse(""))
+            val mediaType   = new io.swagger.v3.oas.models.media.MediaType()
+            val firstSchema = calls.flatMap(_.request.bodySchema).headOption
+            firstSchema.foreach { schema =>
+              mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
+              calls.zipWithIndex.foreach { case (call, idx) =>
+                // todo this is wierd that requestBodyString is in response
+                val requestStr =
+                  if (contentType.contains("application/json"))
+                    parse(call.response.requestBodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.response.requestBodyString)
+                  else call.response.requestBodyString
 
-              mediaType.addExamples(
-                call.request.responseDescription.getOrElse(s"Example $idx"),
-                new io.swagger.v3.oas.models.examples.Example().value(requestStr)
-              )
+                mediaType.addExamples(
+                  call.request.responseDescription.getOrElse(s"Example $idx"),
+                  new io.swagger.v3.oas.models.examples.Example().value(requestStr)
+                )
+              }
+              content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
             }
-            content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
           }
-        }
         requestBody.setContent(content)
         if (!content.isEmpty) operation.setRequestBody(requestBody)
 
