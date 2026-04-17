@@ -112,6 +112,30 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
     }
   }
 
+  describe("toTsRestPath") {
+
+    it("converts simple {name} placeholders to :name") {
+      generator.toTsRestPath("/users/{id}") shouldBe "/users/:id"
+      generator.toTsRestPath("/a/{x}/b/{y}") shouldBe "/a/:x/b/:y"
+    }
+
+    it("converts placeholder names containing hyphens, dots, and underscores (regression)") {
+      generator.toTsRestPath("/users/{user-id}") shouldBe "/users/:user-id"
+      generator.toTsRestPath("/files/{file.name}") shouldBe "/files/:file.name"
+      generator.toTsRestPath("/events/{event_id}") shouldBe "/events/:event_id"
+    }
+
+    it("leaves paths without placeholders untouched") {
+      generator.toTsRestPath("/health") shouldBe "/health"
+      generator.toTsRestPath("/") shouldBe "/"
+    }
+
+    it("does not rewrite a lone brace or a brace span that contains a slash") {
+      generator.toTsRestPath("/foo{bar") shouldBe "/foo{bar"
+      generator.toTsRestPath("/{a/b}") shouldBe "/{a/b}"
+    }
+  }
+
   private def stringSchema(description: Option[String] = None, enumValues: Option[Set[String]] = None): BaklavaSchemaSerializable =
     BaklavaSchemaSerializable(
       className = "String",

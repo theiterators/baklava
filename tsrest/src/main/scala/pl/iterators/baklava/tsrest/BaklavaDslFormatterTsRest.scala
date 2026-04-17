@@ -103,6 +103,12 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     }
   }
 
+  /** Convert a Baklava `{name}` placeholder path to the ts-rest `:name` syntax. Non-placeholder braces (i.e. anything containing `/` or
+    * nested braces) are left alone. Param names can contain any character except `{`, `}`, or `/` — so hyphens and dots survive.
+    */
+  private[tsrest] def toTsRestPath(symbolicPath: String): String =
+    symbolicPath.replaceAll("""\{([^{}/]+)\}""", ":$1")
+
   private[tsrest] def contractNameFromSymbolicPath(path: String): String = {
     val cleaned = path.stripPrefix("/").stripSuffix("/")
     if (cleaned.isEmpty) "root"
@@ -153,8 +159,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     val req         = firstCall.request
     val summary     = escapeTsSingleQuoted(calls.flatMap(_.request.operationSummary).distinct.mkString(" / "))
     val description = escapeTsSingleQuoted(calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n"))
-    // ts-rest path format: `{name}` → `:name`. Targeted regex so literal braces elsewhere in the path are preserved.
-    val path = req.symbolicPath.replaceAll("""\{(\w+)\}""", ":$1")
+    val path        = toTsRestPath(req.symbolicPath)
 
     val pathParamsZodOpt = buildParamsZod(
       calls.map(_.request.pathParametersSeq),
