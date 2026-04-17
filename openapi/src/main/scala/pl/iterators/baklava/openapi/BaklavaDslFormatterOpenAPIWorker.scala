@@ -52,99 +52,24 @@ object BaklavaDslFormatterOpenAPIWorker {
       }
       scheme.security.oAuth2InBearer.foreach { case OAuth2InBearer(flows, _) =>
         securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OAUTH2)
-        val oauthFlows = new io.swagger.v3.oas.models.security.OAuthFlows()
-        flows.implicitFlow.foreach { implicitFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setAuthorizationUrl(implicitFlow.authorizationUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          implicitFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setImplicit(flow)
-        }
-        flows.passwordFlow.foreach { passwordFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setTokenUrl(passwordFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          passwordFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setPassword(flow)
-        }
-        flows.authorizationCodeFlow.foreach { authorizationCodeFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setAuthorizationUrl(authorizationCodeFlow.authorizationUrl.toString)
-          flow.setTokenUrl(authorizationCodeFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          authorizationCodeFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setAuthorizationCode(flow)
-        }
-        flows.clientCredentialsFlow.foreach { clientCredentialsFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setTokenUrl(clientCredentialsFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          clientCredentialsFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setClientCredentials(flow)
-        }
-        securityScheme.setFlows(oauthFlows)
+        securityScheme.setFlows(buildOAuthFlows(flows))
       }
       scheme.security.oAuth2InCookie.foreach { case OAuth2InCookie(flows, _) =>
         securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OAUTH2)
-        val oauthFlows = new io.swagger.v3.oas.models.security.OAuthFlows()
-        flows.implicitFlow.foreach { implicitFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setAuthorizationUrl(implicitFlow.authorizationUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          implicitFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setImplicit(flow)
-        }
-        flows.passwordFlow.foreach { passwordFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setTokenUrl(passwordFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          passwordFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setPassword(flow)
-        }
-        flows.authorizationCodeFlow.foreach { authorizationCodeFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setAuthorizationUrl(authorizationCodeFlow.authorizationUrl.toString)
-          flow.setTokenUrl(authorizationCodeFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          authorizationCodeFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setAuthorizationCode(flow)
-        }
-        flows.clientCredentialsFlow.foreach { clientCredentialsFlow =>
-          val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
-          flow.setTokenUrl(clientCredentialsFlow.tokenUrl.toString)
-          val scopes = new io.swagger.v3.oas.models.security.Scopes()
-          clientCredentialsFlow.scopes.foreach { case (name, description) =>
-            scopes.addString(name, description)
-          }
-          flow.setScopes(scopes)
-          oauthFlows.setClientCredentials(flow)
-        }
-        securityScheme.setFlows(oauthFlows)
+        securityScheme.setFlows(buildOAuthFlows(flows))
       }
       scheme.name -> securityScheme
     }
-    openAPI.components(new io.swagger.v3.oas.models.Components().securitySchemes(securitySchemes.toMap.asJava))
+
+    // Merge generated security schemes into any user-supplied components (e.g. from openapi-info).
+    // distinctBy above keeps first; we preserve the first-wins semantics here too by skipping
+    // schemes the user has already declared under the same name.
+    val components      = Option(openAPI.getComponents).getOrElse(new io.swagger.v3.oas.models.Components())
+    val existingSchemes = Option(components.getSecuritySchemes).map(_.asScala.keySet.toSet).getOrElse(Set.empty)
+    securitySchemes.foreach { case (name, scheme) =>
+      if (!existingSchemes.contains(name)) { val _ = components.addSecuritySchemes(name, scheme) }
+    }
+    val _ = openAPI.components(components)
 
     calls.groupBy(_.request.symbolicPath).toList.sortBy(_._1).foreach { case (path, calls) =>
       val pathItem = new io.swagger.v3.oas.models.PathItem()
@@ -152,48 +77,65 @@ object BaklavaDslFormatterOpenAPIWorker {
         val operation          = new io.swagger.v3.oas.models.Operation()
         val operationResponses = new ApiResponses()
         calls.groupBy(_.response.status).toList.sortBy(_._1.status).foreach { case (status, commonStatusCalls) =>
+          // One ApiResponse per status; all contentType media types accumulate into it.
+          val r       = new io.swagger.v3.oas.models.responses.ApiResponse()
+          val content = new Content()
+
+          val mergedResponseDescription =
+            commonStatusCalls.flatMap(_.request.responseDescription).distinct.sorted.mkString(" / ")
+          if (mergedResponseDescription.nonEmpty) r.setDescription(mergedResponseDescription)
+
+          val mergedResponseHeaders =
+            commonStatusCalls
+              .flatMap(_.request.responseHeaders)
+              .distinctBy(_.name.toLowerCase)
+              .filterNot(_.name.toLowerCase == "content-type")
+              .sortBy(_.name.toLowerCase)
+          mergedResponseHeaders.foreach { header =>
+            val h = new io.swagger.v3.oas.models.headers.Header()
+            h.schema(baklavaSchemaToOpenAPISchema(header.schema))
+            h.setRequired(header.schema.required)
+            header.description.foreach(h.setDescription)
+            caseInsensitiveHeaderLookup(commonStatusCalls, header.name).foreach(h.example)
+            val _ = r.addHeaderObject(header.name, h)
+          }
+
+          var anyMediaTypeEmitted = false
           commonStatusCalls
             .groupBy(_.response.responseContentType)
             .toList
             .sortBy(_._1.getOrElse(""))
             .foreach { case (contentType, unsortedContentTypeCalls) =>
               val commonContentTypeCalls = unsortedContentTypeCalls.sortBy(_.request.responseDescription.getOrElse(""))
-              val r                      = new io.swagger.v3.oas.models.responses.ApiResponse()
-              val content                = new Content()
               val mediaType              = new io.swagger.v3.oas.models.media.MediaType()
               val firstSchema            = commonContentTypeCalls.flatMap(_.response.bodySchema).headOption
-              firstSchema.foreach { schema =>
-                mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
-              }
+              firstSchema.foreach(schema => mediaType.schema(baklavaSchemaToOpenAPISchema(schema)))
+
+              val usedExampleKeys = scala.collection.mutable.Set.empty[String]
               commonContentTypeCalls.zipWithIndex.foreach { case (BaklavaSerializableCall(ctx, response), idx) =>
                 val responseStr =
                   if (contentType.contains("application/json"))
                     parse(response.responseBodyString).map(_.printWith(Printer.spaces2)).getOrElse(response.responseBodyString)
                   else response.responseBodyString
 
-                mediaType.addExamples(
-                  ctx.responseDescription.getOrElse(s"Example $idx"),
+                val baseKey   = ctx.responseDescription.getOrElse(s"Example $idx")
+                val uniqueKey = disambiguateKey(baseKey, usedExampleKeys)
+                val _         = mediaType.addExamples(
+                  uniqueKey,
                   new io.swagger.v3.oas.models.examples.Example().value(responseStr)
                 )
               }
-              val mergedResponseDescription =
-                commonStatusCalls.flatMap(_.request.responseDescription).distinct.sorted.mkString(" / ")
-              if (mergedResponseDescription.nonEmpty) r.setDescription(mergedResponseDescription)
-              commonContentTypeCalls.head.request.responseHeaders.filterNot { _.name == "content-type" }.foreach { header =>
-                val h = new io.swagger.v3.oas.models.headers.Header()
-                h.schema(baklavaSchemaToOpenAPISchema(header.schema))
-                h.setRequired(header.schema.required)
-                header.description.foreach(h.setDescription)
-                h.example(commonContentTypeCalls.head.response.headers.headers(header.name)) // TODO: make case-insensitive
-                r.addHeaderObject(header.name, h)
+
+              if (firstSchema.isDefined) {
+                val _ = content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
+                anyMediaTypeEmitted = true
               }
-              content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
-              if (firstSchema.isDefined)
-                r.setContent(content)
-              operationResponses.addApiResponse(status.status.toString, r)
             }
+
+          if (anyMediaTypeEmitted) { val _ = r.setContent(content) }
+          val _ = operationResponses.addApiResponse(status.status.toString, r)
         }
-        operation.responses(operationResponses)
+        val _ = operation.responses(operationResponses)
 
         // TODO: are we sure? bodyRequest could be moved to METHOD-level as it's defined on the `operation` level in OpenAPI but
         // this would make the DSL less intuitive
@@ -209,27 +151,38 @@ object BaklavaDslFormatterOpenAPIWorker {
           .sortBy(_._1.getOrElse(""))
           .foreach { case (contentType, unsortedCalls) =>
             val calls       = unsortedCalls.sortBy(_.request.responseDescription.getOrElse(""))
-            val mediaType   = new io.swagger.v3.oas.models.media.MediaType()
             val firstSchema = calls.flatMap(_.request.bodySchema).headOption
-            firstSchema.foreach { schema =>
-              mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
+            val hasAnyBody  = calls.exists(_.response.requestBodyString.nonEmpty)
+
+            // Emit a media-type entry when there's either a captured contentType, a schema,
+            // or some request body evidence — skipping only the pure "no body at all" case
+            // (e.g. GET requests with no payload).
+            if (contentType.isDefined || firstSchema.isDefined || hasAnyBody) {
+              val mediaType = new io.swagger.v3.oas.models.media.MediaType()
+              firstSchema.foreach(schema => mediaType.schema(baklavaSchemaToOpenAPISchema(schema)))
+
+              val usedRequestExampleKeys = scala.collection.mutable.Set.empty[String]
               calls.zipWithIndex.foreach { case (call, idx) =>
                 // todo this is wierd that requestBodyString is in response
-                val requestStr =
-                  if (contentType.contains("application/json"))
-                    parse(call.response.requestBodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.response.requestBodyString)
-                  else call.response.requestBodyString
+                if (call.response.requestBodyString.nonEmpty) {
+                  val requestStr =
+                    if (contentType.contains("application/json"))
+                      parse(call.response.requestBodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.response.requestBodyString)
+                    else call.response.requestBodyString
 
-                mediaType.addExamples(
-                  call.request.responseDescription.getOrElse(s"Example $idx"),
-                  new io.swagger.v3.oas.models.examples.Example().value(requestStr)
-                )
+                  val baseKey   = call.request.responseDescription.getOrElse(s"Example $idx")
+                  val uniqueKey = disambiguateKey(baseKey, usedRequestExampleKeys)
+                  val _         = mediaType.addExamples(
+                    uniqueKey,
+                    new io.swagger.v3.oas.models.examples.Example().value(requestStr)
+                  )
+                }
               }
-              content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
+              val _ = content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
             }
           }
-        requestBody.setContent(content)
-        if (!content.isEmpty) operation.setRequestBody(requestBody)
+        val _ = requestBody.setContent(content)
+        if (!content.isEmpty) { val _ = operation.setRequestBody(requestBody) }
 
         val distinctOperationIds = calls.flatMap(_.request.operationId).distinct
         if (distinctOperationIds.size == 1) operation.setOperationId(distinctOperationIds.head)
@@ -303,12 +256,75 @@ object BaklavaDslFormatterOpenAPIWorker {
           }
           .foreach(operation.addParametersItem)
 
-        pathItem.operation(io.swagger.v3.oas.models.PathItem.HttpMethod.valueOf(method.get.value.toUpperCase), operation)
+        method.foreach { m =>
+          pathItem.operation(io.swagger.v3.oas.models.PathItem.HttpMethod.valueOf(m.value.toUpperCase), operation)
+        }
         calls.head.request.pathSummary.foreach(pathItem.setSummary)
         calls.head.request.pathDescription.foreach(pathItem.setDescription)
       }
       openAPI.path(path, pathItem)
     }
+  }
+
+  private def buildOAuthFlows(flows: OAuthFlows): io.swagger.v3.oas.models.security.OAuthFlows = {
+    val oauthFlows = new io.swagger.v3.oas.models.security.OAuthFlows()
+
+    def scopesOf(entries: Map[String, String]): io.swagger.v3.oas.models.security.Scopes = {
+      val scopes = new io.swagger.v3.oas.models.security.Scopes()
+      entries.foreach { case (name, description) => scopes.addString(name, description) }
+      scopes
+    }
+
+    flows.implicitFlow.foreach { implicitFlow =>
+      val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+      flow.setAuthorizationUrl(implicitFlow.authorizationUrl.toString)
+      flow.setScopes(scopesOf(implicitFlow.scopes))
+      oauthFlows.setImplicit(flow)
+    }
+    flows.passwordFlow.foreach { passwordFlow =>
+      val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+      flow.setTokenUrl(passwordFlow.tokenUrl.toString)
+      flow.setScopes(scopesOf(passwordFlow.scopes))
+      oauthFlows.setPassword(flow)
+    }
+    flows.authorizationCodeFlow.foreach { authorizationCodeFlow =>
+      val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+      flow.setAuthorizationUrl(authorizationCodeFlow.authorizationUrl.toString)
+      flow.setTokenUrl(authorizationCodeFlow.tokenUrl.toString)
+      flow.setScopes(scopesOf(authorizationCodeFlow.scopes))
+      oauthFlows.setAuthorizationCode(flow)
+    }
+    flows.clientCredentialsFlow.foreach { clientCredentialsFlow =>
+      val flow = new io.swagger.v3.oas.models.security.OAuthFlow()
+      flow.setTokenUrl(clientCredentialsFlow.tokenUrl.toString)
+      flow.setScopes(scopesOf(clientCredentialsFlow.scopes))
+      oauthFlows.setClientCredentials(flow)
+    }
+
+    oauthFlows
+  }
+
+  private def disambiguateKey(baseKey: String, used: scala.collection.mutable.Set[String]): String = {
+    if (!used.contains(baseKey)) {
+      used += baseKey
+      baseKey
+    } else {
+      var suffix = 2
+      while (used.contains(s"$baseKey ($suffix)")) suffix += 1
+      val candidate = s"$baseKey ($suffix)"
+      used += candidate
+      candidate
+    }
+  }
+
+  private def caseInsensitiveHeaderLookup(
+      calls: Seq[BaklavaSerializableCall],
+      name: String
+  ): Option[String] = {
+    val lowered = name.toLowerCase
+    calls.iterator
+      .flatMap(_.response.headers.headers.find(_._1.toLowerCase == lowered).map(_._2))
+      .nextOption()
   }
 
   private def baklavaSchemaToOpenAPISchema(baklavaSchema: BaklavaSchemaSerializable): Schema[?] = {

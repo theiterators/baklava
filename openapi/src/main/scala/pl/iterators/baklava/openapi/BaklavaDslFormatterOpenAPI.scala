@@ -6,6 +6,7 @@ import io.swagger.v3.parser.OpenAPIV3Parser
 import pl.iterators.baklava.*
 
 import java.io.{File, FileOutputStream}
+import scala.jdk.CollectionConverters.*
 import scala.util.Using
 
 class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
@@ -18,30 +19,40 @@ class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
     val openapiFile = new File(s"$dirName/openapi.yml")
 
     Using(new FileOutputStream(openapiFile)) { outputStream =>
-      val parser  = new OpenAPIV3Parser
       val openAPI = config
         .get("openapi-info")
-        .flatMap { openApiHeader =>
-          Option {
-            parser.readContents(openApiHeader, null, null).getOpenAPI
-          }.orElse {
-            println(s"Unable to parse your openapi-info -> '$openApiHeader''")
-            None
-          }
-        }
+        .map(parseOpenApiInfo)
         .getOrElse(new OpenAPI())
 
       BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, calls)
 
-      BaklavaOpenApiPostProcessor.postProcessors.foreach(_.process(openAPI))
+      BaklavaOpenApiPostProcessor.postProcessorsFor(config).foreach(_.process(openAPI))
 
       val ymlString = Yaml.pretty(openAPI)
 
       outputStream.write(ymlString.getBytes)
 
     }.recover { case e: Exception =>
-      println(s"Failed to write to file: $e")
+      System.err.println(s"Baklava: failed to write OpenAPI output: $e")
     }
     ()
+  }
+
+  private def parseOpenApiInfo(raw: String): OpenAPI = {
+    val parser = new OpenAPIV3Parser
+    val result = parser.readContents(raw, null, null)
+
+    val messages = Option(result).toSeq.flatMap(r => Option(r.getMessages).toSeq.flatMap(_.asScala))
+    messages.foreach(msg => System.err.println(s"Baklava: openapi-info parse message: $msg"))
+
+    Option(result).flatMap(r => Option(r.getOpenAPI)).getOrElse {
+      // Don't echo the full raw content — it may contain URLs with tokens or large YAML.
+      // The parse messages (logged above) are the useful diagnostic.
+      System.err.println(
+        s"Baklava: unable to parse openapi-info; falling back to empty OpenAPI. Raw content length: ${raw.length}, prefix: '${raw
+            .take(120)}${if (raw.length > 120) "..." else ""}'"
+      )
+      new OpenAPI()
+    }
   }
 }

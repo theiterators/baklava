@@ -3,6 +3,7 @@ package pl.iterators.baklava.tsrest
 import pl.iterators.baklava.*
 
 import java.io.{File, FileWriter, PrintWriter}
+import scala.util.Using
 
 class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private val dirName                 = "target/baklava/tsrest"
@@ -12,32 +13,38 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private val contractTsPath = s"$sourcesDirName/contracts.ts"
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
+    // Create all target directories upfront so downstream writes don't depend on ordering.
     new File(dirName).mkdirs()
+    new File(sourcesDirName).mkdirs()
 
     BaklavaTsRestFiles.files.foreach { case (file, content) =>
-      val out = new PrintWriter(new FileWriter(s"$dirName/$file"))
-      out.write(content)
-      out.close()
+      writeTo(s"$dirName/$file", content)
     }
 
     config
       .get("ts-rest-package-contract-json")
-      .foreach { packageContractJson =>
-        val out = new PrintWriter(new FileWriter(packageContractJsonPath))
-        out.write(packageContractJson)
-        out.close()
-      }
+      .foreach(packageContractJson => writeTo(packageContractJsonPath, packageContractJson))
 
-    new File(sourcesDirName).mkdirs()
-
-    val out = new PrintWriter(new FileWriter(contractTsPath))
-
-    val callsGroupedBySymbolicPathIntoContractName = calls
+    val groupedByBaseName = calls
       .groupBy(c => (c.request.method, c.request.symbolicPath))
       .toList
       .groupBy(c => contractNameFromSymbolicPath(c._1._2))
       .toList
       .sortBy(_._1)
+
+    // Disambiguate contract-name collisions: if two distinct symbolicPaths map to the same derived
+    // name (e.g. "/a/b" and "/a-b" both collapse to "a-b"), split each into its own contract with
+    // a short deterministic hash suffix. Non-colliding names pass through unchanged.
+    val callsGroupedBySymbolicPathIntoContractName = groupedByBaseName.flatMap { case (baseName, endpoints) =>
+      val distinctPaths = endpoints.map(_._1._2).distinct
+      if (distinctPaths.size <= 1) Seq((baseName, endpoints))
+      else {
+        endpoints.groupBy(_._1._2).toList.sortBy(_._1).map { case (symbolicPath, eps) =>
+          val suffix = f"${symbolicPath.hashCode.abs}%x".take(4)
+          (s"$baseName-$suffix", eps)
+        }
+      }
+    }
 
     val contractNames = callsGroupedBySymbolicPathIntoContractName
       .map { case (name, endpoints) =>
@@ -59,7 +66,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       .map { case (name, constName) => s"""  "$name": typeof $constName""" }
       .mkString(";\n")
 
-    out.write(
+    writeTo(
+      contractTsPath,
       s"""$importStmts
 
          |export const contracts: {
@@ -69,11 +77,39 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
          |};
          |\n""".stripMargin
     )
-    out.close()
-
   }
 
-  private def contractNameFromSymbolicPath(path: String): String = {
+  private def writeTo(path: String, content: String): Unit =
+    Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
+
+  private def buildParamsZod[P](
+      paramsPerCall: Seq[Seq[P]],
+      nameOf: P => String,
+      schemaOf: P => BaklavaSchemaSerializable,
+      quoteKeys: Boolean
+  ): Option[String] = {
+    val distinctSets = paramsPerCall.distinct
+    if (!distinctSets.exists(_.nonEmpty)) None
+    else {
+      val zds = distinctSets.map { params =>
+        val fields = params.map { p =>
+          val key          = if (quoteKeys) s""""${escapeTsDoubleQuoted(nameOf(p))}"""" else nameOf(p)
+          val nullishMaybe = if (!schemaOf(p).required) ".nullish()" else ""
+          s"$key: ${zod(schemaOf(p))}$nullishMaybe"
+        }
+        "z.object({" + fields.mkString(", ") + "})"
+      }
+      Some(collapseZodUnion(zds))
+    }
+  }
+
+  /** Convert a Baklava `{name}` placeholder path to the ts-rest `:name` syntax. Non-placeholder braces (i.e. anything containing `/` or
+    * nested braces) are left alone. Param names can contain any character except `{`, `}`, or `/` — so hyphens and dots survive.
+    */
+  private[tsrest] def toTsRestPath(symbolicPath: String): String =
+    symbolicPath.replaceAll("""\{([^{}/]+)\}""", ":$1")
+
+  private[tsrest] def contractNameFromSymbolicPath(path: String): String = {
     val cleaned = path.stripPrefix("/").stripSuffix("/")
     if (cleaned.isEmpty) "root"
     else {
@@ -99,11 +135,12 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
          |${endpointsWithCalls.sortBy(_._1._1.map(_.toString).getOrElse("")).map(createContractForEndpoint).mkString(",\n")}
          |});
          |""".stripMargin
-    val file = new FileWriter(s"$sourcesDirName/$contractName.contract.ts")
-    file.write("""import { z } from "zod";
-                 |import { initContract } from "@ts-rest/core";
-                 |""".stripMargin + "\n" + code)
-    file.close()
+    writeTo(
+      s"$sourcesDirName/$contractName.contract.ts",
+      """import { z } from "zod";
+        |import { initContract } from "@ts-rest/core";
+        |""".stripMargin + "\n" + code
+    )
     contractConstName
   }
 
@@ -111,80 +148,37 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private def createContractForEndpoint(
       endpoint: ((Option[BaklavaHttpMethod], String), Seq[BaklavaSerializableCall])
   ): String = {
-    val ((httpMethodOpt, symbolicPath), calls) = endpoint
-    val httpMethod                             = httpMethodOpt.map(_.value).getOrElse("ANY").toLowerCase
+    val ((httpMethodOpt, _), calls) = endpoint
+    require(
+      calls.nonEmpty,
+      s"createContractForEndpoint called with empty calls for method=${httpMethodOpt.map(_.value)}"
+    )
+    val httpMethod = httpMethodOpt.map(_.value).getOrElse("ANY").toLowerCase
 
     val firstCall   = calls.head
     val req         = firstCall.request
     val summary     = escapeTsSingleQuoted(calls.flatMap(_.request.operationSummary).distinct.mkString(" / "))
     val description = escapeTsSingleQuoted(calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n"))
-    val path        = req.symbolicPath.replaceAll("\\{", ":").replaceAll("}", "")
+    val path        = toTsRestPath(req.symbolicPath)
 
-    // --- Path Params ---
-    val pathParamsSchemas = calls.map(_.request.pathParametersSeq).distinct
-    val showPathParams    = pathParamsSchemas.exists(_.nonEmpty)
-    val pathParamsZodOpt  =
-      if (!showPathParams) None
-      else {
-        val zds =
-          if (pathParamsSchemas.size == 1)
-            Seq(
-              "z.object({" + pathParamsSchemas.head
-                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
-                .mkString(", ") + "})"
-            )
-          else
-            pathParamsSchemas.map { params =>
-              "z.object({" + params
-                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
-                .mkString(", ") + "})"
-            }
-        Some(collapseZodUnion(zds))
-      }
-
-    // --- Query Params ---
-    val queryParamsSchemas = calls.map(_.request.queryParametersSeq).distinct
-    val showQueryParams    = queryParamsSchemas.exists(_.nonEmpty)
-    val queryParamsZodOpt  =
-      if (!showQueryParams) None
-      else {
-        val zds =
-          if (queryParamsSchemas.size == 1)
-            Seq(
-              "z.object({" + queryParamsSchemas.head
-                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
-                .mkString(", ") + "})"
-            )
-          else
-            queryParamsSchemas.map { params =>
-              "z.object({" + params
-                .map(p => s"${p.name}: ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}")
-                .mkString(", ") + "})"
-            }
-        Some(collapseZodUnion(zds))
-      }
-
-    // --- Headers ---
-    val headersSchemas = calls.map(_.request.headersSeq).distinct
-    val showHeaders    = headersSchemas.exists(_.nonEmpty)
-    val headersZodOpt  =
-      if (!showHeaders) None
-      else {
-        val zds =
-          if (headersSchemas.size == 1)
-            Seq(
-              "z.object({" + headersSchemas.head
-                .map(p => s""""${p.name}": ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}""")
-                .mkString(", ") + "})"
-            )
-          else
-            headersSchemas.map { params =>
-              "z.object({" + params
-                .map(p => s""""${p.name}": ${zod(p.schema)}${if (!p.schema.required) ".nullish()" else ""}""")
-                .mkString(", ") + "})"
-            }
-        Some(collapseZodUnion(zds))
-      }
+    val pathParamsZodOpt = buildParamsZod(
+      calls.map(_.request.pathParametersSeq),
+      (p: BaklavaPathParamSerializable) => p.name,
+      (p: BaklavaPathParamSerializable) => p.schema,
+      quoteKeys = false
+    )
+    val queryParamsZodOpt = buildParamsZod(
+      calls.map(_.request.queryParametersSeq),
+      (p: BaklavaQueryParamSerializable) => p.name,
+      (p: BaklavaQueryParamSerializable) => p.schema,
+      quoteKeys = false
+    )
+    val headersZodOpt = buildParamsZod(
+      calls.map(_.request.headersSeq),
+      (h: BaklavaHeaderSerializable) => h.name,
+      (h: BaklavaHeaderSerializable) => h.schema,
+      quoteKeys = true
+    )
     // --- Body ---
     val bodySchemas = calls.flatMap(_.request.bodySchema).distinct
     val bodyZods    =
@@ -253,12 +247,16 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private def escapeTsSingleQuoted(s: String): String =
     s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
 
-  private def zod(schema: BaklavaSchemaSerializable): String = {
-    val desc = schema.description.map(d => s""".describe("${d.replace("\"", "'").replace("\n", "\\n")}")""").getOrElse("")
+  private def escapeTsDoubleQuoted(s: String): String =
+    s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
+
+  private[tsrest] def zod(schema: BaklavaSchemaSerializable): String = {
+    val desc = schema.description.map(d => s""".describe("${escapeTsDoubleQuoted(d)}")""").getOrElse("")
     schema.`type` match {
       case SchemaType.StringType =>
         if (schema.`enum`.exists(_.nonEmpty)) {
-          val e = schema.`enum`.get.map(s => "\"" + s + "\"").mkString(",")
+          // Sort for deterministic output; escape for double-quoted TS string context.
+          val e = schema.`enum`.get.toList.sorted.map(s => "\"" + escapeTsDoubleQuoted(s) + "\"").mkString(",")
           s"z.enum([$e])$desc"
         } else if (schema.format.contains("email")) s"z.string().email()$desc"
         else if (schema.format.contains("uuid")) s"z.string().uuid()$desc"
@@ -274,7 +272,10 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
         if (schema.properties.isEmpty) s"z.object({})$desc"
         else {
           val props = schema.properties.toSeq
-            .map { case (k, v) => s"$k: ${zod(v)}${if (!v.required) ".nullish()" else ""}" }
+            .sortBy(_._1)
+            .map { case (k, v) =>
+              s""""${escapeTsDoubleQuoted(k)}": ${zod(v)}${if (!v.required) ".nullish()" else ""}"""
+            }
             .mkString("\n        ", ",\n        ", "")
           s"z.object({$props})$desc"
         }
@@ -282,12 +283,11 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     }
   }
 
-  private def collapseZodUnion(zods: Seq[String]): String = {
-    val nonTrivial = zods.filter(z => z.startsWith("z.object"))
-    if (nonTrivial.size == 1) nonTrivial.head
-    else if (zods.size == 1) zods.head
-    else if (zods.isEmpty) "z.undefined()"
-    else s"z.union([${zods.mkString(", ")}])"
+  private[tsrest] def collapseZodUnion(zods: Seq[String]): String = {
+    val distinct = zods.distinct
+    if (distinct.isEmpty) "z.undefined()"
+    else if (distinct.size == 1) distinct.head
+    else s"z.union([${distinct.mkString(", ")}])"
   }
 
 }

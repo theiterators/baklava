@@ -139,5 +139,130 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
         operation.getSecurity.asScala shouldBe empty
       }
     }
+
+    describe("when a call has no HTTP method") {
+      it("does not crash; simply skips the operation wiring") {
+        val methodless = call("GET", "/v1/skip", None, None, Nil, None, Nil).copy(
+          request = call("GET", "/v1/skip", None, None, Nil, None, Nil).request.copy(method = None)
+        )
+
+        val openAPI = new OpenAPI()
+        noException should be thrownBy BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(methodless))
+
+        val path = Option(openAPI.getPaths).flatMap(ps => Option(ps.get("/v1/skip")))
+        path.flatMap(p => Option(p.getGet)) shouldBe None
+      }
+    }
+
+    describe("response header handling") {
+      it("filters Content-Type regardless of case and omits the spurious response header object") {
+        val callWithResponseHeader = call("GET", "/v1/ct", None, None, Nil, None, Nil).copy(
+          request = call("GET", "/v1/ct", None, None, Nil, None, Nil).request.copy(
+            responseHeaders = Seq(
+              BaklavaHeaderSerializable("Content-Type", None, BaklavaSchemaSerializable(Schema.stringSchema)),
+              BaklavaHeaderSerializable("X-Request-Id", None, BaklavaSchemaSerializable(Schema.stringSchema))
+            )
+          ),
+          response = call("GET", "/v1/ct", None, None, Nil, None, Nil).response.copy(
+            headers = BaklavaHttpHeaders(Map("x-request-id" -> "req-42"))
+          )
+        )
+
+        val openAPI = new OpenAPI()
+        BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(callWithResponseHeader))
+
+        val headers = openAPI.getPaths.get("/v1/ct").getGet.getResponses.get("200").getHeaders
+        headers.keySet.asScala should contain only "X-Request-Id"
+        headers.get("X-Request-Id").getExample shouldBe "req-42"
+      }
+
+      it("does not crash when the declared response header is missing from the head call's response headers") {
+        val c = call("GET", "/v1/miss", None, None, Nil, None, Nil).copy(
+          request = call("GET", "/v1/miss", None, None, Nil, None, Nil).request.copy(
+            responseHeaders = Seq(BaklavaHeaderSerializable("X-Missing", None, BaklavaSchemaSerializable(Schema.stringSchema)))
+          )
+          // response.headers remains empty — no actual X-Missing in the captured transaction
+        )
+
+        val openAPI = new OpenAPI()
+        noException should be thrownBy BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(c))
+      }
+
+      it("merges distinct response headers across calls and sorts alphabetically") {
+        val c1 = call("GET", "/v1/sort", None, None, Nil, None, Nil).copy(
+          request = call("GET", "/v1/sort", None, None, Nil, None, Nil).request.copy(
+            responseDescription = Some("a"),
+            responseHeaders = Seq(BaklavaHeaderSerializable("Zeta", None, BaklavaSchemaSerializable(Schema.stringSchema)))
+          )
+        )
+        val c2 = call("GET", "/v1/sort", None, None, Nil, None, Nil).copy(
+          request = call("GET", "/v1/sort", None, None, Nil, None, Nil).request.copy(
+            responseDescription = Some("b"),
+            responseHeaders = Seq(BaklavaHeaderSerializable("Alpha", None, BaklavaSchemaSerializable(Schema.stringSchema)))
+          )
+        )
+
+        val openAPI = new OpenAPI()
+        BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(c1, c2))
+
+        val headers = openAPI.getPaths.get("/v1/sort").getGet.getResponses.get("200").getHeaders
+        headers.keySet.asScala.toList shouldBe List("Alpha", "Zeta")
+      }
+    }
+
+    describe("components merging") {
+      it("preserves user-supplied components (e.g. pre-parsed from openapi-info)") {
+        val openAPI       = new OpenAPI()
+        val userComponent = new io.swagger.v3.oas.models.Components()
+        val userSchema    = new io.swagger.v3.oas.models.media.Schema[AnyRef]()
+        userSchema.setType("string")
+        userComponent.addSchemas("UserProvidedSchema", userSchema)
+        openAPI.components(userComponent)
+
+        val c = call("GET", "/v1/merge", Some("m"), Some("d"), Nil, Some("m"), Seq(bearerScheme))
+        BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(c))
+
+        openAPI.getComponents.getSchemas.keySet.asScala should contain("UserProvidedSchema")
+        openAPI.getComponents.getSecuritySchemes.keySet.asScala should contain("bearerAuth")
+      }
+
+      it("respects a user-supplied securityScheme under the same name without overwriting") {
+        val openAPI       = new OpenAPI()
+        val userComponent = new io.swagger.v3.oas.models.Components()
+        val userAuth      = new io.swagger.v3.oas.models.security.SecurityScheme()
+        userAuth.setDescription("user-supplied")
+        userComponent.addSecuritySchemes("bearerAuth", userAuth)
+        openAPI.components(userComponent)
+
+        val c = call("GET", "/v1/dup", Some("m"), Some("d"), Nil, Some("m"), Seq(bearerScheme))
+        BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(c))
+
+        openAPI.getComponents.getSecuritySchemes.get("bearerAuth").getDescription shouldBe "user-supplied"
+      }
+    }
+
+    describe("example key deduplication") {
+      it("disambiguates duplicate response-example keys with numeric suffixes") {
+        val sameDescription = "Some response"
+        val c1              = call("GET", "/v1/dup", None, None, Nil, None, Nil).copy(
+          request = call("GET", "/v1/dup", None, None, Nil, None, Nil).request.copy(responseDescription = Some(sameDescription)),
+          response = call("GET", "/v1/dup", None, None, Nil, None, Nil).response.copy(
+            responseContentType = Some("application/json"),
+            responseBodyString = """{"a":1}""",
+            bodySchema = Some(BaklavaSchemaSerializable(Schema.stringSchema))
+          )
+        )
+        val c2 = c1.copy(
+          response = c1.response.copy(responseBodyString = """{"b":2}""")
+        )
+
+        val openAPI = new OpenAPI()
+        BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(c1, c2))
+
+        val examples = openAPI.getPaths.get("/v1/dup").getGet.getResponses.get("200").getContent.get("application/json").getExamples
+        examples.size shouldBe 2
+        examples.keySet.asScala should contain allOf (sameDescription, s"$sameDescription (2)")
+      }
+    }
   }
 }
