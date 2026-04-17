@@ -58,7 +58,9 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
 
       writeFile(s"$dirName/$filename", generateEndpointPage(endpointCalls.sortBy(_.response.status.status)))
 
-      s"""<li><a href="$filename"><span class="method method-$methodName">$methodName</span> <span class="path">$symbolicPath</span></a></li>"""
+      s"""<li><a href="${escHtmlAttr(filename)}"><span class="method method-${escHtmlAttr(methodName)}">${escHtml(
+          methodName
+        )}</span> <span class="path">${escHtml(symbolicPath)}</span></a></li>"""
     }
 
     val indexHtml =
@@ -80,9 +82,9 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
     val metaRows = List(
       request.operationSummary.map(s => metaRow("Summary", escHtml(s))),
       request.operationDescription.map(s => metaRow("Description", escHtml(s))),
-      request.operationId.map(s => metaRow("Operation ID", s"""<code>$s</code>""")),
+      request.operationId.map(s => metaRow("Operation ID", s"""<code>${escHtml(s)}</code>""")),
       Option.when(request.operationTags.nonEmpty)(
-        metaRow("Tags", request.operationTags.map(t => s"""<span class="tag">$t</span>""").mkString(" "))
+        metaRow("Tags", request.operationTags.map(t => s"""<span class="tag">${escHtml(t)}</span>""").mkString(" "))
       )
     ).flatten
 
@@ -90,7 +92,7 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       card(
         "Security",
         request.securitySchemes
-          .map(ss => s"<p>${escHtml(ss.name)} <span class=\"tag\">${ss.security.`type`.getOrElse("")}</span></p>")
+          .map(ss => s"<p>${escHtml(ss.name)} <span class=\"tag\">${escHtml(ss.security.`type`.getOrElse(""))}</span></p>")
           .mkString
       )
     }
@@ -99,7 +101,10 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       card(
         "Headers",
         s"<dl class=\"meta-grid\">${request.headersSeq.map { h =>
-            metaRow(h.name + (if (h.schema.required) " <span class=\"required\">*</span>" else ""), s"<code>${h.schema.className}</code>")
+            metaRow(
+              escHtml(h.name) + (if (h.schema.required) " <span class=\"required\">*</span>" else ""),
+              s"<code>${escHtml(h.schema.className)}</code>"
+            )
           }.mkString}</dl>"
       )
     }
@@ -143,9 +148,13 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
 
     val requestBodySection = requestSchemaBlock.map(s => card("Request body", s))
 
-    s"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>$methodName ${request.symbolicPath}</title>$css</head><body>
+    s"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escHtml(
+        methodName
+      )} ${escHtml(request.symbolicPath)}</title>$css</head><body>
        |<a href="index.html" class="back-link">&larr; Back to index</a>
-       |<h1><span class="method method-$methodName">$methodName</span> <span class="path">${request.symbolicPath}</span></h1>
+       |<h1><span class="method method-${escHtmlAttr(methodName)}">${escHtml(methodName)}</span> <span class="path">${escHtml(
+        request.symbolicPath
+      )}</span></h1>
        |${if (metaRows.nonEmpty) card("Overview", s"<dl class=\"meta-grid\">${metaRows.mkString}</dl>") else ""}
        |${List(securitySection, headersSection, pathParamsSection, queryParamsSection, requestBodySection).flatten.mkString("\n")}
        |${responseSections.mkString("\n")}
@@ -158,25 +167,33 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
   private def metaRow(label: String, value: String): String =
     s"<dt>$label</dt><dd>$value</dd>"
 
-  private def paramRow(p: BaklavaPathParamSerializable): String = {
-    val arrayFlag = if (p.schema.`type` == SchemaType.ArrayType) "[]" else ""
-    val req       = if (p.schema.required) " <span class=\"required\">*</span>" else ""
-    val enumInfo  = p.schema.`enum`.map(enums => s" <span class=\"tag\">${enums.mkString(" | ")}</span>").getOrElse("")
-    metaRow(s"${p.name}$arrayFlag$req", s"<code>${p.schema.className}$arrayFlag</code>$enumInfo")
+  private def paramRow(name: String, schema: BaklavaSchemaSerializable): String = {
+    val arrayFlag = if (schema.`type` == SchemaType.ArrayType) "[]" else ""
+    val req       = if (schema.required) " <span class=\"required\">*</span>" else ""
+    val enumInfo  =
+      schema.`enum`.map(enums => s""" <span class="tag">${escHtml(enums.toSeq.sorted.mkString(" | "))}</span>""").getOrElse("")
+    metaRow(s"${escHtml(name)}$arrayFlag$req", s"<code>${escHtml(schema.className)}$arrayFlag</code>$enumInfo")
   }
 
-  private def paramRow(p: BaklavaQueryParamSerializable): String = {
-    val arrayFlag = if (p.schema.`type` == SchemaType.ArrayType) "[]" else ""
-    val req       = if (p.schema.required) " <span class=\"required\">*</span>" else ""
-    val enumInfo  = p.schema.`enum`.map(enums => s" <span class=\"tag\">${enums.mkString(" | ")}</span>").getOrElse("")
-    metaRow(s"${p.name}$arrayFlag$req", s"<code>${p.schema.className}$arrayFlag</code>$enumInfo")
+  private def paramRow(p: BaklavaPathParamSerializable): String  = paramRow(p.name, p.schema)
+  private def paramRow(p: BaklavaQueryParamSerializable): String = paramRow(p.name, p.schema)
+
+  /** Collision-free filename from a (method + path) combination. We can't make every transformation injective without ugly output, so we
+    * append a short deterministic hash of the original input. Paths like `/a/b` and `/a_b`, or `/x {y}` and `/x__y__`, no longer overwrite
+    * each other.
+    */
+  private[simple] def toFilename(name: String): String = {
+    val cleaned = name.replaceAll("/", "_").replaceAll(" ", "_").replaceAll("\\{", "__").replaceAll("}", "__")
+    f"$cleaned-${name.hashCode.abs & 0xffff}%04x.html"
   }
 
-  private def toFilename(name: String): String =
-    name.replaceAll("/", "_").replaceAll(" ", "_").replaceAll("\\{", "__").replaceAll("}", "__") + ".html"
+  private[simple] def jsonSchemaV7(baklavaSchema: BaklavaSchemaSerializable): String = baklavaSchemaToJsonSchemaV7(baklavaSchema)
 
   private def escHtml(s: String): String =
     s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+  private def escHtmlAttr(s: String): String =
+    escHtml(s).replace("\"", "&quot;").replace("'", "&#39;")
 
   private def writeFile(path: String, content: String): Unit =
     Using.resource(new PrintWriter(new FileWriter(path)))(_.print(content))
@@ -203,9 +220,14 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
         "properties"  -> (if (baklavaSchema.`type` == SchemaType.ObjectType)
                            baklavaSchema.properties.view.mapValues(j => toJsonSchemaV7(j)).toMap.asJson
                          else Json.Null),
-        "required" -> Json.arr(baklavaSchema.properties.collect {
-          case (name, prop) if prop.required => Json.fromString(name)
-        }.toSeq: _*),
+        "required" -> Json.arr(
+          baklavaSchema.properties.toSeq
+            .collect {
+              case (name, prop) if prop.required => name
+            }
+            .sorted
+            .map(Json.fromString): _*
+        ),
         "additionalProperties" -> (if (baklavaSchema.`type` == SchemaType.ObjectType) Json.fromBoolean(baklavaSchema.additionalProperties)
                                    else Json.Null),
         "items" -> baklavaSchema.items.map(j => toJsonSchemaV7(j)).getOrElse(Json.Null)

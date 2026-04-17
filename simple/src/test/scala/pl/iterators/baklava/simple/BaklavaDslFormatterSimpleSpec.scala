@@ -1,5 +1,6 @@
 package pl.iterators.baklava.simple
 
+import io.circe.parser
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
@@ -26,7 +27,79 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
       html should include("Alice")
       html should include("Bob")
     }
+
+    it("produces a deterministic top-level `required` list in the JSON Schema regardless of input order") {
+      val schemaA = objectSchema(Map("b" -> stringRequired, "a" -> stringRequired, "c" -> stringRequired))
+      val schemaB = objectSchema(Map("c" -> stringRequired, "b" -> stringRequired, "a" -> stringRequired))
+
+      def requiredArray(raw: String): Seq[String] =
+        parser.parse(raw).toTry.get.hcursor.downField("required").as[List[String]].toTry.get
+
+      val requiredA = requiredArray(generator.jsonSchemaV7(schemaA))
+      requiredA shouldBe List("a", "b", "c")
+      requiredArray(generator.jsonSchemaV7(schemaB)) shouldBe requiredA
+    }
+
+    it("HTML-escapes symbolicPath, method, operationId, tags, and other user-supplied values") {
+      val hostile = jsonCall(status = 200, desc = "ok", requestBody = "", responseBody = "")
+      val evil    = hostile.copy(
+        request = hostile.request.copy(
+          symbolicPath = "/users/<script>alert(1)</script>",
+          operationId = Some("""steal"money"""),
+          operationTags = Seq("<img src=x onerror=alert(1)>"),
+          operationSummary = Some("<b>bold</b>")
+        )
+      )
+      val html = generator.generateEndpointPage(Seq(evil))
+
+      // The literal attack must appear only in escaped form.
+      html should not include "<script>alert"
+      html should not include "<img src=x onerror"
+      // Escaped forms must be present where the attack was injected.
+      html should include("&lt;script&gt;alert(1)&lt;/script&gt;")
+      html should include("&lt;img src=x onerror=alert(1)&gt;")
+    }
   }
+
+  describe("toFilename") {
+    it("produces distinct filenames for paths that differ only by `/` vs `_` (regression for C6)") {
+      generator.toFilename("GET /a/b") should not be generator.toFilename("GET /a_b")
+    }
+
+    it("is deterministic across runs") {
+      val same1 = generator.toFilename("GET /users/{id}")
+      val same2 = generator.toFilename("GET /users/{id}")
+      same1 shouldBe same2
+    }
+  }
+
+  private val stringRequired: BaklavaSchemaSerializable =
+    BaklavaSchemaSerializable(
+      className = "String",
+      `type` = SchemaType.StringType,
+      format = None,
+      properties = Map.empty,
+      items = None,
+      `enum` = None,
+      required = true,
+      additionalProperties = false,
+      default = None,
+      description = None
+    )
+
+  private def objectSchema(props: Map[String, BaklavaSchemaSerializable]): BaklavaSchemaSerializable =
+    BaklavaSchemaSerializable(
+      className = "Obj",
+      `type` = SchemaType.ObjectType,
+      format = None,
+      properties = props,
+      items = None,
+      `enum` = None,
+      required = true,
+      additionalProperties = false,
+      default = None,
+      description = None
+    )
 
   private def jsonCall(status: Int, desc: String, requestBody: String, responseBody: String): BaklavaSerializableCall =
     BaklavaSerializableCall(
