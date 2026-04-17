@@ -84,6 +84,24 @@ class TagOpenApiPostProcessor extends BaklavaOpenApiPostProcessor {
 - To use post-processing, simply implement the `BaklavaOpenApiPostProcessor` trait. No additional registration or configuration is required.
 - If you place your post processor in your application's main source directory, make sure to add the `baklava-openapi` dependency to your main project dependencies (not just test dependencies).
 
+#### Narrowing the Post-Processor Classpath Scan
+
+Post-processors are discovered via reflection across the full classpath by default. On large projects this can add seconds of startup latency and may trigger JDK 17+ illegal-access warnings from unrelated JARs.
+
+Set `baklava.postProcessorPackages` in your `baklavaGenerateConfigs` to restrict the scan to a comma-separated list of package prefixes:
+
+```scala
+inConfig(Test)(
+  BaklavaSbtPlugin.settings(Test) ++ Seq(
+    baklavaGenerateConfigs := Map(
+      "baklava.postProcessorPackages" -> "com.example.openapi,com.example.utils.openapi"
+    )
+  )
+)
+```
+
+Leaving the key unset preserves the previous behavior (scan every package). Recommended for any project large enough to notice the scan time.
+
 ## Test Configuration
 
 ### Response Body Truncation
