@@ -40,6 +40,27 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
       requiredArray(generator.jsonSchemaV7(schemaB)) shouldBe requiredA
     }
 
+    it("renders declared response headers with their captured example values (regression for C7)") {
+      val base     = jsonCall(status = 200, desc = "ok", requestBody = "", responseBody = "")
+      val withHdrs = base.copy(
+        request = base.request.copy(
+          responseHeaders = Seq(
+            BaklavaHeaderSerializable("X-Rate-Limit", None, stringRequired),
+            BaklavaHeaderSerializable("X-Request-Id", None, stringRequired)
+          )
+        ),
+        response = base.response.copy(
+          headers = BaklavaHttpHeaders(Map("x-rate-limit" -> "100", "X-Request-Id" -> "req-42"))
+        )
+      )
+      val html = generator.generateEndpointPage(Seq(withHdrs))
+      html should include("Response headers")
+      html should include("X-Rate-Limit")
+      html should include("100") // case-insensitive match picked up the lowercase key
+      html should include("X-Request-Id")
+      html should include("req-42")
+    }
+
     it("HTML-escapes symbolicPath, method, operationId, tags, and other user-supplied values") {
       val hostile = jsonCall(status = 200, desc = "ok", requestBody = "", responseBody = "")
       val evil    = hostile.copy(

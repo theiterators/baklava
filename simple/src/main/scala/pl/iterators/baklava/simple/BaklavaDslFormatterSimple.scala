@@ -140,9 +140,25 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
         .when(responseBodyJson.nonEmpty)(s"<h4>Response body</h4><pre>${escHtml(responseBodyJson)}</pre>")
       val schemaPre = c.response.bodySchema
         .map(schema => s"<details><summary>Response schema</summary><pre>${escHtml(baklavaSchemaToJsonSchemaV7(schema))}</pre></details>")
+
+      // Declared response headers (from the DSL) with their captured example values.
+      val responseHeadersSection = Option.when(c.request.responseHeaders.nonEmpty) {
+        val rows = c.request.responseHeaders.sortBy(_.name).map { h =>
+          val example = c.response.headers.headers
+            .find(_._1.toLowerCase == h.name.toLowerCase)
+            .map { case (_, v) => s" = <code>${escHtml(v)}</code>" }
+            .getOrElse("")
+          metaRow(
+            escHtml(h.name) + (if (h.schema.required) " <span class=\"required\">*</span>" else ""),
+            s"<code>${escHtml(h.schema.className)}</code>$example"
+          )
+        }
+        s"<h4>Response headers</h4><dl class=\"meta-grid\">${rows.mkString}</dl>"
+      }
+
       card(
         s"""<span class="status-badge status-$statusCss">$status</span> Response""",
-        (List(Some(desc)) ++ List(requestBodyPre, responseBodyPre, schemaPre)).flatten.mkString
+        (List(Some(desc)) ++ List(responseHeadersSection, requestBodyPre, responseBodyPre, schemaPre)).flatten.mkString
       )
     }
 
@@ -198,8 +214,16 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
   private def writeFile(path: String, content: String): Unit =
     Using.resource(new PrintWriter(new FileWriter(path)))(_.print(content))
 
+  private val maxRawFallbackChars = 8 * 1024
+
+  /** Pretty-prints `str` as JSON when it parses. Otherwise returns the raw string, truncated to maxRawFallbackChars so a multi-megabyte
+    * minified payload doesn't blow up the rendered HTML. All callers pass the result through escHtml, so no XSS risk from the fallback
+    * path.
+    */
   private def jsonStr(str: String): String =
-    parse(str).map(_.printWith(Printer.spaces2)).getOrElse(str)
+    parse(str)
+      .map(_.printWith(Printer.spaces2))
+      .getOrElse(if (str.length > maxRawFallbackChars) str.take(maxRawFallbackChars) + "\n... [truncated]" else str)
 
   private def baklavaSchemaToJsonSchemaV7(baklavaSchema: BaklavaSchemaSerializable): String = {
     val jsonSchema = toJsonSchemaV7(baklavaSchema, true)
