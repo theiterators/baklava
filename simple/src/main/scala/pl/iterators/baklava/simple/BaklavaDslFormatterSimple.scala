@@ -7,6 +7,7 @@ import io.circe.syntax.EncoderOps
 import pl.iterators.baklava.*
 
 import java.io.{File, FileWriter, PrintWriter}
+import scala.util.Using
 
 class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
 
@@ -71,7 +72,8 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
     writeFile(s"$dirName/index.html", indexHtml)
   }
 
-  private def generateEndpointPage(calls: Seq[BaklavaSerializableCall]): String = {
+  private[simple] def generateEndpointPage(calls: Seq[BaklavaSerializableCall]): String = {
+    require(calls.nonEmpty, "generateEndpointPage called with empty calls")
     val request    = calls.head.request
     val methodName = request.method.map(_.value).getOrElse("UNDEFINED")
 
@@ -110,30 +112,36 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       card("Query Parameters", s"<dl class=\"meta-grid\">${request.queryParametersSeq.map(paramRow).mkString}</dl>")
     }
 
-    val requestBodySection = {
-      val bodyJson = jsonStr(calls.head.response.requestBodyString)
-      val parts    = List(
-        Option.when(bodyJson.nonEmpty)(s"<pre>${escHtml(bodyJson)}</pre>"),
-        request.bodySchema.map(schema =>
-          s"<details><summary>Schema (JSON Schema v7)</summary><pre>${escHtml(baklavaSchemaToJsonSchemaV7(schema))}</pre></details>"
-        )
-      ).flatten
-      Option.when(parts.nonEmpty)(card("Request Body", parts.mkString))
-    }
+    // Shared request-schema block (same for every call on this endpoint).
+    val requestSchemaBlock =
+      request.bodySchema.map(schema =>
+        s"<details><summary>Request schema (JSON Schema v7)</summary><pre>${escHtml(baklavaSchemaToJsonSchemaV7(schema))}</pre></details>"
+      )
 
-    val responseSections = calls.sortBy(_.response.status.status).map { c =>
+    val responseSections = calls.sortBy(c => (c.response.status.status, c.request.responseDescription.getOrElse(""))).map { c =>
       val status    = c.response.status.status
       val statusCss = if (status < 300) "2xx" else if (status < 400) "3xx" else if (status < 500) "4xx" else "5xx"
       val desc      = c.request.responseDescription.map(d => s"<p>${escHtml(d)}</p>").getOrElse("")
-      val bodyJson  = jsonStr(c.response.responseBodyString)
-      val bodyPre   = Option.when(bodyJson.nonEmpty)(s"<pre>${escHtml(bodyJson)}</pre>")
+
+      // Per-call request body — previously only calls.head was rendered, so distinct inputs
+      // across calls were silently dropped. Now each call's request body shows alongside its
+      // response.
+      val requestBodyJson = jsonStr(c.response.requestBodyString)
+      val requestBodyPre  = Option
+        .when(requestBodyJson.nonEmpty)(s"<h4>Request body</h4><pre>${escHtml(requestBodyJson)}</pre>")
+
+      val responseBodyJson = jsonStr(c.response.responseBodyString)
+      val responseBodyPre  = Option
+        .when(responseBodyJson.nonEmpty)(s"<h4>Response body</h4><pre>${escHtml(responseBodyJson)}</pre>")
       val schemaPre = c.response.bodySchema
-        .map(schema => s"<details><summary>Schema</summary><pre>${escHtml(baklavaSchemaToJsonSchemaV7(schema))}</pre></details>")
+        .map(schema => s"<details><summary>Response schema</summary><pre>${escHtml(baklavaSchemaToJsonSchemaV7(schema))}</pre></details>")
       card(
         s"""<span class="status-badge status-$statusCss">$status</span> Response""",
-        (List(Some(desc)) ++ List(bodyPre, schemaPre)).flatten.mkString
+        (List(Some(desc)) ++ List(requestBodyPre, responseBodyPre, schemaPre)).flatten.mkString
       )
     }
+
+    val requestBodySection = requestSchemaBlock.map(s => card("Request body", s))
 
     s"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>$methodName ${request.symbolicPath}</title>$css</head><body>
        |<a href="index.html" class="back-link">&larr; Back to index</a>
@@ -170,13 +178,8 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
   private def escHtml(s: String): String =
     s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-  private def writeFile(path: String, content: String): Unit = {
-    val fw = new FileWriter(path)
-    val pw = new PrintWriter(fw)
-    pw.print(content)
-    pw.close()
-    fw.close()
-  }
+  private def writeFile(path: String, content: String): Unit =
+    Using.resource(new PrintWriter(new FileWriter(path)))(_.print(content))
 
   private def jsonStr(str: String): String =
     parse(str).map(_.printWith(Printer.spaces2)).getOrElse(str)
