@@ -218,24 +218,32 @@ object BaklavaDslFormatterOpenAPIWorker {
           .sortBy(_._1.getOrElse(""))
           .foreach { case (contentType, unsortedCalls) =>
             val calls       = unsortedCalls.sortBy(_.request.responseDescription.getOrElse(""))
-            val mediaType   = new io.swagger.v3.oas.models.media.MediaType()
             val firstSchema = calls.flatMap(_.request.bodySchema).headOption
-            firstSchema.foreach { schema =>
-              mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
+            val hasAnyBody  = calls.exists(_.response.requestBodyString.nonEmpty)
+
+            // Emit a media-type entry when there's either a captured contentType, a schema,
+            // or some request body evidence — skipping only the pure "no body at all" case
+            // (e.g. GET requests with no payload).
+            if (contentType.isDefined || firstSchema.isDefined || hasAnyBody) {
+              val mediaType = new io.swagger.v3.oas.models.media.MediaType()
+              firstSchema.foreach(schema => mediaType.schema(baklavaSchemaToOpenAPISchema(schema)))
+
               val usedRequestExampleKeys = scala.collection.mutable.Set.empty[String]
               calls.zipWithIndex.foreach { case (call, idx) =>
                 // todo this is wierd that requestBodyString is in response
-                val requestStr =
-                  if (contentType.contains("application/json"))
-                    parse(call.response.requestBodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.response.requestBodyString)
-                  else call.response.requestBodyString
+                if (call.response.requestBodyString.nonEmpty) {
+                  val requestStr =
+                    if (contentType.contains("application/json"))
+                      parse(call.response.requestBodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.response.requestBodyString)
+                    else call.response.requestBodyString
 
-                val baseKey   = call.request.responseDescription.getOrElse(s"Example $idx")
-                val uniqueKey = disambiguateKey(baseKey, usedRequestExampleKeys)
-                mediaType.addExamples(
-                  uniqueKey,
-                  new io.swagger.v3.oas.models.examples.Example().value(requestStr)
-                )
+                  val baseKey   = call.request.responseDescription.getOrElse(s"Example $idx")
+                  val uniqueKey = disambiguateKey(baseKey, usedRequestExampleKeys)
+                  mediaType.addExamples(
+                    uniqueKey,
+                    new io.swagger.v3.oas.models.examples.Example().value(requestStr)
+                  )
+                }
               }
               content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
             }
