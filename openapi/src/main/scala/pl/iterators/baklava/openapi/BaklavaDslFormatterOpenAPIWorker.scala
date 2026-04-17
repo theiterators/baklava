@@ -165,26 +165,35 @@ object BaklavaDslFormatterOpenAPIWorker {
               firstSchema.foreach { schema =>
                 mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
               }
+              val usedExampleKeys = scala.collection.mutable.Set.empty[String]
               commonContentTypeCalls.zipWithIndex.foreach { case (BaklavaSerializableCall(ctx, response), idx) =>
                 val responseStr =
                   if (contentType.contains("application/json"))
                     parse(response.responseBodyString).map(_.printWith(Printer.spaces2)).getOrElse(response.responseBodyString)
                   else response.responseBodyString
 
+                val baseKey   = ctx.responseDescription.getOrElse(s"Example $idx")
+                val uniqueKey = disambiguateKey(baseKey, usedExampleKeys)
                 mediaType.addExamples(
-                  ctx.responseDescription.getOrElse(s"Example $idx"),
+                  uniqueKey,
                   new io.swagger.v3.oas.models.examples.Example().value(responseStr)
                 )
               }
               val mergedResponseDescription =
                 commonStatusCalls.flatMap(_.request.responseDescription).distinct.sorted.mkString(" / ")
               if (mergedResponseDescription.nonEmpty) r.setDescription(mergedResponseDescription)
-              commonContentTypeCalls.head.request.responseHeaders.filterNot { _.name == "content-type" }.foreach { header =>
+              val mergedResponseHeaders =
+                commonContentTypeCalls
+                  .flatMap(_.request.responseHeaders)
+                  .distinctBy(_.name)
+                  .filterNot(_.name.toLowerCase == "content-type")
+                  .sortBy(_.name)
+              mergedResponseHeaders.foreach { header =>
                 val h = new io.swagger.v3.oas.models.headers.Header()
                 h.schema(baklavaSchemaToOpenAPISchema(header.schema))
                 h.setRequired(header.schema.required)
                 header.description.foreach(h.setDescription)
-                h.example(commonContentTypeCalls.head.response.headers.headers(header.name)) // TODO: make case-insensitive
+                caseInsensitiveHeaderLookup(commonContentTypeCalls, header.name).foreach(h.example)
                 r.addHeaderObject(header.name, h)
               }
               content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
@@ -213,6 +222,7 @@ object BaklavaDslFormatterOpenAPIWorker {
             val firstSchema = calls.flatMap(_.request.bodySchema).headOption
             firstSchema.foreach { schema =>
               mediaType.schema(baklavaSchemaToOpenAPISchema(schema))
+              val usedRequestExampleKeys = scala.collection.mutable.Set.empty[String]
               calls.zipWithIndex.foreach { case (call, idx) =>
                 // todo this is wierd that requestBodyString is in response
                 val requestStr =
@@ -220,8 +230,10 @@ object BaklavaDslFormatterOpenAPIWorker {
                     parse(call.response.requestBodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.response.requestBodyString)
                   else call.response.requestBodyString
 
+                val baseKey   = call.request.responseDescription.getOrElse(s"Example $idx")
+                val uniqueKey = disambiguateKey(baseKey, usedRequestExampleKeys)
                 mediaType.addExamples(
-                  call.request.responseDescription.getOrElse(s"Example $idx"),
+                  uniqueKey,
                   new io.swagger.v3.oas.models.examples.Example().value(requestStr)
                 )
               }
@@ -303,12 +315,37 @@ object BaklavaDslFormatterOpenAPIWorker {
           }
           .foreach(operation.addParametersItem)
 
-        pathItem.operation(io.swagger.v3.oas.models.PathItem.HttpMethod.valueOf(method.get.value.toUpperCase), operation)
+        method.foreach { m =>
+          pathItem.operation(io.swagger.v3.oas.models.PathItem.HttpMethod.valueOf(m.value.toUpperCase), operation)
+        }
         calls.head.request.pathSummary.foreach(pathItem.setSummary)
         calls.head.request.pathDescription.foreach(pathItem.setDescription)
       }
       openAPI.path(path, pathItem)
     }
+  }
+
+  private def disambiguateKey(baseKey: String, used: scala.collection.mutable.Set[String]): String = {
+    if (!used.contains(baseKey)) {
+      used += baseKey
+      baseKey
+    } else {
+      var suffix = 2
+      while (used.contains(s"$baseKey ($suffix)")) suffix += 1
+      val candidate = s"$baseKey ($suffix)"
+      used += candidate
+      candidate
+    }
+  }
+
+  private def caseInsensitiveHeaderLookup(
+      calls: Seq[BaklavaSerializableCall],
+      name: String
+  ): Option[String] = {
+    val lowered = name.toLowerCase
+    calls.iterator
+      .flatMap(_.response.headers.headers.find(_._1.toLowerCase == lowered).map(_._2))
+      .nextOption()
   }
 
   private def baklavaSchemaToOpenAPISchema(baklavaSchema: BaklavaSchemaSerializable): Schema[?] = {
