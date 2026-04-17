@@ -322,6 +322,82 @@ The assertion block receives a [`BaklavaCaseContext`](https://github.com/theiter
 }
 ```
 
+## Deferred Inputs: `withSetup`
+
+When a scenario needs to produce request values from setup logic — for example a database-seeded ID or a freshly-generated token — use `withSetup` to defer the request construction until test execution time.
+
+### Signature
+
+```scala
+def withSetup[S](setup: => S): WithSetupBuilder[S]
+```
+
+`WithSetupBuilder[S]` has two overloaded `.request` methods:
+
+```scala
+// Lazy form — function of the setup value
+def request[...](f: S => OnRequest[...]): WithSetupRequestBuilder[...]
+
+// Eager form — static fields, same named arguments as the top-level onRequest(...)
+def request[...](
+    body: RequestBody            = EmptyBodyInstance: EmptyBody,
+    security: AppliedSecurity    = AppliedSecurity(NoopSecurity, Map.empty),
+    pathParameters: ...          = (),
+    queryParameters: ...         = (),
+    headers: ...                 = ()
+): WithSetupRequestBuilder[...]
+```
+
+The chain concludes with `.respondsWith[R](...)` and a two-argument `.assert { (ctx, s) => ... }` that receives both the request context and the setup value.
+
+### Lazy form — request depends on setup
+
+```scala
+path("/v1/auctions/{auctionId}")(
+  supports(
+    GET,
+    pathParameters = p[AuctionId]("auctionId"),
+    tags = Seq("Auctions")
+  )(
+    withSetup {
+      application.transactor
+        .inSession(seedUser(seller) *> seedAuction(AuctionId(UUID.randomUUID()), seller.id))
+        .unsafeRunSync()
+    }.request { (auction: Auction) =>
+      onRequest(pathParameters = auction.id)
+    }.respondsWith[AuctionDto](OK, description = "Auction found")
+      .assert { case (ctx, auction) =>
+        val response = ctx.performRequest(allRoutes)
+        response.body.id shouldBe auction.id
+      }
+  )
+)
+```
+
+### Eager form — setup value only flows to assert
+
+When the request values are static but the assertion needs data from setup:
+
+```scala
+withSetup {
+  application.transactor.inSession(seedUser(seller)).unsafeRunSync()
+  seller
+}.request(body = sampleCreateRequest(), security = bearer.apply(validJwt(sellerAuth)))
+  .respondsWith[AuctionDto](Created)
+  .assert { case (ctx, seller) =>
+    val response = ctx.performRequest(allRoutes)
+    response.body.sellerId shouldBe seller.id
+  }
+```
+
+### Notes
+
+- `setup` is synchronous. If it runs IO, call `.unsafeRunSync()` (or equivalent) inside the block.
+- The setup block runs once per scenario, at test-execution time — not at class-construction time. Each scenario's setup is independent.
+- **Scala 2.13** requires an explicit type annotation on the lambda parameter of the lazy `.request { ... }` form (e.g., `.request { (id: Long) => ... }`). Scala 3 does not require this.
+- OpenAPI output is unaffected by `withSetup`: parameter schemas still come from `supports(...)`, and request/response body examples still come from the live HTTP transaction.
+- The existing `onRequest(...).respondsWith(...).assert { ctx => ... }` chain remains fully supported and unchanged — `withSetup` is additive.
+
 ## Parameters
 
 ### Path Parameters
