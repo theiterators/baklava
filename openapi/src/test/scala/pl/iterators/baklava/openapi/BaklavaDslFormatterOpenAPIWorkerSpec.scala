@@ -94,6 +94,21 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
         operation.getSummary should include("Returns basic app info")
         operation.getSummary should include("Returns app info with DB status")
         operation.getTags.asScala should contain theSameElementsAs Seq("System", "Auth")
+
+        // When variants disagree on operationId, omit it rather than pick one arbitrarily.
+        operation.getOperationId shouldBe null
+      }
+
+      it("keeps the operationId when every variant agrees") {
+        val calls = Seq(
+          call("GET", "/v1/agree", Some("a"), Some("d1"), Seq("X"), Some("agreed"), Seq.empty),
+          call("GET", "/v1/agree", Some("b"), Some("d2"), Seq("X"), Some("agreed"), Seq(bearerScheme))
+        )
+
+        val openAPI = new OpenAPI()
+        BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, calls)
+
+        openAPI.getPaths.get("/v1/agree").getGet.getOperationId shouldBe "agreed"
       }
 
       it("does not add an empty security requirement when every variant uses the same scheme") {

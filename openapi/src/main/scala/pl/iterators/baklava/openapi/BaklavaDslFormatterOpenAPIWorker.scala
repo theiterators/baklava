@@ -219,7 +219,8 @@ object BaklavaDslFormatterOpenAPIWorker {
         requestBody.setContent(content)
         if (!content.isEmpty) operation.setRequestBody(requestBody)
 
-        calls.flatMap(_.request.operationId).distinct.headOption.foreach(operation.setOperationId)
+        val distinctOperationIds = calls.flatMap(_.request.operationId).distinct
+        if (distinctOperationIds.size == 1) operation.setOperationId(distinctOperationIds.head)
         val mergedSummary = calls.flatMap(_.request.operationSummary).distinct.mkString(" / ")
         if (mergedSummary.nonEmpty) operation.setSummary(mergedSummary)
         val mergedDescription = calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n")
@@ -233,9 +234,9 @@ object BaklavaDslFormatterOpenAPIWorker {
             flows.clientCredentialsFlow.toList.flatMap(_.scopes.keys)).distinct
         }
 
-        val distinctSchemes         = calls.flatMap(_.request.securitySchemes).distinctBy(_.name)
+        val distinctSchemes           = calls.flatMap(_.request.securitySchemes).distinctBy(_.name)
         val hasUnauthenticatedVariant = calls.exists(_.request.securitySchemes.isEmpty)
-        val securityRequirements    = distinctSchemes.map { ss =>
+        val securityRequirements      = distinctSchemes.map { ss =>
           val scopes = ss.security.oAuth2InBearer
             .map(oAuth2 => extractOAuthScopes(oAuth2.flows))
             .orElse(ss.security.oAuth2InCookie.map(oAuth2 => extractOAuthScopes(oAuth2.flows)))
