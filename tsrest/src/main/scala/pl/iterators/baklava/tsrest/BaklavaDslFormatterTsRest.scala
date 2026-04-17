@@ -25,12 +25,26 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       .get("ts-rest-package-contract-json")
       .foreach(packageContractJson => writeTo(packageContractJsonPath, packageContractJson))
 
-    val callsGroupedBySymbolicPathIntoContractName = calls
+    val groupedByBaseName = calls
       .groupBy(c => (c.request.method, c.request.symbolicPath))
       .toList
       .groupBy(c => contractNameFromSymbolicPath(c._1._2))
       .toList
       .sortBy(_._1)
+
+    // Disambiguate contract-name collisions: if two distinct symbolicPaths map to the same derived
+    // name (e.g. "/a/b" and "/a-b" both collapse to "a-b"), split each into its own contract with
+    // a short deterministic hash suffix. Non-colliding names pass through unchanged.
+    val callsGroupedBySymbolicPathIntoContractName = groupedByBaseName.flatMap { case (baseName, endpoints) =>
+      val distinctPaths = endpoints.map(_._1._2).distinct
+      if (distinctPaths.size <= 1) Seq((baseName, endpoints))
+      else {
+        endpoints.groupBy(_._1._2).toList.sortBy(_._1).map { case (symbolicPath, eps) =>
+          val suffix = f"${symbolicPath.hashCode.abs}%x".take(4)
+          (s"$baseName-$suffix", eps)
+        }
+      }
+    }
 
     val contractNames = callsGroupedBySymbolicPathIntoContractName
       .map { case (name, endpoints) =>
@@ -68,7 +82,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private def writeTo(path: String, content: String): Unit =
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
 
-  private def contractNameFromSymbolicPath(path: String): String = {
+  private[tsrest] def contractNameFromSymbolicPath(path: String): String = {
     val cleaned = path.stripPrefix("/").stripSuffix("/")
     if (cleaned.isEmpty) "root"
     else {
@@ -114,7 +128,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     val req         = firstCall.request
     val summary     = escapeTsSingleQuoted(calls.flatMap(_.request.operationSummary).distinct.mkString(" / "))
     val description = escapeTsSingleQuoted(calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n"))
-    val path        = req.symbolicPath.replaceAll("\\{", ":").replaceAll("}", "")
+    // ts-rest path format: `{name}` → `:name`. Targeted regex so literal braces elsewhere in the path are preserved.
+    val path = req.symbolicPath.replaceAll("""\{(\w+)\}""", ":$1")
 
     // --- Path Params ---
     val pathParamsSchemas = calls.map(_.request.pathParametersSeq).distinct
@@ -285,12 +300,11 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     }
   }
 
-  private def collapseZodUnion(zods: Seq[String]): String = {
-    val nonTrivial = zods.filter(z => z.startsWith("z.object"))
-    if (nonTrivial.size == 1) nonTrivial.head
-    else if (zods.size == 1) zods.head
-    else if (zods.isEmpty) "z.undefined()"
-    else s"z.union([${zods.mkString(", ")}])"
+  private[tsrest] def collapseZodUnion(zods: Seq[String]): String = {
+    val distinct = zods.distinct
+    if (distinct.isEmpty) "z.undefined()"
+    else if (distinct.size == 1) distinct.head
+    else s"z.union([${distinct.mkString(", ")}])"
   }
 
 }

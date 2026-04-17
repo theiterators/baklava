@@ -83,6 +83,35 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
     }
   }
 
+  describe("collapseZodUnion") {
+
+    it("preserves non-object variants alongside object variants (regression)") {
+      val out = generator.collapseZodUnion(Seq("z.string()", "z.object({foo: z.string()})"))
+      out should startWith("z.union([")
+      out should include("z.string()")
+      out should include("z.object({foo: z.string()})")
+    }
+
+    it("emits a single entry without wrapping when only one distinct variant is present") {
+      generator.collapseZodUnion(Seq("z.string()")) shouldBe "z.string()"
+      // Duplicates collapse.
+      generator.collapseZodUnion(Seq("z.string()", "z.string()")) shouldBe "z.string()"
+    }
+
+    it("emits z.undefined() on empty input") {
+      generator.collapseZodUnion(Nil) shouldBe "z.undefined()"
+    }
+  }
+
+  describe("contractNameFromSymbolicPath") {
+
+    it("preserves existing non-collision behavior") {
+      generator.contractNameFromSymbolicPath("/pets") shouldBe "pets"
+      generator.contractNameFromSymbolicPath("/pets/{id}") shouldBe "pets---id"
+      generator.contractNameFromSymbolicPath("/") shouldBe "root"
+    }
+  }
+
   private def stringSchema(description: Option[String] = None, enum: Option[Set[String]] = None): BaklavaSchemaSerializable =
     BaklavaSchemaSerializable(
       className = "String",
