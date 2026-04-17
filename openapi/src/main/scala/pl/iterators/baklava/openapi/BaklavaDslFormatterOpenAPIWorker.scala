@@ -177,7 +177,7 @@ object BaklavaDslFormatterOpenAPIWorker {
                 )
               }
               val mergedResponseDescription =
-                commonStatusCalls.flatMap(_.request.responseDescription).distinct.mkString(" / ")
+                commonStatusCalls.flatMap(_.request.responseDescription).distinct.sorted.mkString(" / ")
               if (mergedResponseDescription.nonEmpty) r.setDescription(mergedResponseDescription)
               commonContentTypeCalls.head.request.responseHeaders.filterNot { _.name == "content-type" }.foreach { header =>
                 val h = new io.swagger.v3.oas.models.headers.Header()

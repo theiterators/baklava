@@ -45,22 +45,22 @@ class ResponseOrderAndDescriptionSpec extends AnyFunSpec with Matchers {
       keyLists.distinct should have size 1
     }
 
-    it("merges distinct response descriptions rather than picking the first example's description (regression for #50)") {
-      val openAPI = new OpenAPI()
-      BaklavaDslFormatterOpenAPIWorker.generateForCalls(
-        openAPI,
-        Seq(
-          jsonCall("Return users matching 'jane'", "[]"),
-          jsonCall("Return all users", "[]"),
-          jsonCall("Return first page with 2 users", "[]")
-        )
+    it("merges distinct response descriptions, sorted, rather than picking the first example's description (regression for #50)") {
+      val calls = Seq(
+        jsonCall("Return users matching 'jane'", "[]"),
+        jsonCall("Return all users", "[]"),
+        jsonCall("Return first page with 2 users", "[]")
       )
 
-      val description = openAPI.getPaths.get("/users").getGet.getResponses.get("200").getDescription
-      description should include("Return all users")
-      description should include("Return first page with 2 users")
-      description should include("Return users matching 'jane'")
-      description should include(" / ")
+      // Merged description must be identical regardless of input permutation.
+      val descriptions = Seq(calls, calls.reverse, Seq(calls(1), calls(2), calls.head)).map { perm =>
+        val openAPI = new OpenAPI()
+        BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, perm)
+        openAPI.getPaths.get("/users").getGet.getResponses.get("200").getDescription
+      }
+
+      descriptions.distinct should have size 1
+      descriptions.head shouldBe "Return all users / Return first page with 2 users / Return users matching 'jane'"
     }
 
     it("keeps a single description unchanged when all examples share it") {
