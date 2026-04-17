@@ -45,7 +45,8 @@ class NoOpPostProcessor extends BaklavaOpenApiPostProcessor {
 abstract class AbstractPostProcessor extends BaklavaOpenApiPostProcessor
 
 // Throws in constructor: should be caught, logged, and skipped.
+// `process` is defined before the throw so scalac doesn't flag dead code.
 class ThrowingPostProcessor extends BaklavaOpenApiPostProcessor {
-  throw new RuntimeException("intentional failure for test")
   override def process(openAPI: OpenAPI): Unit = ()
+  throw new RuntimeException("intentional failure for test")
 }

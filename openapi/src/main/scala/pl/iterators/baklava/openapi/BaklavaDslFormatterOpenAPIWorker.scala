@@ -67,9 +67,9 @@ object BaklavaDslFormatterOpenAPIWorker {
     val components      = Option(openAPI.getComponents).getOrElse(new io.swagger.v3.oas.models.Components())
     val existingSchemes = Option(components.getSecuritySchemes).map(_.asScala.keySet.toSet).getOrElse(Set.empty)
     securitySchemes.foreach { case (name, scheme) =>
-      if (!existingSchemes.contains(name)) components.addSecuritySchemes(name, scheme)
+      if (!existingSchemes.contains(name)) { val _ = components.addSecuritySchemes(name, scheme) }
     }
-    openAPI.components(components)
+    val _ = openAPI.components(components)
 
     calls.groupBy(_.request.symbolicPath).toList.sortBy(_._1).foreach { case (path, calls) =>
       val pathItem = new io.swagger.v3.oas.models.PathItem()
@@ -97,7 +97,7 @@ object BaklavaDslFormatterOpenAPIWorker {
             h.setRequired(header.schema.required)
             header.description.foreach(h.setDescription)
             caseInsensitiveHeaderLookup(commonStatusCalls, header.name).foreach(h.example)
-            r.addHeaderObject(header.name, h)
+            val _ = r.addHeaderObject(header.name, h)
           }
 
           var anyMediaTypeEmitted = false
@@ -120,22 +120,22 @@ object BaklavaDslFormatterOpenAPIWorker {
 
                 val baseKey   = ctx.responseDescription.getOrElse(s"Example $idx")
                 val uniqueKey = disambiguateKey(baseKey, usedExampleKeys)
-                mediaType.addExamples(
+                val _         = mediaType.addExamples(
                   uniqueKey,
                   new io.swagger.v3.oas.models.examples.Example().value(responseStr)
                 )
               }
 
               if (firstSchema.isDefined) {
-                content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
+                val _ = content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
                 anyMediaTypeEmitted = true
               }
             }
 
-          if (anyMediaTypeEmitted) r.setContent(content)
-          operationResponses.addApiResponse(status.status.toString, r)
+          if (anyMediaTypeEmitted) { val _ = r.setContent(content) }
+          val _ = operationResponses.addApiResponse(status.status.toString, r)
         }
-        operation.responses(operationResponses)
+        val _ = operation.responses(operationResponses)
 
         // TODO: are we sure? bodyRequest could be moved to METHOD-level as it's defined on the `operation` level in OpenAPI but
         // this would make the DSL less intuitive
@@ -172,17 +172,17 @@ object BaklavaDslFormatterOpenAPIWorker {
 
                   val baseKey   = call.request.responseDescription.getOrElse(s"Example $idx")
                   val uniqueKey = disambiguateKey(baseKey, usedRequestExampleKeys)
-                  mediaType.addExamples(
+                  val _         = mediaType.addExamples(
                     uniqueKey,
                     new io.swagger.v3.oas.models.examples.Example().value(requestStr)
                   )
                 }
               }
-              content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
+              val _ = content.addMediaType(contentType.getOrElse("application/octet-stream"), mediaType)
             }
           }
-        requestBody.setContent(content)
-        if (!content.isEmpty) operation.setRequestBody(requestBody)
+        val _ = requestBody.setContent(content)
+        if (!content.isEmpty) { val _ = operation.setRequestBody(requestBody) }
 
         val distinctOperationIds = calls.flatMap(_.request.operationId).distinct
         if (distinctOperationIds.size == 1) operation.setOperationId(distinctOperationIds.head)
