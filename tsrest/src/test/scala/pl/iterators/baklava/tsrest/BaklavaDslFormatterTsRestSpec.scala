@@ -31,7 +31,7 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
   describe("zod(): z.enum values") {
 
     it("escapes embedded double quotes in enum literals") {
-      val schema = stringSchema(enum = Some(Set("foo", "weird\"quote")))
+      val schema = stringSchema(enumValues = Some(Set("foo", "weird\"quote")))
       val out    = generator.zod(schema)
       // Both values quoted; the " inside is escaped as \"
       out should startWith("z.enum([")
@@ -40,14 +40,14 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
     }
 
     it("escapes backslashes in enum literals") {
-      val schema = stringSchema(enum = Some(Set("""C:\tmp""")))
+      val schema = stringSchema(enumValues = Some(Set("""C:\tmp""")))
       val out    = generator.zod(schema)
       out should include(""""C:\\tmp"""")
     }
 
     it("produces deterministic (sorted) enum order") {
-      val a = generator.zod(stringSchema(enum = Some(Set("c", "a", "b"))))
-      val b = generator.zod(stringSchema(enum = Some(Set("b", "c", "a"))))
+      val a = generator.zod(stringSchema(enumValues = Some(Set("c", "a", "b"))))
+      val b = generator.zod(stringSchema(enumValues = Some(Set("b", "c", "a"))))
       a shouldBe b
       a should include("""z.enum(["a","b","c"])""")
     }
@@ -74,10 +74,10 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       val schemaB = objectSchema(Map("c" -> stringSchema(), "a" -> stringSchema(), "b" -> stringSchema()))
       generator.zod(schemaA) shouldBe generator.zod(schemaB)
 
-      val out          = generator.zod(schemaA)
-      val positionOfA  = out.indexOf("\"a\"")
-      val positionOfB  = out.indexOf("\"b\"")
-      val positionOfC  = out.indexOf("\"c\"")
+      val out         = generator.zod(schemaA)
+      val positionOfA = out.indexOf("\"a\"")
+      val positionOfB = out.indexOf("\"b\"")
+      val positionOfC = out.indexOf("\"c\"")
       positionOfA should (be < positionOfB and be < positionOfC)
       positionOfB should be < positionOfC
     }
@@ -112,14 +112,14 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
     }
   }
 
-  private def stringSchema(description: Option[String] = None, enum: Option[Set[String]] = None): BaklavaSchemaSerializable =
+  private def stringSchema(description: Option[String] = None, enumValues: Option[Set[String]] = None): BaklavaSchemaSerializable =
     BaklavaSchemaSerializable(
       className = "String",
       `type` = SchemaType.StringType,
       format = None,
       properties = Map.empty,
       items = None,
-      `enum` = enum,
+      `enum` = enumValues,
       required = true,
       additionalProperties = false,
       default = None,
