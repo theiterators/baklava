@@ -314,7 +314,8 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     }
 
     val headersParsed = expectedResponseHeaders.map { h =>
-      responseContext.headers.headers.get(h.name) match { // TODO: should be case insensitive
+      val lowered = h.name.toLowerCase
+      responseContext.headers.headers.find(_._1.toLowerCase == lowered).map(_._2) match {
         case None        => throw new BaklavaAssertionException(s"Header ${h.name} not found but expected")
         case Some(value) =>
           h.name ->
