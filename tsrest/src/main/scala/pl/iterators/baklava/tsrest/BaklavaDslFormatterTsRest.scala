@@ -3,6 +3,7 @@ package pl.iterators.baklava.tsrest
 import pl.iterators.baklava.*
 
 import java.io.{File, FileWriter, PrintWriter}
+import scala.util.Using
 
 class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private val dirName                 = "target/baklava/tsrest"
@@ -12,25 +13,17 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private val contractTsPath = s"$sourcesDirName/contracts.ts"
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
+    // Create all target directories upfront so downstream writes don't depend on ordering.
     new File(dirName).mkdirs()
+    new File(sourcesDirName).mkdirs()
 
     BaklavaTsRestFiles.files.foreach { case (file, content) =>
-      val out = new PrintWriter(new FileWriter(s"$dirName/$file"))
-      out.write(content)
-      out.close()
+      writeTo(s"$dirName/$file", content)
     }
 
     config
       .get("ts-rest-package-contract-json")
-      .foreach { packageContractJson =>
-        val out = new PrintWriter(new FileWriter(packageContractJsonPath))
-        out.write(packageContractJson)
-        out.close()
-      }
-
-    new File(sourcesDirName).mkdirs()
-
-    val out = new PrintWriter(new FileWriter(contractTsPath))
+      .foreach(packageContractJson => writeTo(packageContractJsonPath, packageContractJson))
 
     val callsGroupedBySymbolicPathIntoContractName = calls
       .groupBy(c => (c.request.method, c.request.symbolicPath))
@@ -59,7 +52,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       .map { case (name, constName) => s"""  "$name": typeof $constName""" }
       .mkString(";\n")
 
-    out.write(
+    writeTo(
+      contractTsPath,
       s"""$importStmts
 
          |export const contracts: {
@@ -69,9 +63,10 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
          |};
          |\n""".stripMargin
     )
-    out.close()
-
   }
+
+  private def writeTo(path: String, content: String): Unit =
+    Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
 
   private def contractNameFromSymbolicPath(path: String): String = {
     val cleaned = path.stripPrefix("/").stripSuffix("/")
@@ -99,11 +94,12 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
          |${endpointsWithCalls.sortBy(_._1._1.map(_.toString).getOrElse("")).map(createContractForEndpoint).mkString(",\n")}
          |});
          |""".stripMargin
-    val file = new FileWriter(s"$sourcesDirName/$contractName.contract.ts")
-    file.write("""import { z } from "zod";
-                 |import { initContract } from "@ts-rest/core";
-                 |""".stripMargin + "\n" + code)
-    file.close()
+    writeTo(
+      s"$sourcesDirName/$contractName.contract.ts",
+      """import { z } from "zod";
+        |import { initContract } from "@ts-rest/core";
+        |""".stripMargin + "\n" + code
+    )
     contractConstName
   }
 
@@ -253,12 +249,16 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private def escapeTsSingleQuoted(s: String): String =
     s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
 
-  private def zod(schema: BaklavaSchemaSerializable): String = {
-    val desc = schema.description.map(d => s""".describe("${d.replace("\"", "'").replace("\n", "\\n")}")""").getOrElse("")
+  private def escapeTsDoubleQuoted(s: String): String =
+    s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
+
+  private[tsrest] def zod(schema: BaklavaSchemaSerializable): String = {
+    val desc = schema.description.map(d => s""".describe("${escapeTsDoubleQuoted(d)}")""").getOrElse("")
     schema.`type` match {
       case SchemaType.StringType =>
         if (schema.`enum`.exists(_.nonEmpty)) {
-          val e = schema.`enum`.get.map(s => "\"" + s + "\"").mkString(",")
+          // Sort for deterministic output; escape for double-quoted TS string context.
+          val e = schema.`enum`.get.toList.sorted.map(s => "\"" + escapeTsDoubleQuoted(s) + "\"").mkString(",")
           s"z.enum([$e])$desc"
         } else if (schema.format.contains("email")) s"z.string().email()$desc"
         else if (schema.format.contains("uuid")) s"z.string().uuid()$desc"
@@ -274,7 +274,10 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
         if (schema.properties.isEmpty) s"z.object({})$desc"
         else {
           val props = schema.properties.toSeq
-            .map { case (k, v) => s"$k: ${zod(v)}${if (!v.required) ".nullish()" else ""}" }
+            .sortBy(_._1)
+            .map { case (k, v) =>
+              s""""${escapeTsDoubleQuoted(k)}": ${zod(v)}${if (!v.required) ".nullish()" else ""}"""
+            }
             .mkString("\n        ", ",\n        ", "")
           s"z.object({$props})$desc"
         }
