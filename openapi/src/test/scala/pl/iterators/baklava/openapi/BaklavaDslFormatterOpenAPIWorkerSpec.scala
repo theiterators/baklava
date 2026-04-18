@@ -4,7 +4,7 @@ import io.swagger.v3.oas.models.OpenAPI
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
-import sttp.model.{Header => SttpHeader, Method, StatusCode}
+import sttp.model.{Method, StatusCode}
 
 import scala.jdk.CollectionConverters.*
 
