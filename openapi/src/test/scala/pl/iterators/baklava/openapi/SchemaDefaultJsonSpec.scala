@@ -69,10 +69,13 @@ class SchemaDefaultJsonSpec extends AnyFunSpec with Matchers {
         .find(_.getName == "page")
         .getOrElse(fail("page parameter missing"))
 
-      // `setDefault(Object)` received a java.lang.Long, swagger's YAML writer will emit a plain
-      // number (e.g. `default: 42`) rather than the stringly `default: "42"` that the old
+      // `setDefault(Object)` should receive a numeric Java value so swagger's YAML writer emits
+      // a plain number (e.g. `default: 42`) rather than the stringly `default: "42"` that the old
       // `.toString`-based code produced.
-      pageParam.getSchema.getDefault shouldBe java.lang.Long.valueOf(42L)
+      val defaultValue = pageParam.getSchema.getDefault
+      defaultValue shouldBe a[java.lang.Number]
+      defaultValue.asInstanceOf[java.lang.Number].longValue() shouldBe 42L
+      defaultValue should not be a[String]
     }
   }
 

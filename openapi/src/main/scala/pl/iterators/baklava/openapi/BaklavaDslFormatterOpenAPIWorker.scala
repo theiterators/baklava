@@ -426,17 +426,17 @@ object BaklavaDslFormatterOpenAPIWorker {
     * becomes `42`, not `"42"`). Fixes issue #61.
     */
   private def jsonToJavaDefault(j: io.circe.Json): Option[Object] = j.fold(
-    jsonNull = None,
+    jsonNull = Some(null: Object),
     jsonBoolean = b => Some(java.lang.Boolean.valueOf(b)),
     jsonNumber = n =>
       n.toLong
         .map(java.lang.Long.valueOf(_): Object)
-        .orElse(Some(n.toBigDecimal.getOrElse(BigDecimal(n.toDouble)).bigDecimal: Object)),
+        .orElse(Some(n.toBigDecimal.getOrElse(BigDecimal(n.toString)).bigDecimal: Object)),
     jsonString = s => Some(s),
-    jsonArray = arr => Some(arr.flatMap(jsonToJavaDefault).asJava),
+    jsonArray = arr => Some(arr.map(v => jsonToJavaDefault(v).orNull).asJava),
     jsonObject = obj =>
       Some(
-        obj.toIterable.flatMap { case (k, v) => jsonToJavaDefault(v).map(k -> _) }.toMap.asJava
+        obj.toIterable.map { case (k, v) => k -> jsonToJavaDefault(v).orNull }.toMap.asJava
       )
   )
 }

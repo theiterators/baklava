@@ -25,7 +25,7 @@ private[baklava] object JsonCirceCodec {
   implicit val jsonValueCodec: JsonValueCodec[Json] = new JsonValueCodec[Json] {
     override def decodeValue(in: JsonReader, default: Json): Json = {
       val raw = new String(in.readRawValAsBytes(), StandardCharsets.UTF_8)
-      io.circe.parser.parse(raw).getOrElse(Json.Null)
+      io.circe.parser.parse(raw).fold(throw _, identity)
     }
     override def encodeValue(x: Json, out: JsonWriter): Unit =
       out.writeRawVal(x.noSpaces.getBytes(StandardCharsets.UTF_8))

@@ -419,8 +419,7 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
         "type"        -> baklavaSchema.`type`.asJson,
         "format"      -> baklavaSchema.format.asJson,
         "description" -> baklavaSchema.description.asJson,
-        // `default` now arrives as structured JSON (issue #61). Unwrap Option[Json] to inline it
-        // rather than re-encoding (which would wrap the Json in another layer).
+        // `default` now arrives as structured JSON (issue #61) — inline it directly.
         "default"    -> baklavaSchema.default.getOrElse(Json.Null),
         "enum"       -> baklavaSchema.`enum`.map(_.toList.asJson).getOrElse(Json.Null),
         "properties" -> (if (baklavaSchema.`type` == SchemaType.ObjectType)
