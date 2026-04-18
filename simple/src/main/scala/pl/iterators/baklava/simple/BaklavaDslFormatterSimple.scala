@@ -245,14 +245,16 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
         "properties"  -> (if (baklavaSchema.`type` == SchemaType.ObjectType)
                            baklavaSchema.properties.view.mapValues(j => toJsonSchemaV7(j)).toMap.asJson
                          else Json.Null),
-        "required" -> Json.arr(
-          baklavaSchema.properties.toSeq
-            .collect {
-              case (name, prop) if prop.required => name
-            }
-            .sorted
-            .map(Json.fromString): _*
-        ),
+        "required" -> (if (baklavaSchema.`type` == SchemaType.ObjectType)
+                         Json.arr(
+                           baklavaSchema.properties.toSeq
+                             .collect {
+                               case (name, prop) if prop.required => name
+                             }
+                             .sorted
+                             .map(Json.fromString): _*
+                         )
+                       else Json.Null),
         "additionalProperties" -> (if (baklavaSchema.`type` == SchemaType.ObjectType) Json.fromBoolean(baklavaSchema.additionalProperties)
                                    else Json.Null),
         "items" -> baklavaSchema.items.map(j => toJsonSchemaV7(j)).getOrElse(Json.Null)

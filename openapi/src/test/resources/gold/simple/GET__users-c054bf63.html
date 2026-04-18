@@ -56,27 +56,19 @@
   "properties" : {
     "users" : {
       "type" : "array",
-      "required" : [
-      ],
       "items" : {
         "title" : "User",
         "type" : "object",
         "properties" : {
           "id" : {
             "type" : "string",
-            "format" : "uuid",
-            "required" : [
-            ]
+            "format" : "uuid"
           },
           "email" : {
-            "type" : "string",
-            "required" : [
-            ]
+            "type" : "string"
           },
           "name" : {
-            "type" : "string",
-            "required" : [
-            ]
+            "type" : "string"
           },
           "role" : {
             "type" : "string",
@@ -85,8 +77,6 @@
               "admin",
               "member",
               "guest"
-            ],
-            "required" : [
             ]
           }
         },
@@ -101,21 +91,15 @@
     },
     "total" : {
       "type" : "integer",
-      "format" : "int32",
-      "required" : [
-      ]
+      "format" : "int32"
     },
     "page" : {
       "type" : "integer",
-      "format" : "int32",
-      "required" : [
-      ]
+      "format" : "int32"
     },
     "limit" : {
       "type" : "integer",
-      "format" : "int32",
-      "required" : [
-      ]
+      "format" : "int32"
     }
   },
   "required" : [

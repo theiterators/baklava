@@ -36,14 +36,10 @@
   "type" : "object",
   "properties" : {
     "client_id" : {
-      "type" : "string",
-      "required" : [
-      ]
+      "type" : "string"
     },
     "grant_type" : {
-      "type" : "string",
-      "required" : [
-      ]
+      "type" : "string"
     }
   },
   "required" : [
@@ -66,9 +62,7 @@
   "type" : "object",
   "properties" : {
     "token" : {
-      "type" : "string",
-      "required" : [
-      ]
+      "type" : "string"
     },
     "user" : {
       "title" : "User",
@@ -76,19 +70,13 @@
       "properties" : {
         "id" : {
           "type" : "string",
-          "format" : "uuid",
-          "required" : [
-          ]
+          "format" : "uuid"
         },
         "email" : {
-          "type" : "string",
-          "required" : [
-          ]
+          "type" : "string"
         },
         "name" : {
-          "type" : "string",
-          "required" : [
-          ]
+          "type" : "string"
         },
         "role" : {
           "type" : "string",
@@ -97,8 +85,6 @@
             "admin",
             "member",
             "guest"
-          ],
-          "required" : [
           ]
         }
       },
@@ -127,23 +113,15 @@
   "type" : "object",
   "properties" : {
     "code" : {
-      "type" : "string",
-      "required" : [
-      ]
+      "type" : "string"
     },
     "message" : {
-      "type" : "string",
-      "required" : [
-      ]
+      "type" : "string"
     },
     "details" : {
       "type" : "array",
-      "required" : [
-      ],
       "items" : {
-        "type" : "string",
-        "required" : [
-        ]
+        "type" : "string"
       }
     }
   },

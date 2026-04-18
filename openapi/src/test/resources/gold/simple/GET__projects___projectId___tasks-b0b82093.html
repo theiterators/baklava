@@ -49,8 +49,6 @@
 ]</pre><details><summary>Response schema</summary><pre>{
   "$schema" : "http://json-schema.org/draft-07/schema#",
   "type" : "array",
-  "required" : [
-  ],
   "items" : {
     "title" : "Task",
     "type" : "object",
@@ -62,30 +60,20 @@
           "low",
           "medium",
           "high"
-        ],
-        "required" : [
         ]
       },
       "description" : {
-        "type" : "string",
-        "required" : [
-        ]
+        "type" : "string"
       },
       "id" : {
         "type" : "integer",
-        "format" : "int64",
-        "required" : [
-        ]
+        "format" : "int64"
       },
       "done" : {
-        "type" : "boolean",
-        "required" : [
-        ]
+        "type" : "boolean"
       },
       "title" : {
-        "type" : "string",
-        "required" : [
-        ]
+        "type" : "string"
       }
     },
     "required" : [

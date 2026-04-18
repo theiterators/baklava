@@ -4,8 +4,6 @@ import com.github.pjfanning.pekkohttpcirce.FailFastCirceSupport
 import enumeratum.EnumEntry.Lowercase
 import enumeratum.{Enum, EnumEntry}
 import io.circe.syntax.*
-import io.swagger.v3.core.util.Yaml
-import io.swagger.v3.oas.models.OpenAPI
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.marshalling.{PredefinedToEntityMarshallers, ToEntityMarshaller}
 import org.apache.pekko.http.scaladsl.model.HttpMethods.*
@@ -448,22 +446,31 @@ class ComprehensiveGoldSpec
   private val regen: Boolean = sys.env.get("BAKLAVA_REGEN_GOLD").exists(v => v == "1" || v.equalsIgnoreCase("true"))
 
   override def afterAll(): Unit = {
-    // 1. OpenAPI YAML
-    val openAPI = new OpenAPI()
-    BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, listCalls)
-    val openApiYaml = Yaml.pretty(openAPI)
-    assertGoldFile("openapi/openapi.yaml", openApiYaml)
+    // Route through the public formatter entry points the sbt plugin uses in production,
+    // with the same config keys (`openapi-info`, `ts-rest-package-contract-json`). That way the
+    // gold files reflect exactly what end users see, including the top-level `info:` block that
+    // comes from openapi-info.
+    val config = Map(
+      "openapi-info"                  -> openApiInfo,
+      "ts-rest-package-contract-json" -> tsRestPackageJson
+    )
 
-    // 2. Simple HTML — run the real generator, read back what it wrote.
+    // 1. OpenAPI YAML
+    val openapiDir = new File("target/baklava/openapi")
+    deleteRecursively(openapiDir)
+    new BaklavaDslFormatterOpenAPI().create(config, listCalls)
+    assertGoldDir("openapi", openapiDir)
+
+    // 2. Simple HTML
     val simpleDir = new File("target/baklava/simple")
     deleteRecursively(simpleDir)
-    new BaklavaDslFormatterSimple().create(Map.empty, listCalls)
+    new BaklavaDslFormatterSimple().create(config, listCalls)
     assertGoldDir("simple", simpleDir)
 
-    // 3. ts-rest — run the real generator, read back what it wrote.
+    // 3. ts-rest
     val tsrestDir = new File("target/baklava/tsrest")
     deleteRecursively(tsrestDir)
-    new BaklavaDslFormatterTsRest().create(Map.empty, listCalls)
+    new BaklavaDslFormatterTsRest().create(config, listCalls)
     assertGoldDir("tsrest", tsrestDir)
 
     if (regen) println(s"[gold] Regenerated gold files under ${goldRoot.getAbsolutePath}")
@@ -471,27 +478,30 @@ class ComprehensiveGoldSpec
     super.afterAll()
   }
 
+  private val openApiInfo =
+    """{
+      |  "openapi": "3.0.1",
+      |  "info": {
+      |    "title": "Baklava Comprehensive Gold Spec",
+      |    "description": "Fixture API used by the gold test to exercise all three generators.",
+      |    "version": "0.0.0-test"
+      |  }
+      |}
+      |""".stripMargin
+
+  private val tsRestPackageJson =
+    """{
+      |  "name": "baklava-gold-contracts",
+      |  "version": "0.0.0-test",
+      |  "main": "index.js",
+      |  "types": "index.d.ts"
+      |}
+      |""".stripMargin
+
   // Gold files live at openapi/src/test/resources/gold/<format>/… — stored under the module's
   // resources so they're on the test classpath and travel with the repo. sbt runs tests with the
   // repository root as CWD (not the subproject), so the regen write path is prefixed accordingly.
   private val goldRoot = new File("openapi/src/test/resources/gold")
-
-  private def assertGoldFile(relPath: String, actual: String): Unit = {
-    val goldFile = new File(goldRoot, relPath)
-    if (regen) {
-      goldFile.getParentFile.mkdirs()
-      val _ = Files.write(goldFile.toPath, actual.getBytes(StandardCharsets.UTF_8))
-    } else {
-      assert(goldFile.exists(), s"Gold file missing: ${goldFile.getAbsolutePath} — run with BAKLAVA_REGEN_GOLD=1 to create")
-      val expected = new String(Files.readAllBytes(goldFile.toPath), StandardCharsets.UTF_8)
-      if (expected != actual) {
-        fail(
-          s"Gold mismatch for $relPath (run with BAKLAVA_REGEN_GOLD=1 to update after reviewing the diff).\n" +
-            diffSummary(expected, actual)
-        )
-      }
-    }
-  }
 
   private def assertGoldDir(format: String, actualDir: File): Unit = {
     val actualFiles   = listRelativeFiles(actualDir).sorted
