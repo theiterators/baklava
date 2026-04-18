@@ -2,7 +2,7 @@ package pl.iterators.baklava.pekkohttp
 
 import org.apache.pekko.http.scaladsl.client.RequestBuilding.RequestBuilder
 import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, Marshalling, ToEntityMarshaller}
-import org.apache.pekko.http.scaladsl.model.{FormData, HttpEntity, HttpHeader, MessageEntity}
+import org.apache.pekko.http.scaladsl.model.{ContentType, FormData, HttpEntity, HttpHeader, MessageEntity}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
@@ -154,8 +154,23 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
   )(implicit
       requestBody: ToEntityMarshaller[RequestBody]
   ): HttpRequest = {
-    new RequestBuilder(baklavaHttpMethodToHttpMethod(ctx.method.get))(ctx.path, ctx.body)
-      .withHeaders(baklavaHeadersToHttpHeaders(ctx.headers))
+    // If the test declared a `Content-Type` header, use its value to override the content type
+    // that the implicit marshaller would otherwise bake into the request. This is what lets tests
+    // document non-JSON uploads — `h[String]("Content-Type") = "image/png"` + a String/byte body.
+    // Pekko-http treats `Content-Type` as part of the entity (not a free header), so we also
+    // strip it from the headers list before attaching.
+    val (contentTypeOverride, otherHeaders) = splitContentType(ctx.headers)
+    val base                                = new RequestBuilder(baklavaHttpMethodToHttpMethod(ctx.method.get))(ctx.path, ctx.body)
+      .withHeaders(baklavaHeadersToHttpHeaders(otherHeaders))
+    contentTypeOverride.flatMap(v => ContentType.parse(v).toOption) match {
+      case Some(ct) => base.withEntity(base.entity.withContentType(ct))
+      case None     => base
+    }
+  }
+
+  private def splitContentType(headers: Seq[SttpHeader]): (Option[String], Seq[SttpHeader]) = {
+    val (ct, rest) = headers.partition(_.name.toLowerCase(java.util.Locale.ROOT) == "content-type")
+    (ct.headOption.map(_.value), rest)
   }
 
   override implicit protected def emptyToRequestBodyType: ToEntityMarshaller[EmptyBody] =

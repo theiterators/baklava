@@ -967,6 +967,38 @@ paths:
           description: User deleted
       security:
       - bearerAuth: []
+  /users/{userId}/avatar:
+    summary: Avatar
+    description: Raw avatar upload
+    put:
+      tags:
+      - Users
+      summary: Upload avatar
+      description: Upload or replace the user's avatar image
+      operationId: uploadAvatar
+      parameters:
+      - name: userId
+        in: path
+        description: The user's UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+        example: 00000000-0000-0000-0000-000000000001
+      requestBody:
+        content:
+          image/png:
+            schema:
+              type: string
+              format: binary
+            examples:
+              Avatar uploaded:
+                value: fake png bytes
+      responses:
+        "204":
+          description: Avatar uploaded
+      security:
+      - bearerAuth: []
   /webhooks:
     summary: Webhooks
     description: Inbound webhooks

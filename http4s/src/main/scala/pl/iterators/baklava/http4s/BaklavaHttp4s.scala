@@ -160,20 +160,30 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
   )(implicit
       requestBody: BaklavaHttp4s.ToEntityMarshaller[RequestBody]
   ): HttpRequest = {
-    ctx.body match {
-      case Some(body) =>
-        Request[IO](
-          method = baklavaHttpMethodToHttpMethod(ctx.method.get),
-          uri = Uri.fromString(ctx.path).fold(throw _, identity),
-          headers = baklavaHeadersToHttpHeaders(ctx.headers)
-        ).withEntity(body)
-      case None =>
-        Request[IO](
-          method = baklavaHttpMethodToHttpMethod(ctx.method.get),
-          uri = Uri.fromString(ctx.path).fold(throw _, identity),
-          headers = baklavaHeadersToHttpHeaders(ctx.headers)
-        )
+    // If the test declared a `Content-Type` header, use its value to override the content type
+    // that the `EntityEncoder` bakes in. http4s stores Content-Type on the entity (not a free
+    // header), so we pull it out of the header list before attaching and then re-set it with
+    // `.withContentType` on the resulting request. This is what lets tests document non-JSON
+    // uploads via `h[String]("Content-Type") = "image/png"`.
+    val (contentTypeOverride, otherHeaders) = splitContentType(ctx.headers)
+    val base                                = Request[IO](
+      method = baklavaHttpMethodToHttpMethod(ctx.method.get),
+      uri = Uri.fromString(ctx.path).fold(throw _, identity),
+      headers = baklavaHeadersToHttpHeaders(otherHeaders)
+    )
+    val withBody = ctx.body match {
+      case Some(body) => base.withEntity(body)
+      case None       => base
     }
+    contentTypeOverride.flatMap(v => headers.`Content-Type`.parse(v).toOption) match {
+      case Some(ct) => withBody.withContentType(ct)
+      case None     => withBody
+    }
+  }
+
+  private def splitContentType(headers: Seq[SttpHeader]): (Option[String], Seq[SttpHeader]) = {
+    val (ct, rest) = headers.partition(_.name.toLowerCase(java.util.Locale.ROOT) == "content-type")
+    (ct.headOption.map(_.value), rest)
   }
 
   implicit val runtime: IORuntime

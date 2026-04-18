@@ -244,6 +244,43 @@ class GetUsersUserIdRouteSpec extends BaseRouteSpec {
 }
 ```
 
+## Documenting file uploads
+
+To document a binary upload (e.g. an avatar PNG), declare `Content-Type` among the request headers and pass the matching value on the `onRequest(...)` call — the pekko-http adapter honors that declared value, overriding the content type the implicit marshaller would otherwise bake into the request. Use `Array[Byte]` for the body so a byte-array marshaller is in scope.
+
+```scala
+import org.apache.pekko.http.scaladsl.marshalling.{PredefinedToEntityMarshallers, ToEntityMarshaller}
+
+class PutUsersUserIdAvatarRouteSpec extends BaseRouteSpec {
+
+  implicit val byteArrayMarshaller: ToEntityMarshaller[Array[Byte]] =
+    PredefinedToEntityMarshallers.ByteArrayMarshaller
+
+  path(path = "/users/{userId}/avatar")(
+    supports(
+      PUT,
+      pathParameters = p[Long]("userId"),
+      headers = h[String]("Content-Type"),
+      description = "Upload or update a user's avatar",
+      summary = "Upload or update a user's avatar",
+      tags = List("Users")
+    )(
+      onRequest(
+        pathParameters = 1L,
+        headers = "image/png",
+        body = "\u0089PNG\r\n...".getBytes("UTF-8")
+      ).respondsWith[EmptyBody](NoContent, description = "User avatar updated successfully")
+        .assert { ctx =>
+          val response = ctx.performRequest(allRoutes)
+          response.status.status should beEqualTo(NoContent.status)
+        }
+    )
+  )
+}
+```
+
+The generator detects that `Content-Type` is a request-body media type rather than a free header, so the generated OpenAPI spec emits it as `requestBody.content["image/png"]` with a `schema: { type: string, format: binary }` instead of rendering it as a header parameter. The declared value is also used as the actual wire Content-Type of the test request, so server routes that pattern-match on it (e.g. `entity(as[Array[Byte]])`) run under the right conditions.
+
 ## Serving Open API and Swagger UI
 
 Adding `baklava-pekko-http-routes` dependency to your project you can easily serve Open API and Swagger UI:

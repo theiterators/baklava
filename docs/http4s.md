@@ -222,3 +222,40 @@ class GetUsersUserIdRouteSpec extends BaseRouteSpec {
 
 }
 ```
+
+## Documenting file uploads
+
+To document a binary upload (e.g. an avatar PNG), declare `Content-Type` among the request headers and pass the matching value on the `onRequest(...)` call — the http4s adapter honors that declared value, overriding the content type the `EntityEncoder` bakes into the request.
+
+```scala
+import org.http4s.{EntityEncoder, MediaType}
+import org.http4s.headers.`Content-Type`
+
+class PutUsersUserIdAvatarSpec extends BaseRouteSpec {
+
+  // Byte-array entity encoders ship with http4s; no extra setup needed.
+
+  path(path = "/users/{userId}/avatar")(
+    supports(
+      PUT,
+      pathParameters = p[Long]("userId"),
+      headers = h[String]("Content-Type"),
+      description = "Upload or update a user's avatar",
+      summary = "Upload or update a user's avatar",
+      tags = List("Users")
+    )(
+      onRequest(
+        pathParameters = 1L,
+        headers = "image/png",
+        body = "\u0089PNG\r\n...".getBytes("UTF-8")
+      ).respondsWith[EmptyBody](NoContent, description = "User avatar updated successfully")
+        .assert { ctx =>
+          val response = ctx.performRequest(allRoutes)
+          response.status.status should beEqualTo(NoContent.status)
+        }
+    )
+  )
+}
+```
+
+The generator renders this as `requestBody.content["image/png"]` with a `schema: { type: string, format: binary }` in OpenAPI, and the test request goes out with `Content-Type: image/png` on the wire so server routes that pattern-match on it run under the right conditions.

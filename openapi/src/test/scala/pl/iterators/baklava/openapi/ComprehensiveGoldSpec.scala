@@ -74,9 +74,16 @@ class ComprehensiveGoldSpec
   implicit val stringUnmarshaller: FromEntityUnmarshaller[String]   = Unmarshaller.stringUnmarshaller
   implicit val byteArrayMarshaller: ToEntityMarshaller[Array[Byte]] = PredefinedToEntityMarshallers.ByteArrayMarshaller
 
-  // Stub: the test doesn't care about real HTTP — canned responses per assertion.
-  private var nextResponse: HttpResponse                                         = HttpResponse(OK)
-  override def performRequest(routes: Route, request: HttpRequest): HttpResponse = nextResponse
+  // Stub: the test doesn't care about real HTTP — canned responses per assertion. We also
+  // remember the last request so individual tests can assert on the request that the DSL built
+  // (e.g. to verify that a declared `Content-Type` header overrode the marshaller's default).
+  private var nextResponse: HttpResponse                                            = HttpResponse(OK)
+  private val lastRequest: java.util.concurrent.atomic.AtomicReference[HttpRequest] =
+    new java.util.concurrent.atomic.AtomicReference()
+  override def performRequest(routes: Route, request: HttpRequest): HttpResponse = {
+    lastRequest.set(request)
+    nextResponse
+  }
 
   private def jsonResponse(status: org.apache.pekko.http.scaladsl.model.StatusCode, json: String): HttpResponse =
     HttpResponse(status, entity = HttpEntity(ContentTypes.`application/json`, json))
@@ -395,6 +402,38 @@ class ComprehensiveGoldSpec
         )
         ctx.performRequest(routes)
       }
+    )
+  )
+
+  path("/users/{userId}/avatar", description = "Raw avatar upload", summary = "Avatar")(
+    supports(
+      PUT,
+      pathParameters = p[UUID]("userId", "The user's UUID"),
+      // The Content-Type header is the user's way of picking the upload's MIME. The test DSL
+      // honors it and forwards the same content type into the real pekko-http request — that's
+      // how binary uploads get documented (issue #52).
+      headers = h[String]("Content-Type"),
+      securitySchemes = Seq(bearerScheme),
+      description = "Upload or replace the user's avatar image",
+      summary = "Upload avatar",
+      operationId = "uploadAvatar",
+      tags = Seq("Users")
+    )(
+      onRequest(
+        pathParameters = userId,
+        headers = "image/png",
+        body = "fake png bytes".getBytes("UTF-8"),
+        security = bearerAuth("jwt.token.xyz")
+      ).respondsWith[EmptyBody](NoContent, description = "Avatar uploaded")
+        .assert { ctx =>
+          nextResponse = emptyResponse(NoContent)
+          val response = ctx.performRequest(routes)
+          // The request that reached `performRequest` must carry the declared Content-Type, not
+          // the byte-array marshaller's default `application/octet-stream`. This is the runtime
+          // side of issue #52.
+          lastRequest.get().entity.contentType.mediaType.value shouldBe "image/png"
+          response.status.intValue() shouldBe 204
+        }
     )
   )
 

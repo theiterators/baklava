@@ -6,6 +6,7 @@ import { projectsProjectIdContract } from "./projects---projectId.contract";
 import { projectsProjectIdTasksContract } from "./projects---projectId-tasks.contract";
 import { usersContract } from "./users.contract";
 import { usersUserIdContract } from "./users---userId.contract";
+import { usersUserIdAvatarContract } from "./users---userId-avatar.contract";
 import { webhooksContract } from "./webhooks.contract";
 
 export const contracts: {
@@ -17,6 +18,7 @@ export const contracts: {
   "projects---projectId-tasks": typeof projectsProjectIdTasksContract;
   "users": typeof usersContract;
   "users---userId": typeof usersUserIdContract;
+  "users---userId-avatar": typeof usersUserIdAvatarContract;
   "webhooks": typeof webhooksContract
 } = {
   "auth-login": authLoginContract,
@@ -27,6 +29,7 @@ export const contracts: {
   "projects---projectId-tasks": projectsProjectIdTasksContract,
   "users": usersContract,
   "users---userId": usersUserIdContract,
+  "users---userId-avatar": usersUserIdAvatarContract,
   "webhooks": webhooksContract
 };
 
