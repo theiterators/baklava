@@ -1,0 +1,1039 @@
+openapi: 3.0.1
+info:
+  title: Baklava Comprehensive Gold Spec
+  description: Fixture API used by the gold test to exercise all three generators.
+  version: 0.0.0-test
+servers:
+- url: /
+paths:
+  /auth/login:
+    summary: Authentication
+    description: Authenticate against the API
+    post:
+      tags:
+      - Auth
+      summary: Login
+      description: Exchange HTTP Basic credentials for a JWT token
+      operationId: login
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              required:
+              - client_id
+              - grant_type
+              type: object
+              properties:
+                client_id:
+                  type: string
+                grant_type:
+                  type: string
+              x-class: LoginForm
+            examples:
+              Successful login:
+                value: client_id=web&grant_type=password
+      responses:
+        "200":
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                required:
+                - token
+                - user
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    required:
+                    - email
+                    - id
+                    - name
+                    - role
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                      name:
+                        type: string
+                      role:
+                        type: string
+                        description: User role within the system
+                        enum:
+                        - admin
+                        - member
+                        - guest
+                    x-class: User
+                x-class: LoginResponse
+              examples:
+                Successful login:
+                  value: |-
+                    {
+                      "token" : "jwt.token.xyz",
+                      "user" : {
+                        "id" : "00000000-0000-0000-0000-000000000001",
+                        "email" : "alice@example.com",
+                        "name" : "Alice",
+                        "role" : "admin"
+                      }
+                    }
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                required:
+                - code
+                - message
+                type: object
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  details:
+                    type: array
+                    items:
+                      type: string
+                x-class: ErrorResponse
+              examples:
+                Invalid credentials:
+                  value: |-
+                    {
+                      "code" : "unauthorized",
+                      "message" : "Bad credentials",
+                      "details" : null
+                    }
+      security:
+      - basicAuth: []
+  /health:
+    summary: Health
+    description: Liveness probe
+    get:
+      tags:
+      - System
+      summary: Liveness probe
+      description: Return service liveness — no authentication required
+      operationId: health
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                required:
+                - status
+                - uptimeSeconds
+                type: object
+                properties:
+                  status:
+                    type: string
+                  uptimeSeconds:
+                    type: integer
+                    format: int64
+                x-class: HealthResponse
+              examples:
+                Service is alive:
+                  value: |-
+                    {
+                      "status" : "ok",
+                      "uptimeSeconds" : 12345
+                    }
+      security: []
+  /me:
+    summary: Current user
+    description: The authenticated caller
+    get:
+      tags:
+      - Auth
+      summary: Who am I
+      description: Return the profile of the currently authenticated user
+      operationId: me
+      responses:
+        "200":
+          description: Authenticated user profile
+          content:
+            application/json:
+              schema:
+                required:
+                - email
+                - id
+                - name
+                - role
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  name:
+                    type: string
+                  role:
+                    type: string
+                    description: User role within the system
+                    enum:
+                    - admin
+                    - member
+                    - guest
+                x-class: User
+              examples:
+                Authenticated user profile:
+                  value: |-
+                    {
+                      "id" : "00000000-0000-0000-0000-000000000001",
+                      "email" : "alice@example.com",
+                      "name" : "Alice",
+                      "role" : "admin"
+                    }
+      security:
+      - bearerAuth: []
+  /projects:
+    summary: Projects
+    description: Project collection
+    get:
+      tags:
+      - Projects
+      summary: List projects
+      description: "List projects, optionally filtered by status"
+      operationId: listProjects
+      parameters:
+      - name: status
+        in: query
+        description: Filter by lifecycle state
+        required: false
+        explode: true
+        schema:
+          type: string
+          description: Lifecycle state of a project
+          enum:
+          - active
+          - archived
+          - draft
+      responses:
+        "200":
+          description: All active projects / All archived projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  required:
+                  - createdAt
+                  - id
+                  - name
+                  - ownerId
+                  - status
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    id:
+                      type: integer
+                      format: int64
+                    status:
+                      type: string
+                      description: Lifecycle state of a project
+                      enum:
+                      - active
+                      - archived
+                      - draft
+                    createdAt:
+                      type: string
+                    ownerId:
+                      type: string
+                      format: uuid
+                  x-class: Project
+              examples:
+                All active projects:
+                  value: |-
+                    [
+                      {
+                        "id" : 42,
+                        "name" : "Apollo",
+                        "description" : "Mission control",
+                        "status" : "active",
+                        "ownerId" : "00000000-0000-0000-0000-000000000001",
+                        "createdAt" : "2026-01-01T00:00:00Z"
+                      }
+                    ]
+                All archived projects:
+                  value: |-
+                    [
+                      {
+                        "id" : 7,
+                        "name" : "Gemini",
+                        "description" : null,
+                        "status" : "archived",
+                        "ownerId" : "00000000-0000-0000-0000-000000000001",
+                        "createdAt" : "2025-06-01T00:00:00Z"
+                      }
+                    ]
+      security:
+      - oauth2:
+        - projects:read
+        - projects:write
+    post:
+      tags:
+      - Projects
+      summary: Create project
+      description: Create a new project
+      operationId: createProject
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+              - name
+              - status
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                status:
+                  type: string
+                  description: Lifecycle state of a project
+                  enum:
+                  - active
+                  - archived
+                  - draft
+              x-class: CreateProjectRequest
+            examples:
+              Project created:
+                value: |-
+                  {
+                    "name" : "Apollo",
+                    "description" : "Mission control",
+                    "status" : "active"
+                  }
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                required:
+                - createdAt
+                - id
+                - name
+                - ownerId
+                - status
+                type: object
+                properties:
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  id:
+                    type: integer
+                    format: int64
+                  status:
+                    type: string
+                    description: Lifecycle state of a project
+                    enum:
+                    - active
+                    - archived
+                    - draft
+                  createdAt:
+                    type: string
+                  ownerId:
+                    type: string
+                    format: uuid
+                x-class: Project
+              examples:
+                Project created:
+                  value: |-
+                    {
+                      "id" : 42,
+                      "name" : "Apollo",
+                      "description" : "Mission control",
+                      "status" : "active",
+                      "ownerId" : "00000000-0000-0000-0000-000000000001",
+                      "createdAt" : "2026-01-01T00:00:00Z"
+                    }
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                required:
+                - code
+                - message
+                type: object
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  details:
+                    type: array
+                    items:
+                      type: string
+                x-class: ErrorResponse
+              examples:
+                Validation failed:
+                  value: |-
+                    {
+                      "code" : "validation",
+                      "message" : "One or more fields are invalid",
+                      "details" : [
+                        "name: must not be blank"
+                      ]
+                    }
+      security:
+      - oauth2:
+        - projects:read
+        - projects:write
+  /projects/{projectId}:
+    summary: Project by ID
+    description: Project detail
+    patch:
+      tags:
+      - Projects
+      summary: Patch project
+      description: Partially update a project
+      operationId: patchProject
+      parameters:
+      - name: projectId
+        in: path
+        description: The project ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                status:
+                  type: string
+                  description: Lifecycle state of a project
+                  enum:
+                  - active
+                  - archived
+                  - draft
+              x-class: PatchProjectRequest
+            examples:
+              Project updated:
+                value: |-
+                  {
+                    "name" : null,
+                    "description" : "Updated desc",
+                    "status" : null
+                  }
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                required:
+                - createdAt
+                - id
+                - name
+                - ownerId
+                - status
+                type: object
+                properties:
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  id:
+                    type: integer
+                    format: int64
+                  status:
+                    type: string
+                    description: Lifecycle state of a project
+                    enum:
+                    - active
+                    - archived
+                    - draft
+                  createdAt:
+                    type: string
+                  ownerId:
+                    type: string
+                    format: uuid
+                x-class: Project
+              examples:
+                Project updated:
+                  value: |-
+                    {
+                      "id" : 42,
+                      "name" : "Apollo",
+                      "description" : "Updated desc",
+                      "status" : "active",
+                      "ownerId" : "00000000-0000-0000-0000-000000000001",
+                      "createdAt" : "2026-01-01T00:00:00Z"
+                    }
+      security:
+      - oauth2:
+        - projects:read
+        - projects:write
+  /projects/{projectId}/tasks:
+    summary: Project tasks
+    description: Tasks within a project
+    get:
+      tags:
+      - Tasks
+      summary: List tasks
+      description: List all tasks in a project
+      operationId: listTasks
+      parameters:
+      - name: projectId
+        in: path
+        description: The project ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: All tasks in the project
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  required:
+                  - done
+                  - id
+                  - priority
+                  - title
+                  type: object
+                  properties:
+                    priority:
+                      type: string
+                      description: Task priority level
+                      enum:
+                      - low
+                      - medium
+                      - high
+                    description:
+                      type: string
+                    id:
+                      type: integer
+                      format: int64
+                    done:
+                      type: boolean
+                    title:
+                      type: string
+                  x-class: Task
+              examples:
+                All tasks in the project:
+                  value: |-
+                    [
+                      {
+                        "id" : 101,
+                        "title" : "Wire up telemetry",
+                        "description" : "Prometheus + Grafana",
+                        "done" : false,
+                        "priority" : "high"
+                      },
+                      {
+                        "id" : 102,
+                        "title" : "Write docs",
+                        "description" : null,
+                        "done" : true,
+                        "priority" : "low"
+                      }
+                    ]
+      security:
+      - oauth2:
+        - projects:read
+        - projects:write
+    post:
+      tags:
+      - Tasks
+      summary: Create task
+      description: Create a task in a project
+      operationId: createTask
+      parameters:
+      - name: projectId
+        in: path
+        description: The project ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+              - priority
+              - title
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                priority:
+                  type: string
+                  description: Task priority level
+                  enum:
+                  - low
+                  - medium
+                  - high
+              x-class: CreateTaskRequest
+            examples:
+              Task created:
+                value: |-
+                  {
+                    "title" : "New task",
+                    "description" : null,
+                    "priority" : "medium"
+                  }
+      responses:
+        "201":
+          description: Task created
+          headers:
+            Location:
+              description: URL of the newly created task
+              required: true
+              schema:
+                type: string
+              example: /projects/42/tasks/101
+          content:
+            application/json:
+              schema:
+                required:
+                - done
+                - id
+                - priority
+                - title
+                type: object
+                properties:
+                  priority:
+                    type: string
+                    description: Task priority level
+                    enum:
+                    - low
+                    - medium
+                    - high
+                  description:
+                    type: string
+                  id:
+                    type: integer
+                    format: int64
+                  done:
+                    type: boolean
+                  title:
+                    type: string
+                x-class: Task
+              examples:
+                Task created:
+                  value: |-
+                    {
+                      "id" : 101,
+                      "title" : "Wire up telemetry",
+                      "description" : "Prometheus + Grafana",
+                      "done" : false,
+                      "priority" : "high"
+                    }
+      security:
+      - oauth2:
+        - projects:read
+        - projects:write
+  /users:
+    summary: Users
+    description: User collection
+    get:
+      tags:
+      - Users
+      summary: List users
+      description: List users with pagination and optional role filter
+      operationId: listUsers
+      parameters:
+      - name: page
+        in: query
+        description: Page number (1-indexed)
+        required: false
+        explode: true
+        schema:
+          type: integer
+          format: int32
+      - name: limit
+        in: query
+        description: Items per page (max 100)
+        required: false
+        explode: true
+        schema:
+          type: integer
+          format: int32
+      - name: role
+        in: query
+        description: Filter by role
+        required: false
+        explode: true
+        schema:
+          type: string
+          description: User role within the system
+          enum:
+          - admin
+          - member
+          - guest
+      responses:
+        "200":
+          description: First page of users
+          headers:
+            X-Rate-Limit-Remaining:
+              description: Calls remaining in the current window
+              required: true
+              schema:
+                type: integer
+                format: int32
+              example: "59"
+          content:
+            application/json:
+              schema:
+                required:
+                - limit
+                - page
+                - total
+                - users
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      required:
+                      - email
+                      - id
+                      - name
+                      - role
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        email:
+                          type: string
+                        name:
+                          type: string
+                        role:
+                          type: string
+                          description: User role within the system
+                          enum:
+                          - admin
+                          - member
+                          - guest
+                      x-class: User
+                  total:
+                    type: integer
+                    format: int32
+                  page:
+                    type: integer
+                    format: int32
+                  limit:
+                    type: integer
+                    format: int32
+                x-class: PaginatedUsers
+              examples:
+                First page of users:
+                  value: |-
+                    {
+                      "users" : [
+                        {
+                          "id" : "00000000-0000-0000-0000-000000000001",
+                          "email" : "alice@example.com",
+                          "name" : "Alice",
+                          "role" : "admin"
+                        },
+                        {
+                          "id" : "00000000-0000-0000-0000-000000000002",
+                          "email" : "bob@example.com",
+                          "name" : "Bob",
+                          "role" : "member"
+                        }
+                      ],
+                      "total" : 2,
+                      "page" : 1,
+                      "limit" : 20
+                    }
+      security:
+      - bearerAuth: []
+  /users/{userId}:
+    summary: User by ID
+    description: Single user operations
+    get:
+      tags:
+      - Users
+      summary: Get user
+      description: Fetch a single user by UUID
+      operationId: getUser
+      parameters:
+      - name: userId
+        in: path
+        description: The user's UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                required:
+                - email
+                - id
+                - name
+                - role
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  name:
+                    type: string
+                  role:
+                    type: string
+                    description: User role within the system
+                    enum:
+                    - admin
+                    - member
+                    - guest
+                x-class: User
+              examples:
+                User found:
+                  value: |-
+                    {
+                      "id" : "00000000-0000-0000-0000-000000000001",
+                      "email" : "alice@example.com",
+                      "name" : "Alice",
+                      "role" : "admin"
+                    }
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                required:
+                - code
+                - message
+                type: object
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  details:
+                    type: array
+                    items:
+                      type: string
+                x-class: ErrorResponse
+              examples:
+                User not found:
+                  value: |-
+                    {
+                      "code" : "not_found",
+                      "message" : "No such user",
+                      "details" : null
+                    }
+      security:
+      - bearerAuth: []
+    put:
+      tags:
+      - Users
+      summary: Update user
+      description: Replace a user's profile (admin only)
+      operationId: updateUser
+      parameters:
+      - name: userId
+        in: path
+        description: The user's UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+              - name
+              - role
+              type: object
+              properties:
+                name:
+                  type: string
+                role:
+                  type: string
+                  description: User role within the system
+                  enum:
+                  - admin
+                  - member
+                  - guest
+              x-class: UpdateUserRequest
+            examples:
+              User updated:
+                value: |-
+                  {
+                    "name" : "Alice Updated",
+                    "role" : "admin"
+                  }
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                required:
+                - email
+                - id
+                - name
+                - role
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  name:
+                    type: string
+                  role:
+                    type: string
+                    description: User role within the system
+                    enum:
+                    - admin
+                    - member
+                    - guest
+                x-class: User
+              examples:
+                User updated:
+                  value: |-
+                    {
+                      "id" : "00000000-0000-0000-0000-000000000001",
+                      "email" : "alice@example.com",
+                      "name" : "Alice Updated",
+                      "role" : "admin"
+                    }
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Users
+      summary: Delete user
+      description: Delete a user
+      operationId: deleteUser
+      parameters:
+      - name: userId
+        in: path
+        description: The user's UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: User deleted
+      security:
+      - bearerAuth: []
+  /webhooks:
+    summary: Webhooks
+    description: Inbound webhooks
+    post:
+      tags:
+      - Webhooks
+      summary: Deliver webhook
+      description: Accept a webhook payload
+      operationId: deliverWebhook
+      requestBody:
+        content:
+          application/json:
+            schema:
+              required:
+              - data
+              - event
+              type: object
+              properties:
+                event:
+                  type: string
+                data:
+                  type: string
+              x-class: WebhookPayload
+            examples:
+              Legacy plain-text ack:
+                value: |-
+                  {
+                    "event" : "order.created",
+                    "data" : "{\"id\":1}"
+                  }
+              Webhook accepted:
+                value: |-
+                  {
+                    "event" : "order.created",
+                    "data" : "{\"id\":1}"
+                  }
+      responses:
+        "202":
+          description: Legacy plain-text ack / Webhook accepted
+          content:
+            application/json:
+              schema:
+                required:
+                - received
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                x-class: WebhookAck
+              examples:
+                Webhook accepted:
+                  value: |-
+                    {
+                      "received" : true
+                    }
+            text/plain; charset=UTF-8:
+              schema:
+                type: string
+              examples:
+                Legacy plain-text ack:
+                  value: ACK
+      security:
+      - apiKey: []
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      description: HTTP Basic for the login endpoint only
+      scheme: basic
+    bearerAuth:
+      type: http
+      description: JWT token issued by /auth/login
+      scheme: bearer
+      bearerFormat: JWT
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://example.com/oauth/authorize
+          tokenUrl: https://example.com/oauth/token
+          scopes:
+            projects:read: Read projects
+            projects:write: Create/update projects
+    apiKey:
+      type: apiKey
+      description: API key for webhook delivery
+      name: X-API-Key
+      in: header

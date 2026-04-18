@@ -1,0 +1,6 @@
+{
+  "name": "baklava-gold-contracts",
+  "version": "0.0.0-test",
+  "main": "index.js",
+  "types": "index.d.ts"
+}

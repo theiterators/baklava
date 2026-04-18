@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GET /users</title><style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px 40px; background: #f8f9fa; color: #1a1a2e; line-height: 1.5; }
+  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 20px; color: #16213e; }
+  a { color: #0d6efd; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .endpoint-list { list-style: none; padding: 0; margin: 0; }
+  .endpoint-list li { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 8px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+  .endpoint-list li:hover { border-color: #0d6efd; }
+  .method { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; min-width: 56px; text-align: center; color: #fff; }
+  .method-GET { background: #198754; } .method-POST { background: #0d6efd; } .method-PUT { background: #fd7e14; }
+  .method-PATCH { background: #6f42c1; } .method-DELETE { background: #dc3545; } .method-HEAD { background: #6c757d; }
+  .method-OPTIONS { background: #20c997; } .method-TRACE { background: #6c757d; } .method-CONNECT { background: #6c757d; }
+  .path { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9rem; }
+  .card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+  .card-header { padding: 12px 16px; font-weight: 600; font-size: 0.85rem; color: #495057; background: #f1f3f5; border-bottom: 1px solid #dee2e6; text-transform: uppercase; letter-spacing: 0.05em; }
+  .card-body { padding: 16px; }
+  .card-body p { margin: 0 0 8px; }
+  .meta-grid { display: grid; grid-template-columns: 140px 1fr; gap: 0; }
+  .meta-grid dt { padding: 8px 12px; font-weight: 600; font-size: 0.8rem; color: #495057; background: #f8f9fa; border-bottom: 1px solid #eee; }
+  .meta-grid dd { padding: 8px 12px; margin: 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+  .tag { display: inline-block; background: #e9ecef; color: #495057; padding: 1px 8px; border-radius: 4px; font-size: 0.8rem; margin-right: 4px; }
+  .required { color: #dc3545; font-weight: 700; }
+  pre { background: #212529; color: #e9ecef; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; line-height: 1.5; margin: 0; }
+  .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #fff; }
+  .status-2xx { background: #198754; } .status-3xx { background: #0dcaf0; color: #000; } .status-4xx { background: #fd7e14; } .status-5xx { background: #dc3545; }
+  .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
+</style></head><body>
+<a href="index.html" class="back-link">&larr; Back to index</a>
+<h1><span class="method method-GET">GET</span> <span class="path">/users</span></h1>
+<div class="card"><div class="card-header">Overview</div><div class="card-body"><dl class="meta-grid"><dt>Summary</dt><dd>List users</dd><dt>Description</dt><dd>List users with pagination and optional role filter</dd><dt>Operation ID</dt><dd><code>listUsers</code></dd><dt>Tags</dt><dd><span class="tag">Users</span></dd></dl></div></div>
+<div class="card"><div class="card-header">Security</div><div class="card-body"><p>bearerAuth <span class="tag">http</span></p></div></div>
+<div class="card"><div class="card-header">Query Parameters</div><div class="card-body"><dl class="meta-grid"><dt>page</dt><dd><code>Int</code></dd><dt>limit</dt><dd><code>Int</code></dd><dt>role</dt><dd><code>Role</code> <span class="tag">admin | guest | member</span></dd></dl></div></div>
+<div class="card"><div class="card-header"><span class="status-badge status-2xx">200</span> Response</div><div class="card-body"><p>First page of users</p><h4>Response headers</h4><dl class="meta-grid"><dt>X-Rate-Limit-Remaining <span class="required">*</span></dt><dd><code>Int</code> = <code>59</code></dd></dl><h4>Response body</h4><pre>{
+  "users" : [
+    {
+      "id" : "00000000-0000-0000-0000-000000000001",
+      "email" : "alice@example.com",
+      "name" : "Alice",
+      "role" : "admin"
+    },
+    {
+      "id" : "00000000-0000-0000-0000-000000000002",
+      "email" : "bob@example.com",
+      "name" : "Bob",
+      "role" : "member"
+    }
+  ],
+  "total" : 2,
+  "page" : 1,
+  "limit" : 20
+}</pre><details><summary>Response schema</summary><pre>{
+  "$schema" : "http://json-schema.org/draft-07/schema#",
+  "title" : "PaginatedUsers",
+  "type" : "object",
+  "properties" : {
+    "users" : {
+      "type" : "array",
+      "items" : {
+        "title" : "User",
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "description" : "User role within the system",
+            "enum" : [
+              "admin",
+              "member",
+              "guest"
+            ]
+          }
+        },
+        "required" : [
+          "email",
+          "id",
+          "name",
+          "role"
+        ],
+        "additionalProperties" : false
+      }
+    },
+    "total" : {
+      "type" : "integer",
+      "format" : "int32"
+    },
+    "page" : {
+      "type" : "integer",
+      "format" : "int32"
+    },
+    "limit" : {
+      "type" : "integer",
+      "format" : "int32"
+    }
+  },
+  "required" : [
+    "limit",
+    "page",
+    "total",
+    "users"
+  ],
+  "additionalProperties" : false
+}</pre></details></div></div>
+</body></html>

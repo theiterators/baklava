@@ -41,6 +41,20 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
       requiredArray(generator.jsonSchemaV7(schemaB)) shouldBe requiredA
     }
 
+    it("omits the `required` keyword on non-object schemas (valid JSON Schema)") {
+      val schema = objectSchema(Map("a" -> stringRequired, "b" -> stringRequired))
+      val json   = parser.parse(generator.jsonSchemaV7(schema)).toTry.get.hcursor
+
+      // Object schema itself gets a `required` list.
+      json.downField("required").as[List[String]].toTry.get shouldBe List("a", "b")
+
+      // Leaf (string) properties must NOT carry a `required` key — per JSON Schema, `required`
+      // is only meaningful on object schemas and lists property names, not an empty array on
+      // scalar leaves.
+      json.downField("properties").downField("a").downField("required").succeeded shouldBe false
+      json.downField("properties").downField("b").downField("required").succeeded shouldBe false
+    }
+
     it("renders declared response headers with their captured example values (regression for C7)") {
       val base     = jsonCall(status = 200, desc = "ok", requestBody = "", responseBody = "")
       val withHdrs = base.copy(
