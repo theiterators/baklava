@@ -25,12 +25,14 @@
   .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #fff; }
   .status-2xx { background: #198754; } .status-3xx { background: #0dcaf0; color: #000; } .status-4xx { background: #fd7e14; } .status-5xx { background: #dc3545; }
   .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
+  ul.examples { list-style: none; padding: 0; margin: 4px 0 0; font-size: 0.85rem; }
+  ul.examples li { padding: 2px 0; }
 </style></head><body>
 <a href="index.html" class="back-link">&larr; Back to index</a>
 <h1><span class="method method-GET">GET</span> <span class="path">/users</span></h1>
 <div class="card"><div class="card-header">Overview</div><div class="card-body"><dl class="meta-grid"><dt>Summary</dt><dd>List users</dd><dt>Description</dt><dd>List users with pagination and optional role filter</dd><dt>Operation ID</dt><dd><code>listUsers</code></dd><dt>Tags</dt><dd><span class="tag">Users</span></dd></dl></div></div>
 <div class="card"><div class="card-header">Security</div><div class="card-body"><p>bearerAuth <span class="tag">http</span></p></div></div>
-<div class="card"><div class="card-header">Query Parameters</div><div class="card-body"><dl class="meta-grid"><dt>page</dt><dd><code>Int</code></dd><dt>limit</dt><dd><code>Int</code></dd><dt>role</dt><dd><code>Role</code> <span class="tag">admin | guest | member</span></dd></dl></div></div>
+<div class="card"><div class="card-header">Query Parameters</div><div class="card-body"><dl class="meta-grid"><dt>page</dt><dd><code>Int</code> = <code>1</code></dd><dt>limit</dt><dd><code>Int</code> = <code>20</code></dd><dt>role</dt><dd><code>Role</code> <span class="tag">admin | guest | member</span> = <code>admin</code></dd></dl></div></div>
 <div class="card"><div class="card-header"><span class="status-badge status-2xx">200</span> Response</div><div class="card-body"><p>First page of users</p><h4>Response headers</h4><dl class="meta-grid"><dt>X-Rate-Limit-Remaining <span class="required">*</span></dt><dd><code>Int</code> = <code>59</code></dd></dl><h4>Response body</h4><pre>{
   "users" : [
     {

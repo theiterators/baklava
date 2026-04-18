@@ -215,7 +215,10 @@ object BaklavaDslFormatterOpenAPIWorker {
           else securityRequirements
         operation.setSecurity(finalSecurityRequirements.asJava)
 
-        calls.head.request.queryParametersSeq
+        // Merge parameter declarations across every call in the operation so variants with different
+        // query/path/header sets all contribute. Previously only calls.head's parameters survived.
+        val mergedQueryParams = calls.flatMap(_.request.queryParametersSeq).distinctBy(_.name).sortBy(_.name)
+        mergedQueryParams
           .map { queryParam =>
             val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
             parameter.setName(queryParam.name)
@@ -224,26 +227,34 @@ object BaklavaDslFormatterOpenAPIWorker {
             parameter.setExplode(true) // I guess this is default?
             parameter.setSchema(baklavaSchemaToOpenAPISchema(queryParam.schema))
             queryParam.description.foreach(parameter.setDescription)
-            // TODO: we could add example best on provided in test case :shrug:
+            attachParameterExamples(parameter, collectQueryExamples(calls, queryParam.name))
             parameter
           }
           .foreach(operation.addParametersItem)
 
-        calls.head.request.pathParametersSeq
+        val mergedPathParams = calls.flatMap(_.request.pathParametersSeq).distinctBy(_.name).sortBy(_.name)
+        mergedPathParams
           .map { pathParam =>
             val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
             parameter.setName(pathParam.name)
             parameter.setIn("path")
-            parameter.setRequired(pathParam.schema.required)
+            // Path params must always be `required: true` per OAS 3.x.
+            parameter.setRequired(true)
             parameter.setSchema(baklavaSchemaToOpenAPISchema(pathParam.schema))
             pathParam.description.foreach(parameter.setDescription)
-            // TODO: we could add example best on provided in test case :shrug:
+            attachParameterExamples(parameter, collectPathExamples(calls, pathParam.name))
             parameter
           }
           .foreach(operation.addParametersItem)
 
-        calls.head.request.headersSeq
-          .filter(h => h.name.toLowerCase != "content-type" && h.name.toLowerCase != "accept" && h.name.toLowerCase != "authorization")
+        val mergedHeaders = calls
+          .flatMap(_.request.headersSeq)
+          .map(h => (h, h.name.toLowerCase(java.util.Locale.ROOT)))
+          .distinctBy(_._2)
+          .filterNot { case (_, lowered) => lowered == "content-type" || lowered == "accept" || lowered == "authorization" }
+          .sortBy(_._2)
+          .map(_._1)
+        mergedHeaders
           .map { header =>
             val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
             parameter.setName(header.name)
@@ -251,7 +262,7 @@ object BaklavaDslFormatterOpenAPIWorker {
             parameter.setRequired(header.schema.required)
             parameter.setSchema(baklavaSchemaToOpenAPISchema(header.schema))
             header.description.foreach(parameter.setDescription)
-            // TODO: we could add example best on provided in test case :shrug:
+            attachParameterExamples(parameter, collectHeaderExamples(calls, header.name))
             parameter
           }
           .foreach(operation.addParametersItem)
@@ -302,6 +313,54 @@ object BaklavaDslFormatterOpenAPIWorker {
     }
 
     oauthFlows
+  }
+
+  /** Collect `(scenarioName -> exampleValue)` pairs for a named parameter across all calls. The scenario name comes from
+    * `responseDescription` when present; calls without a description are included with an empty scenario name (which
+    * `attachParameterExamples` later fills in with `Example <idx>`). Calls whose example is `None` (no captured value) are skipped.
+    */
+  private def collectQueryExamples(calls: Seq[BaklavaSerializableCall], name: String): Seq[(String, String)] =
+    calls.flatMap { c =>
+      val label    = c.request.responseDescription.getOrElse("")
+      val maybeVal = c.request.queryParametersSeq.find(_.name == name).flatMap(_.example)
+      maybeVal.map(label -> _)
+    }
+
+  private def collectPathExamples(calls: Seq[BaklavaSerializableCall], name: String): Seq[(String, String)] =
+    calls.flatMap { c =>
+      val label    = c.request.responseDescription.getOrElse("")
+      val maybeVal = c.request.pathParametersSeq.find(_.name == name).flatMap(_.example)
+      maybeVal.map(label -> _)
+    }
+
+  private def collectHeaderExamples(calls: Seq[BaklavaSerializableCall], name: String): Seq[(String, String)] =
+    calls.flatMap { c =>
+      val label    = c.request.responseDescription.getOrElse("")
+      val lowered  = name.toLowerCase
+      val maybeVal = c.request.headersSeq.find(_.name.toLowerCase == lowered).flatMap(_.example)
+      maybeVal.map(label -> _)
+    }
+
+  /** Attach example values to an OpenAPI `Parameter`. If all captured values are identical, use the singular `example`. If they differ,
+    * emit a named `examples` map keyed by scenario name (with disambiguation for duplicate / missing labels). Nothing is emitted when no
+    * examples were captured.
+    */
+  private def attachParameterExamples(
+      parameter: io.swagger.v3.oas.models.parameters.Parameter,
+      examples: Seq[(String, String)]
+  ): Unit = {
+    val distinctValues = examples.map(_._2).distinct
+    if (distinctValues.isEmpty) () // nothing to attach
+    else if (distinctValues.size == 1) {
+      val _ = parameter.example(distinctValues.head)
+    } else {
+      val used = scala.collection.mutable.Set.empty[String]
+      examples.zipWithIndex.foreach { case ((label, value), idx) =>
+        val baseKey  = if (label.isEmpty) s"Example $idx" else label
+        val finalKey = disambiguateKey(baseKey, used)
+        val _        = parameter.addExample(finalKey, new io.swagger.v3.oas.models.examples.Example().value(value))
+      }
+    }
   }
 
   private def disambiguateKey(baseKey: String, used: scala.collection.mutable.Set[String]): String = {

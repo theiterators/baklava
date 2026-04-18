@@ -25,11 +25,13 @@
   .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #fff; }
   .status-2xx { background: #198754; } .status-3xx { background: #0dcaf0; color: #000; } .status-4xx { background: #fd7e14; } .status-5xx { background: #dc3545; }
   .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
+  ul.examples { list-style: none; padding: 0; margin: 4px 0 0; font-size: 0.85rem; }
+  ul.examples li { padding: 2px 0; }
 </style></head><body>
 <a href="index.html" class="back-link">&larr; Back to index</a>
 <h1><span class="method method-DELETE">DELETE</span> <span class="path">/users/{userId}</span></h1>
 <div class="card"><div class="card-header">Overview</div><div class="card-body"><dl class="meta-grid"><dt>Summary</dt><dd>Delete user</dd><dt>Description</dt><dd>Delete a user</dd><dt>Operation ID</dt><dd><code>deleteUser</code></dd><dt>Tags</dt><dd><span class="tag">Users</span></dd></dl></div></div>
 <div class="card"><div class="card-header">Security</div><div class="card-body"><p>bearerAuth <span class="tag">http</span></p></div></div>
-<div class="card"><div class="card-header">Path Parameters</div><div class="card-body"><dl class="meta-grid"><dt>userId <span class="required">*</span></dt><dd><code>UUID</code></dd></dl></div></div>
+<div class="card"><div class="card-header">Path Parameters</div><div class="card-body"><dl class="meta-grid"><dt>userId <span class="required">*</span></dt><dd><code>UUID</code> = <code>00000000-0000-0000-0000-000000000002</code></dd></dl></div></div>
 <div class="card"><div class="card-header"><span class="status-badge status-2xx">204</span> Response</div><div class="card-body"><p>User deleted</p></div></div>
 </body></html>

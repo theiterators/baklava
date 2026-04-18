@@ -25,12 +25,14 @@
   .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #fff; }
   .status-2xx { background: #198754; } .status-3xx { background: #0dcaf0; color: #000; } .status-4xx { background: #fd7e14; } .status-5xx { background: #dc3545; }
   .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
+  ul.examples { list-style: none; padding: 0; margin: 4px 0 0; font-size: 0.85rem; }
+  ul.examples li { padding: 2px 0; }
 </style></head><body>
 <a href="index.html" class="back-link">&larr; Back to index</a>
 <h1><span class="method method-PATCH">PATCH</span> <span class="path">/projects/{projectId}</span></h1>
 <div class="card"><div class="card-header">Overview</div><div class="card-body"><dl class="meta-grid"><dt>Summary</dt><dd>Patch project</dd><dt>Description</dt><dd>Partially update a project</dd><dt>Operation ID</dt><dd><code>patchProject</code></dd><dt>Tags</dt><dd><span class="tag">Projects</span></dd></dl></div></div>
 <div class="card"><div class="card-header">Security</div><div class="card-body"><p>oauth2 <span class="tag">oauth2</span></p></div></div>
-<div class="card"><div class="card-header">Path Parameters</div><div class="card-body"><dl class="meta-grid"><dt>projectId <span class="required">*</span></dt><dd><code>Long</code></dd></dl></div></div>
+<div class="card"><div class="card-header">Path Parameters</div><div class="card-body"><dl class="meta-grid"><dt>projectId <span class="required">*</span></dt><dd><code>Long</code> = <code>42</code></dd></dl></div></div>
 <div class="card"><div class="card-header">Request body</div><div class="card-body"><details><summary>Request schema (JSON Schema v7)</summary><pre>{
   "$schema" : "http://json-schema.org/draft-07/schema#",
   "title" : "PatchProjectRequest",

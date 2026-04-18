@@ -55,6 +55,29 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
       json.downField("properties").downField("b").downField("required").succeeded shouldBe false
     }
 
+    it("renders captured parameter examples inline when calls agree, as a scenario list when they diverge") {
+      val base      = jsonCall(status = 200, desc = "A", requestBody = "", responseBody = "{}")
+      val callWithQ = base.copy(
+        request = base.request.copy(
+          queryParametersSeq = Seq(BaklavaQueryParamSerializable("page", None, stringRequired, Some("1")))
+        )
+      )
+      val singleHtml = generator.generateEndpointPage(Seq(callWithQ))
+      singleHtml should include("<code>String</code> = <code>1</code>")
+      singleHtml should not include """ul class="examples""""
+
+      val callB = callWithQ.copy(
+        request = callWithQ.request.copy(
+          responseDescription = Some("B"),
+          queryParametersSeq = Seq(BaklavaQueryParamSerializable("page", None, stringRequired, Some("2")))
+        )
+      )
+      val multiHtml = generator.generateEndpointPage(Seq(callWithQ, callB))
+      multiHtml should include("""ul class="examples"""")
+      multiHtml should include("<em>A:</em> <code>1</code>")
+      multiHtml should include("<em>B:</em> <code>2</code>")
+    }
+
     it("renders declared response headers with their captured example values (regression for C7)") {
       val base     = jsonCall(status = 200, desc = "ok", requestBody = "", responseBody = "")
       val withHdrs = base.copy(
