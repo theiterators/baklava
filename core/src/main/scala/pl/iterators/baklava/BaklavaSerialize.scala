@@ -2,6 +2,7 @@ package pl.iterators.baklava
 
 import com.github.plokhotnyuk.jsoniter_scala.core.*
 import com.github.plokhotnyuk.jsoniter_scala.macros.*
+import sttp.model.{Header => SttpHeader, Method, StatusCode}
 
 import java.io.File
 import java.nio.file.Files
@@ -167,7 +168,7 @@ case class BaklavaRequestContextSerializable(
     path: String,
     pathDescription: Option[String],
     pathSummary: Option[String],
-    method: Option[BaklavaHttpMethod],
+    method: Option[Method],
     operationDescription: Option[String],
     operationSummary: Option[String],
     operationId: Option[String],
@@ -213,8 +214,8 @@ object BaklavaRequestContextSerializable {
 
 case class BaklavaResponseContextSerializable(
     protocol: BaklavaHttpProtocol,
-    status: BaklavaHttpStatus,
-    headers: BaklavaHttpHeaders,
+    status: StatusCode,
+    headers: Seq[SttpHeader],
     // body: ResponseBody, //maybe byte array? or maybe not needed
     // rawRequest: RequestType,//todo probably not needed
     requestBodyString: String,

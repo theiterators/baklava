@@ -4,6 +4,7 @@ import io.swagger.v3.oas.models.OpenAPI
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
+import sttp.model.{Method, StatusCode}
 
 import scala.jdk.CollectionConverters.*
 
@@ -30,7 +31,7 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
         path = path,
         pathDescription = None,
         pathSummary = None,
-        method = Some(BaklavaHttpMethod(method)),
+        method = Some(Method(method)),
         operationDescription = description,
         operationSummary = summary,
         operationId = operationId,
@@ -45,8 +46,8 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
       ),
       response = BaklavaResponseContextSerializable(
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
-        status = BaklavaHttpStatus(status),
-        headers = BaklavaHttpHeaders(Map.empty),
+        status = StatusCode(status),
+        headers = Seq.empty,
         requestBodyString = "",
         responseBodyString = "",
         requestContentType = None,
@@ -164,7 +165,7 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
             )
           ),
           response = call("GET", "/v1/ct", None, None, Nil, None, Nil).response.copy(
-            headers = BaklavaHttpHeaders(Map("x-request-id" -> "req-42"))
+            headers = Seq(sttp.model.Header("x-request-id", "req-42"))
           )
         )
 

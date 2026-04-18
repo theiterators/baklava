@@ -71,6 +71,7 @@ val testcontainersV = "0.44.1"
 val webjarsLocatorV = "0.52"
 val swaggerUiV      = "5.32.1"
 val typesafeConfigV = "1.4.6"
+val sttpModelV      = "1.7.17"
 
 lazy val core = project
   .in(file("core"))
@@ -83,6 +84,7 @@ lazy val core = project
         "io.circe"                              %% "circe-parser"          % circeV,
         "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core"   % jsoniterV,
         "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % jsoniterV  % "provided",
+        "com.softwaremill.sttp.model"           %% "core"                  % sttpModelV,
         "org.scalatest"                         %% "scalatest"             % scalatestV % "test",
         if (scalaVersion.value.startsWith("3")) "com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaS3V
         else "com.softwaremill.magnolia1_2"                                    %% "magnolia" % magnoliaS2V
