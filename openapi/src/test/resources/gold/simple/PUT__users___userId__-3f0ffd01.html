@@ -1,0 +1,111 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PUT /users/{userId}</title><style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px 40px; background: #f8f9fa; color: #1a1a2e; line-height: 1.5; }
+  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 20px; color: #16213e; }
+  a { color: #0d6efd; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .endpoint-list { list-style: none; padding: 0; margin: 0; }
+  .endpoint-list li { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 8px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+  .endpoint-list li:hover { border-color: #0d6efd; }
+  .method { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; min-width: 56px; text-align: center; color: #fff; }
+  .method-GET { background: #198754; } .method-POST { background: #0d6efd; } .method-PUT { background: #fd7e14; }
+  .method-PATCH { background: #6f42c1; } .method-DELETE { background: #dc3545; } .method-HEAD { background: #6c757d; }
+  .method-OPTIONS { background: #20c997; } .method-TRACE { background: #6c757d; } .method-CONNECT { background: #6c757d; }
+  .path { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9rem; }
+  .card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+  .card-header { padding: 12px 16px; font-weight: 600; font-size: 0.85rem; color: #495057; background: #f1f3f5; border-bottom: 1px solid #dee2e6; text-transform: uppercase; letter-spacing: 0.05em; }
+  .card-body { padding: 16px; }
+  .card-body p { margin: 0 0 8px; }
+  .meta-grid { display: grid; grid-template-columns: 140px 1fr; gap: 0; }
+  .meta-grid dt { padding: 8px 12px; font-weight: 600; font-size: 0.8rem; color: #495057; background: #f8f9fa; border-bottom: 1px solid #eee; }
+  .meta-grid dd { padding: 8px 12px; margin: 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+  .tag { display: inline-block; background: #e9ecef; color: #495057; padding: 1px 8px; border-radius: 4px; font-size: 0.8rem; margin-right: 4px; }
+  .required { color: #dc3545; font-weight: 700; }
+  pre { background: #212529; color: #e9ecef; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; line-height: 1.5; margin: 0; }
+  .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #fff; }
+  .status-2xx { background: #198754; } .status-3xx { background: #0dcaf0; color: #000; } .status-4xx { background: #fd7e14; } .status-5xx { background: #dc3545; }
+  .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
+</style></head><body>
+<a href="index.html" class="back-link">&larr; Back to index</a>
+<h1><span class="method method-PUT">PUT</span> <span class="path">/users/{userId}</span></h1>
+<div class="card"><div class="card-header">Overview</div><div class="card-body"><dl class="meta-grid"><dt>Summary</dt><dd>Update user</dd><dt>Description</dt><dd>Replace a user's profile (admin only)</dd><dt>Operation ID</dt><dd><code>updateUser</code></dd><dt>Tags</dt><dd><span class="tag">Users</span></dd></dl></div></div>
+<div class="card"><div class="card-header">Security</div><div class="card-body"><p>bearerAuth <span class="tag">http</span></p></div></div>
+<div class="card"><div class="card-header">Path Parameters</div><div class="card-body"><dl class="meta-grid"><dt>userId <span class="required">*</span></dt><dd><code>UUID</code></dd></dl></div></div>
+<div class="card"><div class="card-header">Request body</div><div class="card-body"><details><summary>Request schema (JSON Schema v7)</summary><pre>{
+  "$schema" : "http://json-schema.org/draft-07/schema#",
+  "title" : "UpdateUserRequest",
+  "type" : "object",
+  "properties" : {
+    "name" : {
+      "type" : "string",
+      "required" : [
+      ]
+    },
+    "role" : {
+      "type" : "string",
+      "description" : "User role within the system",
+      "enum" : [
+        "admin",
+        "member",
+        "guest"
+      ],
+      "required" : [
+      ]
+    }
+  },
+  "required" : [
+    "name",
+    "role"
+  ],
+  "additionalProperties" : false
+}</pre></details></div></div>
+<div class="card"><div class="card-header"><span class="status-badge status-2xx">200</span> Response</div><div class="card-body"><p>User updated</p><h4>Request body</h4><pre>{
+  "name" : "Alice Updated",
+  "role" : "admin"
+}</pre><h4>Response body</h4><pre>{
+  "id" : "00000000-0000-0000-0000-000000000001",
+  "email" : "alice@example.com",
+  "name" : "Alice Updated",
+  "role" : "admin"
+}</pre><details><summary>Response schema</summary><pre>{
+  "$schema" : "http://json-schema.org/draft-07/schema#",
+  "title" : "User",
+  "type" : "object",
+  "properties" : {
+    "id" : {
+      "type" : "string",
+      "format" : "uuid",
+      "required" : [
+      ]
+    },
+    "email" : {
+      "type" : "string",
+      "required" : [
+      ]
+    },
+    "name" : {
+      "type" : "string",
+      "required" : [
+      ]
+    },
+    "role" : {
+      "type" : "string",
+      "description" : "User role within the system",
+      "enum" : [
+        "admin",
+        "member",
+        "guest"
+      ],
+      "required" : [
+      ]
+    }
+  },
+  "required" : [
+    "email",
+    "id",
+    "name",
+    "role"
+  ],
+  "additionalProperties" : false
+}</pre></details></div></div>
+</body></html>
