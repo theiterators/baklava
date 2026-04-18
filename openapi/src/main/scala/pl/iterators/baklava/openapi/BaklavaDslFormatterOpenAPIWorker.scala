@@ -227,7 +227,7 @@ object BaklavaDslFormatterOpenAPIWorker {
             parameter.setExplode(true) // I guess this is default?
             parameter.setSchema(baklavaSchemaToOpenAPISchema(queryParam.schema))
             queryParam.description.foreach(parameter.setDescription)
-            // Example values from captured test inputs are tracked separately in #68.
+            attachParameterExamples(parameter, collectQueryExamples(calls, queryParam.name))
             parameter
           }
           .foreach(operation.addParametersItem)
@@ -242,7 +242,7 @@ object BaklavaDslFormatterOpenAPIWorker {
             parameter.setRequired(true)
             parameter.setSchema(baklavaSchemaToOpenAPISchema(pathParam.schema))
             pathParam.description.foreach(parameter.setDescription)
-            // Example values from captured test inputs are tracked separately in #68.
+            attachParameterExamples(parameter, collectPathExamples(calls, pathParam.name))
             parameter
           }
           .foreach(operation.addParametersItem)
@@ -262,7 +262,7 @@ object BaklavaDslFormatterOpenAPIWorker {
             parameter.setRequired(header.schema.required)
             parameter.setSchema(baklavaSchemaToOpenAPISchema(header.schema))
             header.description.foreach(parameter.setDescription)
-            // Example values from captured test inputs are tracked separately in #68.
+            attachParameterExamples(parameter, collectHeaderExamples(calls, header.name))
             parameter
           }
           .foreach(operation.addParametersItem)
@@ -313,6 +313,54 @@ object BaklavaDslFormatterOpenAPIWorker {
     }
 
     oauthFlows
+  }
+
+  /** Collect `(scenarioName -> exampleValue)` pairs for a named parameter across all calls. The scenario name comes from
+    * `responseDescription` when present; calls without a description are included with an empty scenario name (which
+    * `attachParameterExamples` later fills in with `Example <idx>`). Calls whose example is `None` (no captured value) are skipped.
+    */
+  private def collectQueryExamples(calls: Seq[BaklavaSerializableCall], name: String): Seq[(String, String)] =
+    calls.flatMap { c =>
+      val label    = c.request.responseDescription.getOrElse("")
+      val maybeVal = c.request.queryParametersSeq.find(_.name == name).flatMap(_.example)
+      maybeVal.map(label -> _)
+    }
+
+  private def collectPathExamples(calls: Seq[BaklavaSerializableCall], name: String): Seq[(String, String)] =
+    calls.flatMap { c =>
+      val label    = c.request.responseDescription.getOrElse("")
+      val maybeVal = c.request.pathParametersSeq.find(_.name == name).flatMap(_.example)
+      maybeVal.map(label -> _)
+    }
+
+  private def collectHeaderExamples(calls: Seq[BaklavaSerializableCall], name: String): Seq[(String, String)] =
+    calls.flatMap { c =>
+      val label    = c.request.responseDescription.getOrElse("")
+      val lowered  = name.toLowerCase
+      val maybeVal = c.request.headersSeq.find(_.name.toLowerCase == lowered).flatMap(_.example)
+      maybeVal.map(label -> _)
+    }
+
+  /** Attach example values to an OpenAPI `Parameter`. If all captured values are identical, use the singular `example`. If they differ,
+    * emit a named `examples` map keyed by scenario name (with disambiguation for duplicate / missing labels). Nothing is emitted when no
+    * examples were captured.
+    */
+  private def attachParameterExamples(
+      parameter: io.swagger.v3.oas.models.parameters.Parameter,
+      examples: Seq[(String, String)]
+  ): Unit = {
+    val distinctValues = examples.map(_._2).distinct
+    if (distinctValues.isEmpty) () // nothing to attach
+    else if (distinctValues.size == 1) {
+      val _ = parameter.example(distinctValues.head)
+    } else {
+      val used = scala.collection.mutable.Set.empty[String]
+      examples.zipWithIndex.foreach { case ((label, value), idx) =>
+        val baseKey  = if (label.isEmpty) s"Example $idx" else label
+        val finalKey = disambiguateKey(baseKey, used)
+        val _        = parameter.addExample(finalKey, new io.swagger.v3.oas.models.examples.Example().value(value))
+      }
+    }
   }
 
   private def disambiguateKey(baseKey: String, used: scala.collection.mutable.Set[String]): String = {
