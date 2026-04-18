@@ -2353,7 +2353,6 @@ trait BaklavaQueryParams {
       }
     }
 
-  // TODO: created by chatgpt, check later
   def addQueryParametersToUri(uri: String, queryParameters: Map[String, Seq[String]]): String = {
     if (queryParameters.isEmpty) {
       uri
