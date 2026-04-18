@@ -134,7 +134,42 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
       out should include("'$BASE_URL/users'")
       out should include("-H 'Content-Type: application/json'")
       out should include("""--data-raw '{"name":"Alice"}'""")
-      out should include("""<button class="copy-btn" type="button" data-clipboard=""")
+      // Payload is copied from the adjacent <pre>'s textContent (not a data-* attribute), since
+      // attribute values have whitespace normalized and we'd lose line-continuation newlines.
+      out should include("""<button class="copy-btn" type="button">Copy</button>""")
+      out should not include "data-clipboard="
+    }
+
+    it("never leaks a declared Authorization/Cookie/API-key header value — only placeholders") {
+      val base = jsonCall(status = 200, desc = "ok", requestBody = "", responseBody = "{}")
+      val call = base.copy(
+        request = base.request.copy(
+          securitySchemes = Seq(
+            BaklavaSecuritySchemaSerializable(
+              "bearerAuth",
+              BaklavaSecuritySerializable(httpBearer = Some(HttpBearer(bearerFormat = "JWT")))
+            ),
+            BaklavaSecuritySchemaSerializable(
+              "apiKey",
+              BaklavaSecuritySerializable(apiKeyInHeader = Some(ApiKeyInHeader("X-API-Key")))
+            )
+          ),
+          // Headers a naive user might also declare alongside the security scheme — we must NOT
+          // leak these captured values (which would contain a real token / cookie / key).
+          headersSeq = Seq(
+            BaklavaHeaderSerializable("Authorization", None, stringRequired, Some("Bearer real-jwt-xyz")),
+            BaklavaHeaderSerializable("Cookie", None, stringRequired, Some("session=real-cookie")),
+            BaklavaHeaderSerializable("X-API-Key", None, stringRequired, Some("real-api-key"))
+          )
+        )
+      )
+      val out = generator.renderCurl(call)
+
+      out should not include "real-jwt-xyz"
+      out should not include "real-cookie"
+      out should not include "real-api-key"
+      out should include("-H 'Authorization: Bearer &lt;TOKEN&gt;'")
+      out should include("-H 'X-API-Key: &lt;API_KEY&gt;'")
     }
 
     it("emits security-scheme placeholder headers (bearer, api key)") {
@@ -162,9 +197,9 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
     it("shell-escapes single quotes inside body and path") {
       val base = jsonCall(status = 200, desc = "ok", requestBody = """he said 'hi'""", responseBody = "")
       val out  = generator.renderCurl(base)
-      // The embedded apostrophes are closed, escaped, reopened: '\''. HTML-escaped for display
-      // (backslash passes through; apostrophe becomes &#39;).
-      out should include("""he said &#39;\&#39;&#39;hi&#39;\&#39;&#39;""")
+      // The embedded apostrophes are closed, escaped, reopened: '\''. `escHtml` doesn't touch
+      // apostrophes, so the shell-escape form appears verbatim inside the <pre>.
+      out should include("""'he said '\''hi'\'''""")
     }
   }
 

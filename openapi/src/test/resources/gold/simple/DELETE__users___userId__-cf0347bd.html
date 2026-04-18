@@ -41,18 +41,37 @@
 <div class="card"><div class="card-header">Security</div><div class="card-body"><p>bearerAuth <span class="tag">http</span></p></div></div>
 <div class="card"><div class="card-header">Path Parameters</div><div class="card-body"><dl class="meta-grid"><dt>userId <span class="required">*</span></dt><dd><code>UUID</code> = <code>00000000-0000-0000-0000-000000000002</code></dd></dl></div></div>
 <div class="card"><div class="card-header"><span class="status-badge status-2xx">204</span> Response</div><div class="card-body"><p>User deleted</p><h4>Curl</h4><div class="curl-block"><pre>curl -X DELETE '$BASE_URL/users/00000000-0000-0000-0000-000000000002' \
-  -H 'Authorization: Bearer &lt;TOKEN&gt;'</pre><button class="copy-btn" type="button" data-clipboard="curl -X DELETE &#39;$BASE_URL/users/00000000-0000-0000-0000-000000000002&#39; \
-  -H &#39;Authorization: Bearer &lt;TOKEN&gt;&#39;">Copy</button></div></div></div>
+  -H 'Authorization: Bearer &lt;TOKEN&gt;'</pre><button class="copy-btn" type="button">Copy</button></div></div></div>
 <script>
 document.addEventListener('click', function (e) {
   var btn = e.target.closest('button.copy-btn');
   if (!btn) return;
-  var payload = btn.getAttribute('data-clipboard') || '';
-  navigator.clipboard.writeText(payload).then(function () {
-    var original = btn.textContent;
-    btn.textContent = 'Copied';
+  var pre = btn.previousElementSibling;
+  var payload = pre ? pre.textContent : '';
+  var flash = function (msg) {
+    var original = btn.dataset.origText || btn.textContent;
+    btn.dataset.origText = original;
+    btn.textContent = msg;
     setTimeout(function () { btn.textContent = original; }, 1200);
-  });
+  };
+  var fallback = function () {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = payload;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      flash(ok ? 'Copied' : 'Failed');
+    } catch (_) { flash('Failed'); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(payload).then(function () { flash('Copied'); }, fallback);
+  } else {
+    fallback();
+  }
 });
 </script>
 </body></html>

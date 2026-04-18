@@ -41,8 +41,7 @@
 <div class="card"><div class="card-header">Security</div><div class="card-body"><p>oauth2 <span class="tag">oauth2</span></p></div></div>
 <div class="card"><div class="card-header">Query Parameters</div><div class="card-body"><dl class="meta-grid"><dt>status</dt><dd><code>ProjectStatus</code> <span class="tag">active | archived | draft</span><ul class="examples"><li><em>All active projects:</em> <code>active</code></li><li><em>All archived projects:</em> <code>archived</code></li></ul></dd></dl></div></div>
 <div class="card"><div class="card-header"><span class="status-badge status-2xx">200</span> Response</div><div class="card-body"><p>All active projects</p><h4>Curl</h4><div class="curl-block"><pre>curl -X GET '$BASE_URL/projects?status=active' \
-  -H 'Authorization: Bearer &lt;OAUTH_TOKEN&gt;'</pre><button class="copy-btn" type="button" data-clipboard="curl -X GET &#39;$BASE_URL/projects?status=active&#39; \
-  -H &#39;Authorization: Bearer &lt;OAUTH_TOKEN&gt;&#39;">Copy</button></div><h4>Response body</h4><pre>[
+  -H 'Authorization: Bearer &lt;OAUTH_TOKEN&gt;'</pre><button class="copy-btn" type="button">Copy</button></div><h4>Response body</h4><pre>[
   {
     "id" : 42,
     "name" : "Apollo",
@@ -96,8 +95,7 @@
   }
 }</pre></details></div></div>
 <div class="card"><div class="card-header"><span class="status-badge status-2xx">200</span> Response</div><div class="card-body"><p>All archived projects</p><h4>Curl</h4><div class="curl-block"><pre>curl -X GET '$BASE_URL/projects?status=archived' \
-  -H 'Authorization: Bearer &lt;OAUTH_TOKEN&gt;'</pre><button class="copy-btn" type="button" data-clipboard="curl -X GET &#39;$BASE_URL/projects?status=archived&#39; \
-  -H &#39;Authorization: Bearer &lt;OAUTH_TOKEN&gt;&#39;">Copy</button></div><h4>Response body</h4><pre>[
+  -H 'Authorization: Bearer &lt;OAUTH_TOKEN&gt;'</pre><button class="copy-btn" type="button">Copy</button></div><h4>Response body</h4><pre>[
   {
     "id" : 7,
     "name" : "Gemini",
@@ -154,12 +152,32 @@
 document.addEventListener('click', function (e) {
   var btn = e.target.closest('button.copy-btn');
   if (!btn) return;
-  var payload = btn.getAttribute('data-clipboard') || '';
-  navigator.clipboard.writeText(payload).then(function () {
-    var original = btn.textContent;
-    btn.textContent = 'Copied';
+  var pre = btn.previousElementSibling;
+  var payload = pre ? pre.textContent : '';
+  var flash = function (msg) {
+    var original = btn.dataset.origText || btn.textContent;
+    btn.dataset.origText = original;
+    btn.textContent = msg;
     setTimeout(function () { btn.textContent = original; }, 1200);
-  });
+  };
+  var fallback = function () {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = payload;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      flash(ok ? 'Copied' : 'Failed');
+    } catch (_) { flash('Failed'); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(payload).then(function () { flash('Copied'); }, fallback);
+  } else {
+    fallback();
+  }
 });
 </script>
 </body></html>

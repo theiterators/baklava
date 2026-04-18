@@ -234,19 +234,41 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
   }
 
   // One inline script for the whole page. Binds a click handler to every `button.copy-btn`,
-  // reads the payload from `data-clipboard`, writes it to the clipboard, and briefly shows
-  // "Copied" so the user gets feedback. No external JS or CSS needed.
+  // reads the payload from the sibling `<pre>` (so line breaks survive — attribute values have
+  // their whitespace normalized by the HTML parser), tries `navigator.clipboard.writeText` first,
+  // and falls back to `document.execCommand('copy')` on insecure/file contexts where the Clipboard
+  // API is unavailable. Feedback is shown via the button text ("Copied" / "Failed").
   private val copyScript =
     """<script>
       |document.addEventListener('click', function (e) {
       |  var btn = e.target.closest('button.copy-btn');
       |  if (!btn) return;
-      |  var payload = btn.getAttribute('data-clipboard') || '';
-      |  navigator.clipboard.writeText(payload).then(function () {
-      |    var original = btn.textContent;
-      |    btn.textContent = 'Copied';
+      |  var pre = btn.previousElementSibling;
+      |  var payload = pre ? pre.textContent : '';
+      |  var flash = function (msg) {
+      |    var original = btn.dataset.origText || btn.textContent;
+      |    btn.dataset.origText = original;
+      |    btn.textContent = msg;
       |    setTimeout(function () { btn.textContent = original; }, 1200);
-      |  });
+      |  };
+      |  var fallback = function () {
+      |    try {
+      |      var ta = document.createElement('textarea');
+      |      ta.value = payload;
+      |      ta.style.position = 'fixed';
+      |      ta.style.opacity = '0';
+      |      document.body.appendChild(ta);
+      |      ta.select();
+      |      var ok = document.execCommand('copy');
+      |      document.body.removeChild(ta);
+      |      flash(ok ? 'Copied' : 'Failed');
+      |    } catch (_) { flash('Failed'); }
+      |  };
+      |  if (navigator.clipboard && navigator.clipboard.writeText) {
+      |    navigator.clipboard.writeText(payload).then(function () { flash('Copied'); }, fallback);
+      |  } else {
+      |    fallback();
+      |  }
       |});
       |</script>""".stripMargin
 
@@ -269,13 +291,26 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       s.oAuth2InBearer.map(_ => "Authorization" -> "Bearer <OAUTH_TOKEN>")
     }
 
+    // Never leak captured values into headers that the security-scheme placeholders cover. That
+    // means `Authorization`, `Cookie`, and any `<name>` declared via ApiKeyInHeader — if the user
+    // also declared one of these via `headers = h[String]("Authorization")` the captured value
+    // would otherwise end up in the generated curl verbatim.
+    val redactedNames: Set[String] = {
+      val base        = Set("authorization", "cookie")
+      val apiKeyNames = c.request.securitySchemes.flatMap(_.security.apiKeyInHeader.map(_.name.toLowerCase(java.util.Locale.ROOT)))
+      base ++ apiKeyNames
+    }
     val declaredHeaders: Seq[(String, String)] =
-      c.request.headersSeq.flatMap(h => h.example.map(v => h.name -> v))
+      c.request.headersSeq
+        .flatMap(h => h.example.map(v => h.name -> v))
+        .filterNot { case (name, _) => redactedNames.contains(name.toLowerCase(java.util.Locale.ROOT)) }
 
     val contentTypeHeader: Seq[(String, String)] =
       c.response.requestContentType.map("Content-Type" -> _).toSeq
 
-    val allHeaders = (contentTypeHeader ++ declaredHeaders ++ authHeaders).distinctBy(_._1.toLowerCase(java.util.Locale.ROOT))
+    // Auth placeholders come FIRST in the merge so `distinctBy` keeps them and discards any
+    // accidentally-declared duplicate of `Authorization` / `Cookie` / an API-key header.
+    val allHeaders = (contentTypeHeader ++ authHeaders ++ declaredHeaders).distinctBy(_._1.toLowerCase(java.util.Locale.ROOT))
 
     val headerLines = allHeaders.map { case (k, v) => s"  -H ${shellSingleQuote(s"$k: $v")} \\\n" }
 
@@ -289,11 +324,14 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
     // Trim the trailing ` \` off the last continuation so the command pastes cleanly.
     val trimmed = cmd.stripSuffix(" \\\n").stripSuffix("\n")
 
+    // Copy the actual newlines from the adjacent <pre> rather than storing the payload in a
+    // `data-*` attribute. Attribute values have their whitespace normalized during HTML parsing,
+    // so the captured newlines/`\` continuations wouldn't survive round-trip through
+    // `.getAttribute(...)`. Reading `previousElementSibling.textContent` returns exactly what the
+    // user sees.
     s"""<h4>Curl</h4><div class="curl-block"><pre>${escHtml(
         trimmed
-      )}</pre><button class="copy-btn" type="button" data-clipboard="${escHtmlAttr(
-        trimmed
-      )}">Copy</button></div>"""
+      )}</pre><button class="copy-btn" type="button">Copy</button></div>"""
   }
 
   /** Wrap `s` in single quotes for safe shell consumption. Single quotes can't be escaped inside a single-quoted string, so any literal

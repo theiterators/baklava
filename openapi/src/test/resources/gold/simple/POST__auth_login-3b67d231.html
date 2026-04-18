@@ -60,10 +60,7 @@
 <div class="card"><div class="card-header"><span class="status-badge status-2xx">200</span> Response</div><div class="card-body"><p>Successful login</p><h4>Curl</h4><div class="curl-block"><pre>curl -X POST '$BASE_URL/auth/login' \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   -H 'Authorization: Basic &lt;BASE64(USER:PASSWORD)&gt;' \
-  --data-raw 'client_id=web&amp;grant_type=password'</pre><button class="copy-btn" type="button" data-clipboard="curl -X POST &#39;$BASE_URL/auth/login&#39; \
-  -H &#39;Content-Type: application/x-www-form-urlencoded&#39; \
-  -H &#39;Authorization: Basic &lt;BASE64(USER:PASSWORD)&gt;&#39; \
-  --data-raw &#39;client_id=web&amp;grant_type=password&#39;">Copy</button></div><h4>Request body</h4><pre>client_id=web&amp;grant_type=password</pre><h4>Response body</h4><pre>{
+  --data-raw 'client_id=web&amp;grant_type=password'</pre><button class="copy-btn" type="button">Copy</button></div><h4>Request body</h4><pre>client_id=web&amp;grant_type=password</pre><h4>Response body</h4><pre>{
   "token" : "jwt.token.xyz",
   "user" : {
     "id" : "00000000-0000-0000-0000-000000000001",
@@ -121,10 +118,7 @@
 <div class="card"><div class="card-header"><span class="status-badge status-4xx">401</span> Response</div><div class="card-body"><p>Invalid credentials</p><h4>Curl</h4><div class="curl-block"><pre>curl -X POST '$BASE_URL/auth/login' \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   -H 'Authorization: Basic &lt;BASE64(USER:PASSWORD)&gt;' \
-  --data-raw 'client_id=web&amp;grant_type=password'</pre><button class="copy-btn" type="button" data-clipboard="curl -X POST &#39;$BASE_URL/auth/login&#39; \
-  -H &#39;Content-Type: application/x-www-form-urlencoded&#39; \
-  -H &#39;Authorization: Basic &lt;BASE64(USER:PASSWORD)&gt;&#39; \
-  --data-raw &#39;client_id=web&amp;grant_type=password&#39;">Copy</button></div><h4>Request body</h4><pre>client_id=web&amp;grant_type=password</pre><h4>Response body</h4><pre>{
+  --data-raw 'client_id=web&amp;grant_type=password'</pre><button class="copy-btn" type="button">Copy</button></div><h4>Request body</h4><pre>client_id=web&amp;grant_type=password</pre><h4>Response body</h4><pre>{
   "code" : "unauthorized",
   "message" : "Bad credentials",
   "details" : null
@@ -156,12 +150,32 @@
 document.addEventListener('click', function (e) {
   var btn = e.target.closest('button.copy-btn');
   if (!btn) return;
-  var payload = btn.getAttribute('data-clipboard') || '';
-  navigator.clipboard.writeText(payload).then(function () {
-    var original = btn.textContent;
-    btn.textContent = 'Copied';
+  var pre = btn.previousElementSibling;
+  var payload = pre ? pre.textContent : '';
+  var flash = function (msg) {
+    var original = btn.dataset.origText || btn.textContent;
+    btn.dataset.origText = original;
+    btn.textContent = msg;
     setTimeout(function () { btn.textContent = original; }, 1200);
-  });
+  };
+  var fallback = function () {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = payload;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      flash(ok ? 'Copied' : 'Failed');
+    } catch (_) { flash('Failed'); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(payload).then(function () { flash('Copied'); }, fallback);
+  } else {
+    fallback();
+  }
 });
 </script>
 </body></html>

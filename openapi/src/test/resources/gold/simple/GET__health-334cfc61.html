@@ -39,7 +39,7 @@
 <h1><span class="method method-GET">GET</span> <span class="path">/health</span></h1>
 <div class="card"><div class="card-header">Overview</div><div class="card-body"><dl class="meta-grid"><dt>Summary</dt><dd>Liveness probe</dd><dt>Description</dt><dd>Return service liveness — no authentication required</dd><dt>Operation ID</dt><dd><code>health</code></dd><dt>Tags</dt><dd><span class="tag">System</span></dd></dl></div></div>
 
-<div class="card"><div class="card-header"><span class="status-badge status-2xx">200</span> Response</div><div class="card-body"><p>Service is alive</p><h4>Curl</h4><div class="curl-block"><pre>curl -X GET '$BASE_URL/health'</pre><button class="copy-btn" type="button" data-clipboard="curl -X GET &#39;$BASE_URL/health&#39;">Copy</button></div><h4>Response body</h4><pre>{
+<div class="card"><div class="card-header"><span class="status-badge status-2xx">200</span> Response</div><div class="card-body"><p>Service is alive</p><h4>Curl</h4><div class="curl-block"><pre>curl -X GET '$BASE_URL/health'</pre><button class="copy-btn" type="button">Copy</button></div><h4>Response body</h4><pre>{
   "status" : "ok",
   "uptimeSeconds" : 12345
 }</pre><details><summary>Response schema</summary><pre>{
@@ -65,12 +65,32 @@
 document.addEventListener('click', function (e) {
   var btn = e.target.closest('button.copy-btn');
   if (!btn) return;
-  var payload = btn.getAttribute('data-clipboard') || '';
-  navigator.clipboard.writeText(payload).then(function () {
-    var original = btn.textContent;
-    btn.textContent = 'Copied';
+  var pre = btn.previousElementSibling;
+  var payload = pre ? pre.textContent : '';
+  var flash = function (msg) {
+    var original = btn.dataset.origText || btn.textContent;
+    btn.dataset.origText = original;
+    btn.textContent = msg;
     setTimeout(function () { btn.textContent = original; }, 1200);
-  });
+  };
+  var fallback = function () {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = payload;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      flash(ok ? 'Copied' : 'Failed');
+    } catch (_) { flash('Failed'); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(payload).then(function () { flash('Copied'); }, fallback);
+  } else {
+    fallback();
+  }
 });
 </script>
 </body></html>
