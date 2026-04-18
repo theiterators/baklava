@@ -27,6 +27,13 @@
   .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
   ul.examples { list-style: none; padding: 0; margin: 4px 0 0; font-size: 0.85rem; }
   ul.examples li { padding: 2px 0; }
+  .tag-group { margin-bottom: 24px; }
+  .tag-heading { margin: 20px 0 10px; font-size: 1.1rem; font-weight: 600; color: #16213e; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #dee2e6; padding-bottom: 6px; }
+  .curl-block { position: relative; margin: 0 0 8px; }
+  .curl-block pre { padding-right: 72px; }
+  .copy-btn { position: absolute; top: 8px; right: 8px; background: #495057; color: #fff; border: none; border-radius: 4px; padding: 4px 10px; font-size: 0.75rem; cursor: pointer; font-family: inherit; }
+  .copy-btn:hover { background: #0d6efd; }
+  .copy-btn:active { background: #0a58ca; }
 </style></head><body>
 <a href="index.html" class="back-link">&larr; Back to index</a>
 <h1><span class="method method-POST">POST</span> <span class="path">/webhooks</span></h1>
@@ -50,14 +57,20 @@
   ],
   "additionalProperties" : false
 }</pre></details></div></div>
-<div class="card"><div class="card-header"><span class="status-badge status-2xx">202</span> Response</div><div class="card-body"><p>Legacy plain-text ack</p><h4>Request body</h4><pre>{
+<div class="card"><div class="card-header"><span class="status-badge status-2xx">202</span> Response</div><div class="card-body"><p>Legacy plain-text ack</p><h4>Curl</h4><div class="curl-block"><pre>curl -X POST '$BASE_URL/webhooks' \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: &lt;API_KEY&gt;' \
+  --data-raw '{"event":"order.created","data":"{\"id\":1}"}'</pre><button class="copy-btn" type="button">Copy</button></div><h4>Request body</h4><pre>{
   "event" : "order.created",
   "data" : "{\"id\":1}"
 }</pre><h4>Response body</h4><pre>ACK</pre><details><summary>Response schema</summary><pre>{
   "$schema" : "http://json-schema.org/draft-07/schema#",
   "type" : "string"
 }</pre></details></div></div>
-<div class="card"><div class="card-header"><span class="status-badge status-2xx">202</span> Response</div><div class="card-body"><p>Webhook accepted</p><h4>Request body</h4><pre>{
+<div class="card"><div class="card-header"><span class="status-badge status-2xx">202</span> Response</div><div class="card-body"><p>Webhook accepted</p><h4>Curl</h4><div class="curl-block"><pre>curl -X POST '$BASE_URL/webhooks' \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: &lt;API_KEY&gt;' \
+  --data-raw '{"event":"order.created","data":"{\"id\":1}"}'</pre><button class="copy-btn" type="button">Copy</button></div><h4>Request body</h4><pre>{
   "event" : "order.created",
   "data" : "{\"id\":1}"
 }</pre><h4>Response body</h4><pre>{
@@ -76,4 +89,36 @@
   ],
   "additionalProperties" : false
 }</pre></details></div></div>
+<script>
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('button.copy-btn');
+  if (!btn) return;
+  var pre = btn.previousElementSibling;
+  var payload = pre ? pre.textContent : '';
+  var flash = function (msg) {
+    var original = btn.dataset.origText || btn.textContent;
+    btn.dataset.origText = original;
+    btn.textContent = msg;
+    setTimeout(function () { btn.textContent = original; }, 1200);
+  };
+  var fallback = function () {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = payload;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      flash(ok ? 'Copied' : 'Failed');
+    } catch (_) { flash('Failed'); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(payload).then(function () { flash('Copied'); }, fallback);
+  } else {
+    fallback();
+  }
+});
+</script>
 </body></html>

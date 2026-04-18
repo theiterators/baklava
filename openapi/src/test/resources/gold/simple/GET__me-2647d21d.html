@@ -27,12 +27,20 @@
   .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
   ul.examples { list-style: none; padding: 0; margin: 4px 0 0; font-size: 0.85rem; }
   ul.examples li { padding: 2px 0; }
+  .tag-group { margin-bottom: 24px; }
+  .tag-heading { margin: 20px 0 10px; font-size: 1.1rem; font-weight: 600; color: #16213e; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #dee2e6; padding-bottom: 6px; }
+  .curl-block { position: relative; margin: 0 0 8px; }
+  .curl-block pre { padding-right: 72px; }
+  .copy-btn { position: absolute; top: 8px; right: 8px; background: #495057; color: #fff; border: none; border-radius: 4px; padding: 4px 10px; font-size: 0.75rem; cursor: pointer; font-family: inherit; }
+  .copy-btn:hover { background: #0d6efd; }
+  .copy-btn:active { background: #0a58ca; }
 </style></head><body>
 <a href="index.html" class="back-link">&larr; Back to index</a>
 <h1><span class="method method-GET">GET</span> <span class="path">/me</span></h1>
 <div class="card"><div class="card-header">Overview</div><div class="card-body"><dl class="meta-grid"><dt>Summary</dt><dd>Who am I</dd><dt>Description</dt><dd>Return the profile of the currently authenticated user</dd><dt>Operation ID</dt><dd><code>me</code></dd><dt>Tags</dt><dd><span class="tag">Auth</span></dd></dl></div></div>
 <div class="card"><div class="card-header">Security</div><div class="card-body"><p>bearerAuth <span class="tag">http</span></p></div></div>
-<div class="card"><div class="card-header"><span class="status-badge status-2xx">200</span> Response</div><div class="card-body"><p>Authenticated user profile</p><h4>Response body</h4><pre>{
+<div class="card"><div class="card-header"><span class="status-badge status-2xx">200</span> Response</div><div class="card-body"><p>Authenticated user profile</p><h4>Curl</h4><div class="curl-block"><pre>curl -X GET '$BASE_URL/me' \
+  -H 'Authorization: Bearer &lt;TOKEN&gt;'</pre><button class="copy-btn" type="button">Copy</button></div><h4>Response body</h4><pre>{
   "id" : "00000000-0000-0000-0000-000000000001",
   "email" : "alice@example.com",
   "name" : "Alice",
@@ -70,4 +78,36 @@
   ],
   "additionalProperties" : false
 }</pre></details></div></div>
+<script>
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('button.copy-btn');
+  if (!btn) return;
+  var pre = btn.previousElementSibling;
+  var payload = pre ? pre.textContent : '';
+  var flash = function (msg) {
+    var original = btn.dataset.origText || btn.textContent;
+    btn.dataset.origText = original;
+    btn.textContent = msg;
+    setTimeout(function () { btn.textContent = original; }, 1200);
+  };
+  var fallback = function () {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = payload;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      flash(ok ? 'Copied' : 'Failed');
+    } catch (_) { flash('Failed'); }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(payload).then(function () { flash('Copied'); }, fallback);
+  } else {
+    fallback();
+  }
+});
+</script>
 </body></html>

@@ -27,21 +27,26 @@
   .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
   ul.examples { list-style: none; padding: 0; margin: 4px 0 0; font-size: 0.85rem; }
   ul.examples li { padding: 2px 0; }
+  .tag-group { margin-bottom: 24px; }
+  .tag-heading { margin: 20px 0 10px; font-size: 1.1rem; font-weight: 600; color: #16213e; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #dee2e6; padding-bottom: 6px; }
+  .curl-block { position: relative; margin: 0 0 8px; }
+  .curl-block pre { padding-right: 72px; }
+  .copy-btn { position: absolute; top: 8px; right: 8px; background: #495057; color: #fff; border: none; border-radius: 4px; padding: 4px 10px; font-size: 0.75rem; cursor: pointer; font-family: inherit; }
+  .copy-btn:hover { background: #0d6efd; }
+  .copy-btn:active { background: #0a58ca; }
 </style></head><body>
 <h1>API Documentation</h1>
-<ul class="endpoint-list">
-<li><a href="POST__auth_login-3b67d231.html"><span class="method method-POST">POST</span> <span class="path">/auth/login</span></a></li>
-<li><a href="GET__health-334cfc61.html"><span class="method method-GET">GET</span> <span class="path">/health</span></a></li>
-<li><a href="GET__me-2647d21d.html"><span class="method method-GET">GET</span> <span class="path">/me</span></a></li>
-<li><a href="GET__projects-9a7aa53f.html"><span class="method method-GET">GET</span> <span class="path">/projects</span></a></li>
+<section class="tag-group"><h2 class="tag-heading">Auth</h2><ul class="endpoint-list"><li><a href="POST__auth_login-3b67d231.html"><span class="method method-POST">POST</span> <span class="path">/auth/login</span></a></li>
+<li><a href="GET__me-2647d21d.html"><span class="method method-GET">GET</span> <span class="path">/me</span></a></li></ul></section>
+<section class="tag-group"><h2 class="tag-heading">Projects</h2><ul class="endpoint-list"><li><a href="GET__projects-9a7aa53f.html"><span class="method method-GET">GET</span> <span class="path">/projects</span></a></li>
 <li><a href="POST__projects-0f98e629.html"><span class="method method-POST">POST</span> <span class="path">/projects</span></a></li>
-<li><a href="PATCH__projects___projectId__-fc9e4246.html"><span class="method method-PATCH">PATCH</span> <span class="path">/projects/{projectId}</span></a></li>
-<li><a href="GET__projects___projectId___tasks-b0b82093.html"><span class="method method-GET">GET</span> <span class="path">/projects/{projectId}/tasks</span></a></li>
-<li><a href="POST__projects___projectId___tasks-f083bafd.html"><span class="method method-POST">POST</span> <span class="path">/projects/{projectId}/tasks</span></a></li>
-<li><a href="GET__users-c054bf63.html"><span class="method method-GET">GET</span> <span class="path">/users</span></a></li>
+<li><a href="PATCH__projects___projectId__-fc9e4246.html"><span class="method method-PATCH">PATCH</span> <span class="path">/projects/{projectId}</span></a></li></ul></section>
+<section class="tag-group"><h2 class="tag-heading">System</h2><ul class="endpoint-list"><li><a href="GET__health-334cfc61.html"><span class="method method-GET">GET</span> <span class="path">/health</span></a></li></ul></section>
+<section class="tag-group"><h2 class="tag-heading">Tasks</h2><ul class="endpoint-list"><li><a href="GET__projects___projectId___tasks-b0b82093.html"><span class="method method-GET">GET</span> <span class="path">/projects/{projectId}/tasks</span></a></li>
+<li><a href="POST__projects___projectId___tasks-f083bafd.html"><span class="method method-POST">POST</span> <span class="path">/projects/{projectId}/tasks</span></a></li></ul></section>
+<section class="tag-group"><h2 class="tag-heading">Users</h2><ul class="endpoint-list"><li><a href="GET__users-c054bf63.html"><span class="method method-GET">GET</span> <span class="path">/users</span></a></li>
 <li><a href="DELETE__users___userId__-cf0347bd.html"><span class="method method-DELETE">DELETE</span> <span class="path">/users/{userId}</span></a></li>
 <li><a href="GET__users___userId__-baf46b48.html"><span class="method method-GET">GET</span> <span class="path">/users/{userId}</span></a></li>
-<li><a href="PUT__users___userId__-3f0ffd01.html"><span class="method method-PUT">PUT</span> <span class="path">/users/{userId}</span></a></li>
-<li><a href="POST__webhooks-20c9a68b.html"><span class="method method-POST">POST</span> <span class="path">/webhooks</span></a></li>
-</ul>
+<li><a href="PUT__users___userId__-3f0ffd01.html"><span class="method method-PUT">PUT</span> <span class="path">/users/{userId}</span></a></li></ul></section>
+<section class="tag-group"><h2 class="tag-heading">Webhooks</h2><ul class="endpoint-list"><li><a href="POST__webhooks-20c9a68b.html"><span class="method method-POST">POST</span> <span class="path">/webhooks</span></a></li></ul></section>
 </body></html>

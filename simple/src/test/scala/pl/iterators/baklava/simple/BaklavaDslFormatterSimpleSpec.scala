@@ -120,6 +120,117 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
     }
   }
 
+  describe("renderCurl") {
+    it("emits an explicit curl command with method, base-URL placeholder, content-type and body") {
+      val call = jsonCall(
+        status = 201,
+        desc = "ok",
+        requestBody = """{"name":"Alice"}""",
+        responseBody = """{"id":1}"""
+      )
+      val out = generator.renderCurl(call)
+
+      out should include("curl -X POST")
+      out should include("'$BASE_URL/users'")
+      out should include("-H 'Content-Type: application/json'")
+      out should include("""--data-raw '{"name":"Alice"}'""")
+      // Payload is copied from the adjacent <pre>'s textContent (not a data-* attribute), since
+      // attribute values have whitespace normalized and we'd lose line-continuation newlines.
+      out should include("""<button class="copy-btn" type="button">Copy</button>""")
+      out should not include "data-clipboard="
+    }
+
+    it("never leaks a declared Authorization/Cookie/API-key header value — only placeholders") {
+      val base = jsonCall(status = 200, desc = "ok", requestBody = "", responseBody = "{}")
+      val call = base.copy(
+        request = base.request.copy(
+          securitySchemes = Seq(
+            BaklavaSecuritySchemaSerializable(
+              "bearerAuth",
+              BaklavaSecuritySerializable(httpBearer = Some(HttpBearer(bearerFormat = "JWT")))
+            ),
+            BaklavaSecuritySchemaSerializable(
+              "apiKey",
+              BaklavaSecuritySerializable(apiKeyInHeader = Some(ApiKeyInHeader("X-API-Key")))
+            )
+          ),
+          // Headers a naive user might also declare alongside the security scheme — we must NOT
+          // leak these captured values (which would contain a real token / cookie / key).
+          headersSeq = Seq(
+            BaklavaHeaderSerializable("Authorization", None, stringRequired, Some("Bearer real-jwt-xyz")),
+            BaklavaHeaderSerializable("Cookie", None, stringRequired, Some("session=real-cookie")),
+            BaklavaHeaderSerializable("X-API-Key", None, stringRequired, Some("real-api-key"))
+          )
+        )
+      )
+      val out = generator.renderCurl(call)
+
+      out should not include "real-jwt-xyz"
+      out should not include "real-cookie"
+      out should not include "real-api-key"
+      out should include("-H 'Authorization: Bearer &lt;TOKEN&gt;'")
+      out should include("-H 'X-API-Key: &lt;API_KEY&gt;'")
+    }
+
+    it("emits security-scheme placeholder headers (bearer, api key)") {
+      val base = jsonCall(status = 200, desc = "ok", requestBody = "", responseBody = "{}")
+      val call = base.copy(
+        request = base.request.copy(
+          securitySchemes = Seq(
+            BaklavaSecuritySchemaSerializable(
+              "bearerAuth",
+              BaklavaSecuritySerializable(httpBearer = Some(HttpBearer(bearerFormat = "JWT")))
+            ),
+            BaklavaSecuritySchemaSerializable(
+              "apiKey",
+              BaklavaSecuritySerializable(apiKeyInHeader = Some(ApiKeyInHeader("X-API-Key")))
+            )
+          )
+        )
+      )
+      val out = generator.renderCurl(call)
+
+      out should include("-H 'Authorization: Bearer &lt;TOKEN&gt;'")
+      out should include("-H 'X-API-Key: &lt;API_KEY&gt;'")
+    }
+
+    it("shell-escapes single quotes inside body and path") {
+      val base = jsonCall(status = 200, desc = "ok", requestBody = """he said 'hi'""", responseBody = "")
+      val out  = generator.renderCurl(base)
+      // The embedded apostrophes are closed, escaped, reopened: '\''. `escHtml` doesn't touch
+      // apostrophes, so the shell-escape form appears verbatim inside the <pre>.
+      out should include("""'he said '\''hi'\'''""")
+    }
+  }
+
+  describe("renderIndexHtml") {
+    it("groups endpoints under each tag section, with untagged operations under 'default'") {
+      val rendered: Seq[(String, String, String, Seq[String])] = Seq(
+        ("GET", "/a", "GET__a.html", Seq("Users")),
+        ("GET", "/b", "GET__b.html", Seq("Users", "Admin")),
+        ("GET", "/c", "GET__c.html", Seq.empty)
+      )
+      val html = generator.renderIndexHtml(rendered)
+
+      val adminIdx   = html.indexOf(">Admin<")
+      val usersIdx   = html.indexOf(">Users<")
+      val defaultIdx = html.indexOf(">default<")
+      adminIdx should be > -1
+      usersIdx should be > adminIdx
+      defaultIdx should be > usersIdx
+
+      // Endpoint /b appears under BOTH Users and Admin sections.
+      val bMatches = html.split("""<span class="path">/b</span>""", -1).length - 1
+      bMatches shouldBe 2
+    }
+
+    it("HTML-escapes tag names so hostile tag strings can't break out") {
+      val html = generator.renderIndexHtml(Seq(("GET", "/x", "GET__x.html", Seq("<script>"))))
+      html should include("&lt;script&gt;")
+      html should not include "<script>"
+    }
+  }
+
   describe("toFilename") {
     it("produces distinct filenames for paths that differ only by `/` vs `_` (regression for C6)") {
       generator.toFilename("GET /a/b") should not be generator.toFilename("GET /a_b")
