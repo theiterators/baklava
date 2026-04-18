@@ -19,15 +19,33 @@ import scala.util.{Failure, Success, Try}
 
 object BaklavaRoutes {
 
-  /** The swagger-ui webjar version is the source of truth; we serve assets at `/swagger-ui/<version>/...` so the version has to match the
+  /** The swagger-ui webjar version is the source of truth; we serve assets at `/swagger-ui/<version>/...` so the version must match the
     * resources actually on the classpath. Read the webjar's own metadata rather than hard-coding it here — otherwise a webjar upgrade in
     * build.sbt silently breaks these routes with 404s.
     *
-    * Falls back to a safe constant only if the webjar is missing from the classpath (which would mean the user hasn't added the dependency
-    * properly), so runtime error messages are at least actionable.
+    * If the webjar is missing from the classpath (the user didn't add the dependency) we fail fast — letting the route respond with a
+    * confusing 404 at request time would be worse than a clear startup error.
     */
   private lazy val swaggerVersion: String =
-    Try(new WebJarAssetLocator().getWebJars.get("swagger-ui")).toOption.filter(_ != null).getOrElse("5.17.11")
+    Option(new WebJarAssetLocator().getWebJars.get("swagger-ui")).getOrElse(
+      throw new IllegalStateException(
+        "swagger-ui webjar not on the classpath — add `\"org.webjars\" % \"swagger-ui\" % \"...\"` to your project's dependencies " +
+          "or remove baklava-http4s-routes if you don't intend to serve SwaggerUI."
+      )
+    )
+
+  /** slf4j logger used for server-side logging of request-handling failures. The route responses stay generic (no `e.getMessage` in the
+    * client body) so internal details — filesystem paths, parser errors — never leak to unauthenticated clients when basic auth is
+    * disabled.
+    */
+  private val log: org.slf4j.Logger = org.slf4j.LoggerFactory.getLogger("pl.iterators.baklava.http4s.routes.BaklavaRoutes")
+
+  /** Ensure a public-path prefix ends with exactly one trailing slash. The configured prefix is concatenated with fixed sub-paths
+    * (`"swagger-ui/<v>/index.html"`, `"openapi"`); missing the separator silently produced `/api-docsswagger-ui/...` for
+    * `public-path-prefix = "/api-docs"`.
+    */
+  private def withTrailingSlash(prefix: String): String =
+    if (prefix.endsWith("/")) prefix else prefix + "/"
 
   def routes(config: com.typesafe.config.Config): HttpRoutes[IO] = {
     val internalConfig = Config(config)
@@ -45,12 +63,15 @@ object BaklavaRoutes {
     case GET -> Root / "openapi" =>
       // `openApiFileContent` does blocking file I/O + YAML parsing; wrap in IO.blocking so
       // exceptions land inside the effect (a missing or malformed file becomes a 404/500, not a
-      // crashed request handler).
+      // crashed request handler). Error bodies are generic; the real cause goes to the log only.
       IO.blocking(openApiFileContent(c))
         .flatMap(content => Ok(content).map(_.withContentType(`Content-Type`(MediaType.text.yaml))))
         .recoverWith {
-          case _: java.io.FileNotFoundException => NotFound("openapi.yml not found — run `sbt test` first to generate it")
-          case e: Throwable                     => InternalServerError(s"Failed to serve openapi: ${e.getMessage}")
+          case _: java.io.FileNotFoundException =>
+            NotFound("openapi document not available — run `sbt test` first to generate it")
+          case e: Throwable =>
+            IO(log.warn(s"Failed to serve openapi document from ${c.fileSystemPath}/openapi/openapi.yml", e)) *>
+            InternalServerError("Failed to serve openapi document")
         }
 
     case GET -> Root / "swagger-ui" / version / "swagger-initializer.js" if version == swaggerVersion =>
@@ -60,10 +81,12 @@ object BaklavaRoutes {
       serveSwaggerAsset(rest.segments.map(_.decoded()).mkString("/"))
 
     case GET -> Root / "swagger" =>
-      val swaggerUiUrl = s"${c.publicPathPrefix}swagger-ui/$swaggerVersion/index.html"
+      val swaggerUiUrl = s"${withTrailingSlash(c.publicPathPrefix)}swagger-ui/$swaggerVersion/index.html"
       Uri.fromString(swaggerUiUrl) match {
         case Right(uri) => SeeOther(Location(uri))
-        case Left(err)  => InternalServerError(s"Invalid swagger-ui URL '$swaggerUiUrl': ${err.message}")
+        case Left(_)    =>
+          IO(log.warn(s"Invalid swagger-ui URL constructed from publicPathPrefix='${c.publicPathPrefix}': $swaggerUiUrl")) *>
+          InternalServerError("Misconfigured swagger-ui URL")
       }
   }
 
@@ -103,7 +126,7 @@ object BaklavaRoutes {
   }
 
   private def swaggerInitializerContent(c: Config): String = {
-    val swaggerDocsUrl = s"${c.publicPathPrefix}openapi"
+    val swaggerDocsUrl = s"${withTrailingSlash(c.publicPathPrefix)}openapi"
     s"""
        |window.onload = function() {
        |  window.ui = SwaggerUIBundle({
@@ -124,21 +147,23 @@ object BaklavaRoutes {
   }
 
   /** Serve a file from the `swagger-ui` webjar. Returns the file bytes with a best-effort content type guessed from the extension (falls
-    * back to `application/octet-stream`). Missing files yield a 404.
+    * back to `application/octet-stream`). Missing files yield a 404. Classpath reads + byte copying happen inside `IO.blocking` so they
+    * don't starve the compute pool under load.
     */
   private def serveSwaggerAsset(relPath: String): IO[Response[IO]] = {
     Try((new WebJarAssetLocator).getFullPath("swagger-ui", relPath)) match {
       case Success(fullPath) =>
-        IO(Option(getClass.getClassLoader.getResourceAsStream(fullPath))).flatMap {
+        IO.blocking(Option(getClass.getClassLoader.getResourceAsStream(fullPath))).flatMap {
           case None     => NotFound()
           case Some(is) =>
-            IO(readAllBytes(is)).guarantee(IO(is.close())).flatMap { bytes =>
+            IO.blocking(readAllBytes(is)).guarantee(IO.blocking(is.close())).flatMap { bytes =>
               val ct = mediaTypeFromExtension(relPath)
               Ok(bytes).map(r => r.withContentType(`Content-Type`(ct)))
             }
         }
       case Failure(_: IllegalArgumentException) => NotFound()
-      case Failure(e)                           => InternalServerError(e.getMessage)
+      case Failure(e)                           =>
+        IO(log.warn(s"Failed to serve swagger-ui asset '$relPath'", e)) *> InternalServerError("Failed to serve swagger-ui asset")
     }
   }
 
