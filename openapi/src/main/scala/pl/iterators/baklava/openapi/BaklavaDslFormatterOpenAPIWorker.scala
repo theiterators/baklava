@@ -414,10 +414,29 @@ object BaklavaDslFormatterOpenAPIWorker {
       schema.addProperty(name, baklavaSchemaToOpenAPISchema(bs))
     }
     baklavaSchema.`enum`.foreach(e => schema.setEnum(e.toList.asJava))
-    baklavaSchema.default.foreach(schema.setDefault)
+    baklavaSchema.default.flatMap(jsonToJavaDefault).foreach(schema.setDefault)
     schema.setRequired(baklavaSchema.properties.toList.filter(_._2.required).map(_._1).asJava)
     if (baklavaSchema.additionalProperties) schema.setAdditionalProperties(baklavaSchema.additionalProperties)
 
     schema
   }
+
+  /** Convert a captured JSON default (circe) into the Java/Scala `Object` shape that swagger's `Schema.setDefault` accepts. Swagger
+    * serializes the value back out via its own YAML encoder, so handing it the natural Java type produces correct YAML (e.g. an `Integer`
+    * becomes `42`, not `"42"`). Fixes issue #61.
+    */
+  private def jsonToJavaDefault(j: io.circe.Json): Option[Object] = j.fold(
+    jsonNull = None,
+    jsonBoolean = b => Some(java.lang.Boolean.valueOf(b)),
+    jsonNumber = n =>
+      n.toLong
+        .map(java.lang.Long.valueOf(_): Object)
+        .orElse(Some(n.toBigDecimal.getOrElse(BigDecimal(n.toDouble)).bigDecimal: Object)),
+    jsonString = s => Some(s),
+    jsonArray = arr => Some(arr.flatMap(jsonToJavaDefault).asJava),
+    jsonObject = obj =>
+      Some(
+        obj.toIterable.flatMap { case (k, v) => jsonToJavaDefault(v).map(k -> _) }.toMap.asJava
+      )
+  )
 }

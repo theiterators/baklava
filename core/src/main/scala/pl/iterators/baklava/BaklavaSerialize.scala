@@ -2,9 +2,11 @@ package pl.iterators.baklava
 
 import com.github.plokhotnyuk.jsoniter_scala.core.*
 import com.github.plokhotnyuk.jsoniter_scala.macros.*
+import io.circe.Json
 import sttp.model.{Header => SttpHeader, Method, StatusCode}
 
 import java.io.File
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -12,6 +14,24 @@ import java.security.MessageDigest
 import java.util.Base64
 import scala.jdk.CollectionConverters.*
 import scala.util.Try
+
+/** Jsoniter codec for circe `Json` values. Used to round-trip a structured default value (issue #61) through the on-disk serialized call
+  * format without stringifying — the old `Option[String]` used `_.toString`, which produced Scala syntax like `"List(1, 2, 3)"` for
+  * collections and invalid defaults in the generated OpenAPI.
+  *
+  * The encode/decode here uses the readRawVal/writeRawVal APIs to preserve arbitrary JSON shape.
+  */
+private[baklava] object JsonCirceCodec {
+  implicit val jsonValueCodec: JsonValueCodec[Json] = new JsonValueCodec[Json] {
+    override def decodeValue(in: JsonReader, default: Json): Json = {
+      val raw = new String(in.readRawValAsBytes(), StandardCharsets.UTF_8)
+      io.circe.parser.parse(raw).getOrElse(Json.Null)
+    }
+    override def encodeValue(x: Json, out: JsonWriter): Unit =
+      out.writeRawVal(x.noSpaces.getBytes(StandardCharsets.UTF_8))
+    override def nullValue: Json = Json.Null
+  }
+}
 
 case class BaklavaSecuritySerializable(
     httpBearer: Option[HttpBearer] = None,
@@ -111,7 +131,7 @@ case class BaklavaSchemaSerializable(
     `enum`: Option[Set[String]],
     required: Boolean,
     additionalProperties: Boolean,
-    default: Option[String],
+    default: Option[Json],
     description: Option[String]
 ) extends Serializable
 
@@ -126,9 +146,53 @@ object BaklavaSchemaSerializable {
       `enum` = schema.`enum`,
       required = schema.required,
       additionalProperties = schema.additionalProperties,
-      default = schema.default.map(_.toString),
+      default = schema.default.flatMap(encodeDefault(schema.`type`)),
       description = schema.description
     )
+  }
+
+  /** Encode a `Schema[T].default` value as structured JSON rather than `.toString`. Primitive types pick the matching `Json.from…`
+    * constructor based on `SchemaType`. Collection/object types have no generic `Encoder[T]` available here, so we fall back to a JSON
+    * string (which is still technically valid JSON, just not a useful default). Users with structured defaults on custom types should
+    * override by providing their own `BaklavaSchemaSerializable` instead of relying on this fallback — fixes issue #61.
+    */
+  private def encodeDefault[T](schemaType: SchemaType)(value: T): Option[Json] = schemaType match {
+    case SchemaType.NullType    => Some(Json.Null)
+    case SchemaType.StringType  => Some(Json.fromString(value.toString))
+    case SchemaType.BooleanType =>
+      value match {
+        case b: Boolean => Some(Json.fromBoolean(b))
+        case other      => Some(Json.fromString(other.toString))
+      }
+    case SchemaType.IntegerType =>
+      value match {
+        case i: Int   => Some(Json.fromInt(i))
+        case l: Long  => Some(Json.fromLong(l))
+        case s: Short => Some(Json.fromInt(s.toInt))
+        case b: Byte  => Some(Json.fromInt(b.toInt))
+        case other    => Json.fromString(other.toString).some
+      }
+    case SchemaType.NumberType =>
+      value match {
+        case d: Double      => Some(Json.fromDoubleOrString(d))
+        case f: Float       => Some(Json.fromFloatOrString(f))
+        case bd: BigDecimal => Some(Json.fromBigDecimal(bd))
+        case bi: BigInt     => Some(Json.fromBigInt(bi))
+        case other          => Some(Json.fromString(other.toString))
+      }
+    case SchemaType.ArrayType | SchemaType.ObjectType =>
+      // We can't deeply-encode a collection/object without an `Encoder[T]`. The .toString
+      // fallback (historical behavior) yields Scala syntax which is valid JSON only by
+      // coincidence. Users who need a structured default on a complex type should override
+      // `Schema[T]` with a hand-crafted `BaklavaSchemaSerializable`.
+      Some(Json.fromString(value.toString))
+  }
+
+  // Tiny local `.some` to keep the pattern-match legs uniform on Scala 2.13 without pulling in
+  // cats.syntax. (In cats-free code, `Some(x)` is fine too, but I find the shorter form less
+  // noisy next to the other Json.from* calls.)
+  private implicit class AnyOps[A](val a: A) extends AnyVal {
+    def some: Option[A] = Some(a)
   }
 }
 
@@ -325,7 +389,9 @@ object BaklavaSerialize {
   private val dirFile       = new File(dirName)
   private val fileExtension = "json"
 
-  // JSON codec for BaklavaSerializableCall
+  // JSON codec for BaklavaSerializableCall. The import brings our custom `Json`-typed codec into
+  // scope so jsoniter-scala's macro picks it up when walking into `BaklavaSchemaSerializable.default`.
+  import JsonCirceCodec.jsonValueCodec
   implicit val serializableCallCodec: JsonValueCodec[BaklavaSerializableCall] = JsonCodecMaker.make(
     CodecMakerConfig.withAllowRecursiveTypes(true)
   )
