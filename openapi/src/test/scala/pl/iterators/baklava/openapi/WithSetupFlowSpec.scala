@@ -66,9 +66,10 @@ class WithSetupFlowSpec
       securitySchemes = Seq(bearerScheme),
       tags = Seq("Things")
     )(
-      // Scenario 1: lazy path parameter produced by setup.
-      // Since PR #73 removed the overloaded `.request` in favor of a single lazy method, this
-      // lambda no longer needs an explicit parameter type annotation on Scala 2.13.
+      // Scenario 1: lazy path parameter produced by setup. Now that the eager `.request(...)` overload
+      // has been renamed to `.onRequest(...)`, the remaining lazy `.request { s => ... }` is
+      // unambiguous and this lambda no longer needs an explicit parameter type annotation on
+      // Scala 2.13.
       withSetup {
         42L // pretend this is `seedThing().unsafeRunSync().id`
       }.request { id =>
