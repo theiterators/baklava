@@ -2,6 +2,16 @@ import { z } from "zod";
 import { initContract } from "@ts-rest/core";
 
 export const usersUserIdAvatarContract = initContract().router({
+  get: {
+    summary: 'Download avatar',
+    description: 'Download the user\'s avatar as raw image bytes',
+    method: 'GET',
+    path: '/users/:userId/avatar',
+    pathParams: z.object({userId: z.string().uuid()}),
+    responses: {
+      200: z.string()
+    }
+  },
   put: {
     summary: 'Upload avatar',
     description: 'Upload or replace the user\'s avatar image',

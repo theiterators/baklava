@@ -228,8 +228,7 @@ class GetUsersUserIdRouteSpec extends BaseRouteSpec {
 To document a binary upload (e.g. an avatar PNG), declare `Content-Type` among the request headers and pass the matching value on the `onRequest(...)` call — the http4s adapter honors that declared value, overriding the content type the `EntityEncoder` bakes into the request.
 
 ```scala
-import org.http4s.{EntityEncoder, MediaType}
-import org.http4s.headers.`Content-Type`
+import java.nio.charset.StandardCharsets
 
 class PutUsersUserIdAvatarSpec extends BaseRouteSpec {
 
@@ -247,7 +246,7 @@ class PutUsersUserIdAvatarSpec extends BaseRouteSpec {
       onRequest(
         pathParameters = 1L,
         headers = "image/png",
-        body = "\u0089PNG\r\n...".getBytes("UTF-8")
+        body = "\u0089PNG\r\n...".getBytes(StandardCharsets.UTF_8)
       ).respondsWith[EmptyBody](NoContent, description = "User avatar updated successfully")
         .assert { ctx =>
           val response = ctx.performRequest(allRoutes)
@@ -259,3 +258,25 @@ class PutUsersUserIdAvatarSpec extends BaseRouteSpec {
 ```
 
 The generator renders this as `requestBody.content["image/png"]` with a `schema: { type: string, format: binary }` in OpenAPI, and the test request goes out with `Content-Type: image/png` on the wire so server routes that pattern-match on it run under the right conditions.
+
+### Downloads
+
+Binary downloads work with `respondsWith[Array[Byte]]`. http4s ships entity decoders for byte arrays; no extra setup needed. The test stub's response must carry the right `Content-Type` — whatever the server serves becomes the OpenAPI `responseContentType`:
+
+```scala
+supports(
+  GET,
+  pathParameters = p[Long]("userId"),
+  description = "Download the user's avatar as raw image bytes",
+  tags = List("Users")
+)(
+  onRequest(pathParameters = 1L)
+    .respondsWith[Array[Byte]](Ok, description = "Avatar bytes")
+    .assert { ctx =>
+      val response = ctx.performRequest(allRoutes)
+      response.status.status should beEqualTo(Ok.status)
+    }
+)
+```
+
+`Schema[Array[Byte]]` is a default on the classpath, so the generated OpenAPI renders `responses[code].content["<content-type>"].schema = { type: string, format: binary }`.

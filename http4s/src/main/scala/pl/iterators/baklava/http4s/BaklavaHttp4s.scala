@@ -160,13 +160,14 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
   )(implicit
       requestBody: BaklavaHttp4s.ToEntityMarshaller[RequestBody]
   ): HttpRequest = {
-    // If the test declared a `Content-Type` header, use its value to override the content type
-    // that the `EntityEncoder` bakes in. http4s stores Content-Type on the entity (not a free
-    // header), so we pull it out of the header list before attaching and then re-set it with
-    // `.withContentType` on the resulting request. This is what lets tests document non-JSON
-    // uploads via `h[String]("Content-Type") = "image/png"`.
-    val (contentTypeOverride, otherHeaders) = splitContentType(ctx.headers)
-    val base                                = Request[IO](
+    // If the test declared a parseable `Content-Type` header, use its value to override the
+    // content type that the `EntityEncoder` bakes in. http4s stores Content-Type on the entity
+    // (not a free header), so we pull it out of the header list before attaching and then re-set
+    // it with `.withContentType` on the resulting request. We only strip after parsing succeeds
+    // so an invalid value isn't silently swallowed.
+    val parsedOverride = findContentTypeOverride(ctx.headers)
+    val otherHeaders   = if (parsedOverride.isDefined) dropContentType(ctx.headers) else ctx.headers
+    val base           = Request[IO](
       method = baklavaHttpMethodToHttpMethod(ctx.method.get),
       uri = Uri.fromString(ctx.path).fold(throw _, identity),
       headers = baklavaHeadersToHttpHeaders(otherHeaders)
@@ -175,16 +176,27 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
       case Some(body) => base.withEntity(body)
       case None       => base
     }
-    contentTypeOverride.flatMap(v => headers.`Content-Type`.parse(v).toOption) match {
-      case Some(ct) => withBody.withContentType(ct)
-      case None     => withBody
+    parsedOverride.fold(withBody)(ct => withBody.withContentType(ct))
+  }
+
+  /** Find a `Content-Type` in the declared headers (case-insensitive) and return the parsed http4s `Content-Type`. Fails fast on multiple
+    * declarations rather than silently picking one, since that's always a test-authoring bug.
+    */
+  private def findContentTypeOverride(hs: Seq[SttpHeader]): Option[headers.`Content-Type`] = {
+    val cts = hs.filter(_.name.toLowerCase(java.util.Locale.ROOT) == "content-type")
+    cts match {
+      case Seq()       => None
+      case Seq(single) => headers.`Content-Type`.parse(single.value).toOption
+      case multiple    =>
+        throw new IllegalArgumentException(
+          s"Multiple Content-Type headers declared on one request: [${multiple.map(_.value).mkString(", ")}]. " +
+            "Declare a single Content-Type or none at all."
+        )
     }
   }
 
-  private def splitContentType(headers: Seq[SttpHeader]): (Option[String], Seq[SttpHeader]) = {
-    val (ct, rest) = headers.partition(_.name.toLowerCase(java.util.Locale.ROOT) == "content-type")
-    (ct.headOption.map(_.value), rest)
-  }
+  private def dropContentType(hs: Seq[SttpHeader]): Seq[SttpHeader] =
+    hs.filterNot(_.name.toLowerCase(java.util.Locale.ROOT) == "content-type")
 
   implicit val runtime: IORuntime
 }

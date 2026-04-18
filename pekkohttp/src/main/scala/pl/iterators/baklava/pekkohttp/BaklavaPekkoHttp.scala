@@ -154,24 +154,37 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
   )(implicit
       requestBody: ToEntityMarshaller[RequestBody]
   ): HttpRequest = {
-    // If the test declared a `Content-Type` header, use its value to override the content type
-    // that the implicit marshaller would otherwise bake into the request. This is what lets tests
-    // document non-JSON uploads — `h[String]("Content-Type") = "image/png"` + a String/byte body.
-    // Pekko-http treats `Content-Type` as part of the entity (not a free header), so we also
-    // strip it from the headers list before attaching.
-    val (contentTypeOverride, otherHeaders) = splitContentType(ctx.headers)
-    val base                                = new RequestBuilder(baklavaHttpMethodToHttpMethod(ctx.method.get))(ctx.path, ctx.body)
+    // If the test declared a parseable `Content-Type` header, use its value to override the
+    // content type that the implicit marshaller would otherwise bake into the request. This is
+    // what lets tests document non-JSON uploads — `h[String]("Content-Type") = "image/png"` plus
+    // a String/byte body. Pekko-http treats `Content-Type` as part of the entity (not a free
+    // header), so we also strip it from the headers list before attaching. We only strip after
+    // parsing succeeds so an invalid value isn't silently swallowed.
+    val parsedOverride = findContentTypeOverride(ctx.headers)
+    val otherHeaders   = if (parsedOverride.isDefined) dropContentType(ctx.headers) else ctx.headers
+    val base           = new RequestBuilder(baklavaHttpMethodToHttpMethod(ctx.method.get))(ctx.path, ctx.body)
       .withHeaders(baklavaHeadersToHttpHeaders(otherHeaders))
-    contentTypeOverride.flatMap(v => ContentType.parse(v).toOption) match {
-      case Some(ct) => base.withEntity(base.entity.withContentType(ct))
-      case None     => base
+    parsedOverride.fold(base)(ct => base.withEntity(base.entity.withContentType(ct)))
+  }
+
+  /** Find a `Content-Type` in the declared headers (case-insensitive) and return the parsed pekko `ContentType`. Fails fast on multiple
+    * declarations rather than silently picking one, since that's always a test-authoring bug.
+    */
+  private def findContentTypeOverride(headers: Seq[SttpHeader]): Option[ContentType] = {
+    val cts = headers.filter(_.name.toLowerCase(java.util.Locale.ROOT) == "content-type")
+    cts match {
+      case Seq()       => None
+      case Seq(single) => ContentType.parse(single.value).toOption
+      case multiple    =>
+        throw new IllegalArgumentException(
+          s"Multiple Content-Type headers declared on one request: [${multiple.map(_.value).mkString(", ")}]. " +
+            "Declare a single Content-Type or none at all."
+        )
     }
   }
 
-  private def splitContentType(headers: Seq[SttpHeader]): (Option[String], Seq[SttpHeader]) = {
-    val (ct, rest) = headers.partition(_.name.toLowerCase(java.util.Locale.ROOT) == "content-type")
-    (ct.headOption.map(_.value), rest)
-  }
+  private def dropContentType(headers: Seq[SttpHeader]): Seq[SttpHeader] =
+    headers.filterNot(_.name.toLowerCase(java.util.Locale.ROOT) == "content-type")
 
   override implicit protected def emptyToRequestBodyType: ToEntityMarshaller[EmptyBody] =
     Marshaller.strict[EmptyBody, MessageEntity](_ => Marshalling.Opaque(() => HttpEntity.Empty))

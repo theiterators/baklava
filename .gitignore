@@ -31,3 +31,6 @@ website/yarn.lock
 website/node_modules
 website/.docusaurus
 website/.cache-loader
+
+# Local-only design/spec docs (per repo convention, kept out of VCS)
+docs/superpowers/

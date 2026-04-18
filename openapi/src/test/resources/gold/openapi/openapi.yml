@@ -970,6 +970,34 @@ paths:
   /users/{userId}/avatar:
     summary: Avatar
     description: Raw avatar upload
+    get:
+      tags:
+      - Users
+      summary: Download avatar
+      description: Download the user's avatar as raw image bytes
+      operationId: downloadAvatar
+      parameters:
+      - name: userId
+        in: path
+        description: The user's UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+        example: 00000000-0000-0000-0000-000000000001
+      responses:
+        "200":
+          description: Avatar bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+              examples:
+                Avatar bytes:
+                  value: fake png bytes
+      security:
+      - bearerAuth: []
     put:
       tags:
       - Users

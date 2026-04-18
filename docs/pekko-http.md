@@ -251,6 +251,8 @@ To document a binary upload (e.g. an avatar PNG), declare `Content-Type` among t
 ```scala
 import org.apache.pekko.http.scaladsl.marshalling.{PredefinedToEntityMarshallers, ToEntityMarshaller}
 
+import java.nio.charset.StandardCharsets
+
 class PutUsersUserIdAvatarRouteSpec extends BaseRouteSpec {
 
   implicit val byteArrayMarshaller: ToEntityMarshaller[Array[Byte]] =
@@ -268,7 +270,7 @@ class PutUsersUserIdAvatarRouteSpec extends BaseRouteSpec {
       onRequest(
         pathParameters = 1L,
         headers = "image/png",
-        body = "\u0089PNG\r\n...".getBytes("UTF-8")
+        body = "\u0089PNG\r\n...".getBytes(StandardCharsets.UTF_8)
       ).respondsWith[EmptyBody](NoContent, description = "User avatar updated successfully")
         .assert { ctx =>
           val response = ctx.performRequest(allRoutes)
@@ -280,6 +282,33 @@ class PutUsersUserIdAvatarRouteSpec extends BaseRouteSpec {
 ```
 
 The generator detects that `Content-Type` is a request-body media type rather than a free header, so the generated OpenAPI spec emits it as `requestBody.content["image/png"]` with a `schema: { type: string, format: binary }` instead of rendering it as a header parameter. The declared value is also used as the actual wire Content-Type of the test request, so server routes that pattern-match on it (e.g. `entity(as[Array[Byte]])`) run under the right conditions.
+
+### Downloads
+
+Binary downloads work with `respondsWith[Array[Byte]]`. The pekko-http test needs a byte-array entity unmarshaller in scope; the test stub's response must carry the right `Content-Type` — whatever the server serves becomes the OpenAPI `responseContentType`:
+
+```scala
+import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, PredefinedFromEntityUnmarshallers}
+
+implicit val byteArrayUnmarshaller: FromEntityUnmarshaller[Array[Byte]] =
+  PredefinedFromEntityUnmarshallers.byteArrayUnmarshaller
+
+supports(
+  GET,
+  pathParameters = p[Long]("userId"),
+  description = "Download the user's avatar as raw image bytes",
+  tags = List("Users")
+)(
+  onRequest(pathParameters = 1L)
+    .respondsWith[Array[Byte]](OK, description = "Avatar bytes")
+    .assert { ctx =>
+      val response = ctx.performRequest(allRoutes)
+      response.status.status should beEqualTo(OK.status)
+    }
+)
+```
+
+`Schema[Array[Byte]]` is a default on the classpath, so the generated OpenAPI renders `responses[code].content["<content-type>"].schema = { type: string, format: binary }`.
 
 ## Serving Open API and Swagger UI
 

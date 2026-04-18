@@ -12,7 +12,7 @@ import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpHeader, HttpResponse}
 import org.apache.pekko.http.scaladsl.server.Directives.complete
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
+import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, PredefinedFromEntityUnmarshallers, Unmarshaller}
 import org.apache.pekko.stream.Materializer
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -69,10 +69,12 @@ class ComprehensiveGoldSpec
   implicit val executionContext: ExecutionContext = system.dispatcher
   implicit val materializer: Materializer         = Materializer(system)
 
-  val routes: Route                                                 = complete(OK)
-  override def strictHeaderCheckDefault: Boolean                    = false
-  implicit val stringUnmarshaller: FromEntityUnmarshaller[String]   = Unmarshaller.stringUnmarshaller
-  implicit val byteArrayMarshaller: ToEntityMarshaller[Array[Byte]] = PredefinedToEntityMarshallers.ByteArrayMarshaller
+  val routes: Route                                                       = complete(OK)
+  override def strictHeaderCheckDefault: Boolean                          = false
+  implicit val stringUnmarshaller: FromEntityUnmarshaller[String]         = Unmarshaller.stringUnmarshaller
+  implicit val byteArrayMarshaller: ToEntityMarshaller[Array[Byte]]       = PredefinedToEntityMarshallers.ByteArrayMarshaller
+  implicit val byteArrayUnmarshaller: FromEntityUnmarshaller[Array[Byte]] =
+    PredefinedFromEntityUnmarshallers.byteArrayUnmarshaller
 
   // Stub: the test doesn't care about real HTTP — canned responses per assertion. We also
   // remember the last request so individual tests can assert on the request that the DSL built
@@ -422,7 +424,7 @@ class ComprehensiveGoldSpec
       onRequest(
         pathParameters = userId,
         headers = "image/png",
-        body = "fake png bytes".getBytes("UTF-8"),
+        body = "fake png bytes".getBytes(StandardCharsets.UTF_8),
         security = bearerAuth("jwt.token.xyz")
       ).respondsWith[EmptyBody](NoContent, description = "Avatar uploaded")
         .assert { ctx =>
@@ -433,6 +435,34 @@ class ComprehensiveGoldSpec
           // side of issue #52.
           lastRequest.get().entity.contentType.mediaType.value shouldBe "image/png"
           response.status.intValue() shouldBe 204
+        }
+    ),
+    // Download side: `respondsWith[Array[Byte]]` + the existing `Schema[Array[Byte]]` with
+    // `format: binary` from core is enough to render the correct OpenAPI response schema. The
+    // captured `responseContentType` comes from whatever the server returned.
+    supports(
+      GET,
+      pathParameters = p[UUID]("userId", "The user's UUID"),
+      securitySchemes = Seq(bearerScheme),
+      description = "Download the user's avatar as raw image bytes",
+      summary = "Download avatar",
+      operationId = "downloadAvatar",
+      tags = Seq("Users")
+    )(
+      onRequest(pathParameters = userId, security = bearerAuth("jwt.token.xyz"))
+        .respondsWith[Array[Byte]](OK, description = "Avatar bytes")
+        .assert { ctx =>
+          nextResponse = HttpResponse(
+            OK,
+            entity = HttpEntity(
+              org.apache.pekko.http.scaladsl.model.ContentType(
+                org.apache.pekko.http.scaladsl.model.MediaTypes.`image/png`
+              ),
+              "fake png bytes".getBytes(StandardCharsets.UTF_8)
+            )
+          )
+          val response = ctx.performRequest(routes)
+          response.status.intValue() shouldBe 200
         }
     )
   )
