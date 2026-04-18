@@ -47,7 +47,20 @@ lazy val perScalaVersionTestSources = Test / unmanagedSourceDirectories ++= {
 }
 
 lazy val baklava =
-  tlCrossRootProject.aggregate(core, simple, openapi, tsrest, pekkohttp, pekkohttproutes, http4s, http4sroutes, specs2, scalatest, munit, sbtplugin)
+  tlCrossRootProject.aggregate(
+    core,
+    simple,
+    openapi,
+    tsrest,
+    pekkohttp,
+    pekkohttproutes,
+    http4s,
+    http4sroutes,
+    specs2,
+    scalatest,
+    munit,
+    sbtplugin
+  )
 
 val swaggerV       = "2.2.45"
 val swaggerParserV = "2.1.39"
@@ -181,13 +194,13 @@ lazy val http4sroutes = project
   .settings(
     name := "baklava-http4s-routes",
     libraryDependencies ++= Seq(
-      "org.http4s"           %% "http4s-dsl"     % http4sV,
-      "org.http4s"           %% "http4s-server"  % http4sV,
-      "com.typesafe"          % "config"         % typesafeConfigV,
-      "org.webjars"           % "webjars-locator" % webjarsLocatorV,
-      "io.swagger.core.v3"    % "swagger-core"   % swaggerV,
-      "io.swagger.parser.v3"  % "swagger-parser" % swaggerParserV,
-      "org.webjars"           % "swagger-ui"     % swaggerUiV
+      "org.http4s"          %% "http4s-dsl"      % http4sV,
+      "org.http4s"          %% "http4s-server"   % http4sV,
+      "com.typesafe"         % "config"          % typesafeConfigV,
+      "org.webjars"          % "webjars-locator" % webjarsLocatorV,
+      "io.swagger.core.v3"   % "swagger-core"    % swaggerV,
+      "io.swagger.parser.v3" % "swagger-parser"  % swaggerParserV,
+      "org.webjars"          % "swagger-ui"      % swaggerUiV
     )
   )
 
