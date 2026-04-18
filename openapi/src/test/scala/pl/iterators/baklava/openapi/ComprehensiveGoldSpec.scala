@@ -24,15 +24,18 @@ import pl.iterators.baklava.{
   ApiKeyInHeader,
   BaklavaTestFrameworkDslDebug,
   EmptyBody,
+  FilePart,
   FormOf,
   HttpBasic,
   HttpBearer,
+  Multipart,
   OAuth2InBearer,
   OAuthAuthorizationCodeFlow,
   OAuthFlows,
   Schema,
   SchemaType,
   SecurityScheme,
+  TextPart,
   ToQueryParam
 }
 import pl.iterators.kebs.circe.KebsCirce
@@ -74,9 +77,16 @@ class ComprehensiveGoldSpec
   implicit val stringUnmarshaller: FromEntityUnmarshaller[String]   = Unmarshaller.stringUnmarshaller
   implicit val byteArrayMarshaller: ToEntityMarshaller[Array[Byte]] = PredefinedToEntityMarshallers.ByteArrayMarshaller
 
-  // Stub: the test doesn't care about real HTTP — canned responses per assertion.
-  private var nextResponse: HttpResponse                                         = HttpResponse(OK)
-  override def performRequest(routes: Route, request: HttpRequest): HttpResponse = nextResponse
+  // Stub: the test doesn't care about real HTTP — canned responses per assertion. We also
+  // remember the last built request so tests can assert on what the adapter produced (used for
+  // multipart / content-type overrides).
+  private var nextResponse: HttpResponse                                            = HttpResponse(OK)
+  private val lastRequest: java.util.concurrent.atomic.AtomicReference[HttpRequest] =
+    new java.util.concurrent.atomic.AtomicReference()
+  override def performRequest(routes: Route, request: HttpRequest): HttpResponse = {
+    lastRequest.set(request)
+    nextResponse
+  }
 
   private def jsonResponse(status: org.apache.pekko.http.scaladsl.model.StatusCode, json: String): HttpResponse =
     HttpResponse(status, entity = HttpEntity(ContentTypes.`application/json`, json))
@@ -435,6 +445,39 @@ class ComprehensiveGoldSpec
         .assert { ctx =>
           nextResponse = jsonResponse(OK, HealthResponse("ok", 12345L).asJson.noSpaces)
           ctx.performRequest(routes)
+        }
+    )
+  )
+
+  // Multipart upload — file part + text part in the same request body. The generator captures
+  // `Content-Type: multipart/form-data; boundary=…` from the wire request, so the OpenAPI spec
+  // emits `requestBody.content["multipart/form-data"]`. Covers issue #81.
+  path("/users/{userId}/photo", description = "Upload a profile photo with a caption", summary = "Photo")(
+    supports(
+      POST,
+      pathParameters = p[UUID]("userId", "The user's UUID"),
+      securitySchemes = Seq(bearerScheme),
+      description = "Upload a profile photo alongside a caption as multipart/form-data",
+      summary = "Upload photo",
+      operationId = "uploadPhoto",
+      tags = Seq("Users")
+    )(
+      onRequest(
+        pathParameters = userId,
+        body = Multipart(
+          FilePart("photo", "image/png", "photo.png", "fake png bytes".getBytes(StandardCharsets.UTF_8)),
+          TextPart("caption", "profile photo")
+        ),
+        security = bearerAuth("jwt.token.xyz")
+      ).respondsWith[EmptyBody](NoContent, description = "Photo uploaded")
+        .assert { ctx =>
+          nextResponse = emptyResponse(NoContent)
+          val response = ctx.performRequest(routes)
+          // The request that hit `performRequest` must carry a multipart/form-data Content-Type
+          // — proves the adapter mapped Baklava's `Multipart` to pekko's native multipart form.
+          // The content type includes a boundary parameter, so compare the mediaType prefix.
+          lastRequest.get().entity.contentType.mediaType.value should startWith("multipart/form-data")
+          response.status.intValue() shouldBe 204
         }
     )
   )

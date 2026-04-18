@@ -2,6 +2,8 @@ package pl.iterators.baklava.http4s
 
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
+import fs2.Stream
+import org.http4s.multipart.{Boundary, Part => Http4sPart}
 import org.http4s.{
   EntityDecoder,
   EntityEncoder,
@@ -9,6 +11,7 @@ import org.http4s.{
   Headers,
   HttpRoutes,
   HttpVersion,
+  MediaType,
   Method,
   Request,
   Response,
@@ -27,9 +30,12 @@ import pl.iterators.baklava.{
   BaklavaTestFrameworkDsl,
   EmptyBody,
   EmptyBodyInstance,
+  FilePart,
   FormOf,
   FreeFormSchema,
-  Schema
+  Multipart => BaklavaMultipart,
+  Schema,
+  TextPart
 }
 import sttp.model.{Header => SttpHeader, Method => SttpMethod, StatusCode => SttpStatus}
 
@@ -72,6 +78,27 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     }
 
   implicit val urlFormSchema: Schema[UrlForm] = FreeFormSchema("UrlForm")
+
+  /** Multipart marshaller: map each `Baklava.Part` to an `http4s.multipart.Part[IO]` and let http4s's built-in multipart `EntityEncoder`
+    * produce the boundary-delimited wire format.
+    */
+  override implicit protected def multipartToRequestBodyType: BaklavaHttp4s.ToEntityMarshaller[BaklavaMultipart] =
+    implicitly[EntityEncoder[IO, org.http4s.multipart.Multipart[IO]]].contramap { baklavaMultipart =>
+      // Annotate the vector type so Scala 2.13 narrows the union of `Part[Pure]` / `Part[IO]`
+      // inferred from the match branches down to the `Part[IO]` the Multipart constructor wants.
+      val parts: Vector[Http4sPart[IO]] = baklavaMultipart.parts.toVector.map {
+        case FilePart(name, contentType, filename, bytes) =>
+          val ct       = MediaType.parse(contentType).toOption.getOrElse(MediaType.application.`octet-stream`)
+          val fileName = if (filename.isEmpty) name else filename
+          Http4sPart.fileData[IO](name, fileName, Stream.chunk(fs2.Chunk.array(bytes)), headers.`Content-Type`(ct))
+        case TextPart(name, value) =>
+          Http4sPart.formData[IO](name, value)
+      }
+      // Deterministic boundary — http4s's no-arg `Multipart(...)` apply is deprecated because
+      // creating a random boundary is an effect; we don't care which boundary is used as long
+      // as it's valid, so fix one and skip the side-effecting generator.
+      org.http4s.multipart.Multipart[IO](parts, Boundary("baklava-multipart-boundary"))
+    }
 
   override implicit protected def emptyToResponseBodyType: BaklavaHttp4s.FromEntityUnmarshaller[EmptyBody] =
     EntityDecoder.void[IO].map(_ => EmptyBodyInstance)

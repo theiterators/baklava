@@ -984,6 +984,43 @@ paths:
           description: User deleted
       security:
       - bearerAuth: []
+  /users/{userId}/photo:
+    summary: Photo
+    description: Upload a profile photo with a caption
+    post:
+      tags:
+      - Users
+      summary: Upload photo
+      description: Upload a profile photo alongside a caption as multipart/form-data
+      operationId: uploadPhoto
+      parameters:
+      - name: userId
+        in: path
+        description: The user's UUID
+        required: true
+        schema:
+          type: string
+          format: uuid
+        example: 00000000-0000-0000-0000-000000000001
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: true
+              x-class: Multipart
+            examples:
+              Photo uploaded:
+                value: "--baklava-multipart-boundary\r\nContent-Type: image/png\r\n\
+                  Content-Disposition: form-data; filename=\"photo.png\"; name=\"\
+                  photo\"\r\n\r\nfake png bytes\r\n--baklava-multipart-boundary\r\n\
+                  Content-Type: text/plain; charset=UTF-8\r\nContent-Disposition:\
+                  \ form-data; name=\"caption\"\r\n\r\nprofile photo\r\n--baklava-multipart-boundary--"
+      responses:
+        "204":
+          description: Photo uploaded
+      security:
+      - bearerAuth: []
   /webhooks:
     summary: Webhooks
     description: Inbound webhooks
@@ -1039,7 +1076,7 @@ paths:
                     {
                       "received" : true
                     }
-            text/plain; charset=UTF-8:
+            text/plain:
               schema:
                 type: string
               examples:

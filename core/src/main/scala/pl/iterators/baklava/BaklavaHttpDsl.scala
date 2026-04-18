@@ -177,6 +177,12 @@ trait BaklavaHttpDsl[
 
   protected implicit def formUrlencodedToRequestBodyType[T]: ToRequestBodyType[FormOf[T]]
 
+  /** Marshaller for `multipart/form-data` request bodies (issue #81). Each adapter reassembles the `Multipart.parts` into its framework's
+    * native multipart representation (pekko-http's `Multipart.FormData`, http4s's `org.http4s.multipart.Multipart`) so the wire request
+    * carries the boundary-delimited body + the matching `Content-Type: multipart/form-data; boundary=…`.
+    */
+  protected implicit def multipartToRequestBodyType: ToRequestBodyType[Multipart]
+
   protected implicit def emptyToResponseBodyType: FromResponseBodyType[EmptyBody]
 
   implicit def statusCodeToBaklavaStatusCodes(statusCode: HttpStatusCode): StatusCode

@@ -280,3 +280,40 @@ supports(
 ```
 
 `Schema[Array[Byte]]` is a default on the classpath, so the generated OpenAPI renders `responses[code].content["<content-type>"].schema = { type: string, format: binary }`.
+
+## Documenting multipart/form-data uploads
+
+Beyond raw binary bodies, `Multipart` bundles one or more named `FilePart` / `TextPart` into a single request. The http4s adapter reassembles them into a native `org.http4s.multipart.Multipart[IO]` body with a fixed boundary for deterministic test output.
+
+```scala
+import pl.iterators.baklava.{FilePart, Multipart, TextPart}
+import java.nio.charset.StandardCharsets
+
+class PostUsersUserIdPhotoSpec extends BaseRouteSpec {
+
+  path(path = "/users/{userId}/photo")(
+    supports(
+      POST,
+      pathParameters = p[Long]("userId"),
+      description = "Upload a profile photo with a caption",
+      summary = "Upload photo",
+      tags = List("Users")
+    )(
+      onRequest(
+        pathParameters = 1L,
+        body = Multipart(
+          FilePart("photo", "image/png", "photo.png",
+            "\u0089PNG\r\n...".getBytes(StandardCharsets.UTF_8)),
+          TextPart("caption", "profile photo")
+        )
+      ).respondsWith[EmptyBody](NoContent, description = "Photo uploaded")
+        .assert { ctx =>
+          val response = ctx.performRequest(allRoutes)
+          response.status.code shouldBe 204
+        }
+    )
+  )
+}
+```
+
+The generated OpenAPI emits `requestBody.content["multipart/form-data"]` with a free-form `type: object` schema (richer per-part schemas can be supplied by replacing the implicit `Schema[Multipart]`).
