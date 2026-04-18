@@ -315,13 +315,12 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       )
     }
 
-    val headersParsed = expectedResponseHeaders.map { h =>
-      val lowered = h.name.toLowerCase
-      responseContext.headers.find(_.name.toLowerCase == lowered).map(_.value) match {
+    expectedResponseHeaders.foreach { h =>
+      val lowered = h.name.toLowerCase(java.util.Locale.ROOT)
+      responseContext.headers.find(_.name.toLowerCase(java.util.Locale.ROOT) == lowered).map(_.value) match {
         case None        => throw new BaklavaAssertionException(s"Header ${h.name} not found but expected")
         case Some(value) =>
-          h.name ->
-          h.tsm
+          val _ = h.tsm
             .unapply(value)
             .getOrElse(
               throw new BaklavaAssertionException(
@@ -330,13 +329,17 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
             )
       }
     }
-    if (strictHeaderCheck && headersParsed.distinctBy(_._1).length != responseContext.headers.size) {
-      throw new BaklavaAssertionException(
-        s"Strict headers check is on, expected following headers: [${expectedResponseHeaders
-            .map(h => h.name)
-            .sorted
-            .mkString(", ")}], but got: [${responseContext.headers.map(_.name).toList.sorted.mkString(", ")}]"
-      )
+    if (strictHeaderCheck) {
+      val expectedDistinctNames = expectedResponseHeaders.map(_.name.toLowerCase(java.util.Locale.ROOT)).distinct
+      val actualDistinctNames   = responseContext.headers.map(_.name.toLowerCase(java.util.Locale.ROOT)).distinct
+      if (expectedDistinctNames.length != actualDistinctNames.length) {
+        throw new BaklavaAssertionException(
+          s"Strict headers check is on, expected following headers: [${expectedResponseHeaders
+              .map(h => h.name)
+              .sorted
+              .mkString(", ")}], but got: [${responseContext.headers.map(_.name).toList.sorted.mkString(", ")}]"
+        )
+      }
     }
 
     if (

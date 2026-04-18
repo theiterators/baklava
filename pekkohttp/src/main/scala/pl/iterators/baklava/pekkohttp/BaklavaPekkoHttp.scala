@@ -23,8 +23,6 @@ import pl.iterators.baklava.{
 }
 import sttp.model.{Header => SttpHeader, Method, StatusCode}
 
-import scala.language.implicitConversions
-
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 import scala.reflect.ClassTag

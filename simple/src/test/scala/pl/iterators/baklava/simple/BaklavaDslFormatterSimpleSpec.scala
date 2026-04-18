@@ -4,7 +4,7 @@ import io.circe.parser
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
-import sttp.model.{Header => SttpHeader, Method, StatusCode}
+import sttp.model.{Method, StatusCode}
 
 class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
 

@@ -33,8 +33,6 @@ import pl.iterators.baklava.{
 }
 import sttp.model.{Header => SttpHeader, Method => SttpMethod, StatusCode => SttpStatus}
 
-import scala.language.implicitConversions
-
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
