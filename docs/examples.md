@@ -359,7 +359,7 @@ path("/v1/auctions/{auctionId}")(
       application.transactor
         .inSession(seedUser(seller) *> seedAuction(AuctionId(UUID.randomUUID()), seller.id))
         .unsafeRunSync()
-    }.request { (auction: Auction) =>
+    }.request { auction =>
       onRequest(pathParameters = auction.id)
     }.respondsWith[AuctionDto](OK, description = "Auction found")
       .assert { case (ctx, auction) =>
@@ -372,5 +372,5 @@ path("/v1/auctions/{auctionId}")(
 
 The setup block runs once per scenario at test execution time. Its return value is threaded into both `.request` (to construct the `OnRequest`) and `.assert` (as the second argument of the two-argument lambda).
 
-On Scala 2.13, the lambda parameter must be explicitly typed (`(auction: Auction) => ...`). On Scala 3, type inference resolves it automatically.
+When the request doesn't depend on the setup value, use the eager `.onRequest(body = ..., pathParameters = ..., ...)` form instead of the lazy `.request { ... }`.
 

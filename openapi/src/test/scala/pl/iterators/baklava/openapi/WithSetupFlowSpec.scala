@@ -66,10 +66,13 @@ class WithSetupFlowSpec
       securitySchemes = Seq(bearerScheme),
       tags = Seq("Things")
     )(
-      // Scenario 1: lazy path parameter produced by setup
+      // Scenario 1: lazy path parameter produced by setup. Now that the eager `.request(...)` overload
+      // has been renamed to `.onRequest(...)`, the remaining lazy `.request { s => ... }` is
+      // unambiguous and this lambda no longer needs an explicit parameter type annotation on
+      // Scala 2.13.
       withSetup {
         42L // pretend this is `seedThing().unsafeRunSync().id`
-      }.request { (id: Long) =>
+      }.request { id =>
         onRequest(pathParameters = id, security = bearer("tok"))
       }.respondsWith[Thing](OK, description = "Thing found via setup id")
         .assert { case (ctx, id) =>
@@ -87,10 +90,10 @@ class WithSetupFlowSpec
       securitySchemes = Seq(bearerScheme),
       tags = Seq("Things")
     )(
-      // Scenario 2: lazy body produced by setup (tuple)
+      // Scenario 2: lazy body produced by setup (tuple) — no lambda annotation needed.
       withSetup {
         ("Bob", 7L) // (name, expectedId)
-      }.request { (setup: (String, Long)) =>
+      }.request { setup =>
         val (name, _) = setup
         onRequest(body = CreateThing(name), security = bearer("tok"))
       }.respondsWith[Thing](Created, description = "Created via setup-derived body")
@@ -110,11 +113,13 @@ class WithSetupFlowSpec
       securitySchemes = Seq(bearerScheme),
       tags = Seq("Things")
     )(
-      // Scenario 3: setup yields Unit (side-effect only); eager .request is used.
+      // Scenario 3: setup yields Unit (side-effect only); eager `.onRequest` is used —
+      // distinct method name from the lazy `.request` so Scala 2.13 can infer lambda types
+      // cleanly without forcing a single overloaded method.
       withSetup {
         val _ = 1 + 1 // side-effect stand-in
         ()
-      }.request(pathParameters = 99L, security = bearer("tok"))
+      }.onRequest(pathParameters = 99L, security = bearer("tok"))
         .respondsWith[Thing](OK, description = "Eager request override with Unit setup")
         .assert { case (ctx, _) =>
           nextResponse = jsonResponse(OK, Thing(99L, "Zed").asJson.noSpaces)
