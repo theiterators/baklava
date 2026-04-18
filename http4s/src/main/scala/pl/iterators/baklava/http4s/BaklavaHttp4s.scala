@@ -179,15 +179,22 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     parsedOverride.fold(withBody)(ct => withBody.withContentType(ct))
   }
 
-  /** Find a `Content-Type` in the declared headers (case-insensitive) and return the parsed http4s `Content-Type`. Fails fast on multiple
-    * declarations rather than silently picking one, since that's always a test-authoring bug.
+  /** Find a `Content-Type` in the declared headers (case-insensitive) and return the parsed http4s `Content-Type`. Throws on either
+    * multiple declarations or an unparseable value — both are always test-authoring bugs.
     */
   private def findContentTypeOverride(hs: Seq[SttpHeader]): Option[headers.`Content-Type`] = {
     val cts = hs.filter(_.name.toLowerCase(java.util.Locale.ROOT) == "content-type")
     cts match {
       case Seq()       => None
-      case Seq(single) => headers.`Content-Type`.parse(single.value).toOption
-      case multiple    =>
+      case Seq(single) =>
+        headers.`Content-Type`.parse(single.value) match {
+          case Right(ct)   => Some(ct)
+          case Left(error) =>
+            throw new IllegalArgumentException(
+              s"Could not parse declared Content-Type header '${single.value}': ${error.message}"
+            )
+        }
+      case multiple =>
         throw new IllegalArgumentException(
           s"Multiple Content-Type headers declared on one request: [${multiple.map(_.value).mkString(", ")}]. " +
             "Declare a single Content-Type or none at all."

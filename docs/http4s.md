@@ -250,7 +250,7 @@ class PutUsersUserIdAvatarSpec extends BaseRouteSpec {
       ).respondsWith[EmptyBody](NoContent, description = "User avatar updated successfully")
         .assert { ctx =>
           val response = ctx.performRequest(allRoutes)
-          response.status.status should beEqualTo(NoContent.status)
+          response.status.code shouldBe 204
         }
     )
   )
@@ -274,7 +274,7 @@ supports(
     .respondsWith[Array[Byte]](Ok, description = "Avatar bytes")
     .assert { ctx =>
       val response = ctx.performRequest(allRoutes)
-      response.status.status should beEqualTo(Ok.status)
+      response.status.code shouldBe 200
     }
 )
 ```

@@ -81,7 +81,7 @@ class ComprehensiveGoldSpec
   // (e.g. to verify that a declared `Content-Type` header overrode the marshaller's default).
   private var nextResponse: HttpResponse                                            = HttpResponse(OK)
   private val lastRequest: java.util.concurrent.atomic.AtomicReference[HttpRequest] =
-    new java.util.concurrent.atomic.AtomicReference()
+    new java.util.concurrent.atomic.AtomicReference[HttpRequest]()
   override def performRequest(routes: Route, request: HttpRequest): HttpResponse = {
     lastRequest.set(request)
     nextResponse

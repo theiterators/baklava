@@ -154,12 +154,14 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
   )(implicit
       requestBody: ToEntityMarshaller[RequestBody]
   ): HttpRequest = {
-    // If the test declared a parseable `Content-Type` header, use its value to override the
-    // content type that the implicit marshaller would otherwise bake into the request. This is
-    // what lets tests document non-JSON uploads — `h[String]("Content-Type") = "image/png"` plus
-    // a String/byte body. Pekko-http treats `Content-Type` as part of the entity (not a free
-    // header), so we also strip it from the headers list before attaching. We only strip after
-    // parsing succeeds so an invalid value isn't silently swallowed.
+    // If the test declared a `Content-Type` header, use its value to override the content type
+    // that the implicit marshaller would otherwise bake into the request. This is what lets tests
+    // document non-JSON uploads — `h[String]("Content-Type") = "image/png"` plus a String/byte
+    // body. Pekko-http treats `Content-Type` as part of the entity (not a free header), so we
+    // also strip it from the headers list before attaching. Invalid values throw — a silent
+    // fallback would mask test-authoring bugs (pekko's own header parser would drop the invalid
+    // header from the request, leaving the marshaller's default Content-Type in its place with
+    // no indication that the declared value was ignored).
     val parsedOverride = findContentTypeOverride(ctx.headers)
     val otherHeaders   = if (parsedOverride.isDefined) dropContentType(ctx.headers) else ctx.headers
     val base           = new RequestBuilder(baklavaHttpMethodToHttpMethod(ctx.method.get))(ctx.path, ctx.body)
@@ -167,15 +169,22 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
     parsedOverride.fold(base)(ct => base.withEntity(base.entity.withContentType(ct)))
   }
 
-  /** Find a `Content-Type` in the declared headers (case-insensitive) and return the parsed pekko `ContentType`. Fails fast on multiple
-    * declarations rather than silently picking one, since that's always a test-authoring bug.
+  /** Find a `Content-Type` in the declared headers (case-insensitive) and return the parsed pekko `ContentType`. Throws on either multiple
+    * declarations or an unparseable value — both are always test-authoring bugs.
     */
   private def findContentTypeOverride(headers: Seq[SttpHeader]): Option[ContentType] = {
     val cts = headers.filter(_.name.toLowerCase(java.util.Locale.ROOT) == "content-type")
     cts match {
       case Seq()       => None
-      case Seq(single) => ContentType.parse(single.value).toOption
-      case multiple    =>
+      case Seq(single) =>
+        ContentType.parse(single.value) match {
+          case Right(ct)    => Some(ct)
+          case Left(errors) =>
+            throw new IllegalArgumentException(
+              s"Could not parse declared Content-Type header '${single.value}': ${errors.mkString("; ")}"
+            )
+        }
+      case multiple =>
         throw new IllegalArgumentException(
           s"Multiple Content-Type headers declared on one request: [${multiple.map(_.value).mkString(", ")}]. " +
             "Declare a single Content-Type or none at all."
