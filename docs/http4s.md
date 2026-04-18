@@ -257,6 +257,6 @@ object Main extends IOApp.Simple {
 }
 ```
 
-For detailed configuration options check [installation.md#swaggerui-and-routes-configuration].
+For detailed configuration options check [the SwaggerUI and routes configuration section](installation.md#swaggerui-and-routes-configuration).
 
 The http4s and pekko-http variants expose the same endpoints (`GET /openapi`, `GET /swagger-ui/<version>/…`, `GET /swagger`) and share the same configuration keys under `baklava-routes`.

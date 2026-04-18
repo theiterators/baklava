@@ -18,7 +18,16 @@ import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.util.{Failure, Success, Try}
 
 object BaklavaRoutes {
-  private val swaggerVersion = "5.17.11"
+
+  /** The swagger-ui webjar version is the source of truth; we serve assets at `/swagger-ui/<version>/...` so the version has to match the
+    * resources actually on the classpath. Read the webjar's own metadata rather than hard-coding it here — otherwise a webjar upgrade in
+    * build.sbt silently breaks these routes with 404s.
+    *
+    * Falls back to a safe constant only if the webjar is missing from the classpath (which would mean the user hasn't added the dependency
+    * properly), so runtime error messages are at least actionable.
+    */
+  private lazy val swaggerVersion: String =
+    Try(new WebJarAssetLocator().getWebJars.get("swagger-ui")).toOption.filter(_ != null).getOrElse("5.17.11")
 
   def routes(config: com.typesafe.config.Config): HttpRoutes[IO] = {
     val internalConfig = Config(config)
@@ -34,7 +43,15 @@ object BaklavaRoutes {
 
   private def coreRoutes(c: Config): HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "openapi" =>
-      Ok(openApiFileContent(c)).map(_.withContentType(`Content-Type`(MediaType.text.yaml)))
+      // `openApiFileContent` does blocking file I/O + YAML parsing; wrap in IO.blocking so
+      // exceptions land inside the effect (a missing or malformed file becomes a 404/500, not a
+      // crashed request handler).
+      IO.blocking(openApiFileContent(c))
+        .flatMap(content => Ok(content).map(_.withContentType(`Content-Type`(MediaType.text.yaml))))
+        .recoverWith {
+          case _: java.io.FileNotFoundException => NotFound("openapi.yml not found — run `sbt test` first to generate it")
+          case e: Throwable                     => InternalServerError(s"Failed to serve openapi: ${e.getMessage}")
+        }
 
     case GET -> Root / "swagger-ui" / version / "swagger-initializer.js" if version == swaggerVersion =>
       Ok(swaggerInitializerContent(c)).map(_.withContentType(`Content-Type`(MediaType.application.javascript)))
@@ -44,7 +61,10 @@ object BaklavaRoutes {
 
     case GET -> Root / "swagger" =>
       val swaggerUiUrl = s"${c.publicPathPrefix}swagger-ui/$swaggerVersion/index.html"
-      SeeOther(Location(Uri.unsafeFromString(swaggerUiUrl)))
+      Uri.fromString(swaggerUiUrl) match {
+        case Right(uri) => SeeOther(Location(uri))
+        case Left(err)  => InternalServerError(s"Invalid swagger-ui URL '$swaggerUiUrl': ${err.message}")
+      }
   }
 
   private def basicAuth(expectedUser: String, expectedPassword: String)(routes: HttpRoutes[IO]): HttpRoutes[IO] = {

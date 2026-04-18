@@ -278,4 +278,4 @@ import scala.io.StdIn
   }
 ```
 
-For detailed configuration options check [installation.md#swaggerui-and-routes-configuration]
+For detailed configuration options check [the SwaggerUI and routes configuration section](installation.md#swaggerui-and-routes-configuration).
