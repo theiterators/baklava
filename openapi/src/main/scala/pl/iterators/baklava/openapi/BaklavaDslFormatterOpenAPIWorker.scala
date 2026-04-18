@@ -238,7 +238,8 @@ object BaklavaDslFormatterOpenAPIWorker {
             val parameter = new io.swagger.v3.oas.models.parameters.Parameter()
             parameter.setName(pathParam.name)
             parameter.setIn("path")
-            parameter.setRequired(pathParam.schema.required)
+            // Path params must always be `required: true` per OAS 3.x.
+            parameter.setRequired(true)
             parameter.setSchema(baklavaSchemaToOpenAPISchema(pathParam.schema))
             pathParam.description.foreach(parameter.setDescription)
             // Example values from captured test inputs are tracked separately in #68.
@@ -248,9 +249,11 @@ object BaklavaDslFormatterOpenAPIWorker {
 
         val mergedHeaders = calls
           .flatMap(_.request.headersSeq)
-          .distinctBy(_.name.toLowerCase)
-          .filter(h => h.name.toLowerCase != "content-type" && h.name.toLowerCase != "accept" && h.name.toLowerCase != "authorization")
-          .sortBy(_.name.toLowerCase)
+          .map(h => (h, h.name.toLowerCase(java.util.Locale.ROOT)))
+          .distinctBy(_._2)
+          .filterNot { case (_, lowered) => lowered == "content-type" || lowered == "accept" || lowered == "authorization" }
+          .sortBy(_._2)
+          .map(_._1)
         mergedHeaders
           .map { header =>
             val parameter = new io.swagger.v3.oas.models.parameters.Parameter()

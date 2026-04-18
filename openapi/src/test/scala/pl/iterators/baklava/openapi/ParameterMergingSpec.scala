@@ -38,7 +38,15 @@ class ParameterMergingSpec extends AnyFunSpec with Matchers {
 
     it("merges request headers case-insensitively, excluding Content-Type/Accept/Authorization") {
       val call1 = synthCall(headers = Seq("X-Request-Id" -> stringSchema))
-      val call2 = synthCall(headers = Seq("x-request-id" -> stringSchema, "X-Custom" -> stringSchema, "Accept" -> stringSchema))
+      val call2 = synthCall(headers =
+        Seq(
+          "x-request-id"  -> stringSchema,
+          "X-Custom"      -> stringSchema,
+          "Accept"        -> stringSchema,
+          "Content-Type"  -> stringSchema,
+          "Authorization" -> stringSchema
+        )
+      )
 
       val openAPI = new OpenAPI()
       BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(call1, call2))
@@ -46,7 +54,21 @@ class ParameterMergingSpec extends AnyFunSpec with Matchers {
       val params = openAPI.getPaths.get("/search").getGet.getParameters.asScala.filter(_.getIn == "header").map(_.getName).toList
       params should contain("X-Custom")
       params.count(_.toLowerCase == "x-request-id") shouldBe 1
-      params should not contain "Accept"
+      params.map(_.toLowerCase) should not contain "accept"
+      params.map(_.toLowerCase) should not contain "content-type"
+      params.map(_.toLowerCase) should not contain "authorization"
+    }
+
+    it("marks path parameters as required: true even when their schema is optional (OAS 3.x)") {
+      val optionalPathParamSchema = stringSchema.copy(required = false)
+      val call                    = synthCall(path = "/items/{id}", pathParams = Seq("id" -> optionalPathParamSchema))
+
+      val openAPI = new OpenAPI()
+      BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(call))
+
+      val pathParam =
+        openAPI.getPaths.get("/items/{id}").getGet.getParameters.asScala.find(p => p.getIn == "path" && p.getName == "id").get
+      pathParam.getRequired shouldBe true
     }
 
     it("is deterministic regardless of input call order") {
