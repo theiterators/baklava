@@ -4,6 +4,7 @@ import io.swagger.v3.oas.models.OpenAPI
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
+import sttp.model.{Method, StatusCode}
 
 import scala.jdk.CollectionConverters.*
 
@@ -102,7 +103,7 @@ class ParameterMergingSpec extends AnyFunSpec with Matchers {
         path = path,
         pathDescription = None,
         pathSummary = None,
-        method = Some(BaklavaHttpMethod("GET")),
+        method = Some(Method("GET")),
         operationDescription = None,
         operationSummary = None,
         operationId = None,
@@ -117,8 +118,8 @@ class ParameterMergingSpec extends AnyFunSpec with Matchers {
       ),
       response = BaklavaResponseContextSerializable(
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
-        status = BaklavaHttpStatus(200),
-        headers = BaklavaHttpHeaders(Map.empty),
+        status = StatusCode(200),
+        headers = Seq.empty,
         requestBodyString = "",
         responseBodyString = "",
         requestContentType = None,

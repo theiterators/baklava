@@ -214,6 +214,11 @@ paths:
           - active
           - archived
           - draft
+        examples:
+          All active projects:
+            value: active
+          All archived projects:
+            value: archived
       responses:
         "200":
           description: All active projects / All archived projects
@@ -409,6 +414,7 @@ paths:
         schema:
           type: integer
           format: int64
+        example: "42"
       requestBody:
         content:
           application/json:
@@ -501,6 +507,7 @@ paths:
         schema:
           type: integer
           format: int64
+        example: "42"
       responses:
         "200":
           description: All tasks in the project
@@ -570,6 +577,7 @@ paths:
         schema:
           type: integer
           format: int64
+        example: "42"
       requestBody:
         content:
           application/json:
@@ -660,14 +668,6 @@ paths:
       description: List users with pagination and optional role filter
       operationId: listUsers
       parameters:
-      - name: page
-        in: query
-        description: Page number (1-indexed)
-        required: false
-        explode: true
-        schema:
-          type: integer
-          format: int32
       - name: limit
         in: query
         description: Items per page (max 100)
@@ -676,6 +676,16 @@ paths:
         schema:
           type: integer
           format: int32
+        example: "20"
+      - name: page
+        in: query
+        description: Page number (1-indexed)
+        required: false
+        explode: true
+        schema:
+          type: integer
+          format: int32
+        example: "1"
       - name: role
         in: query
         description: Filter by role
@@ -688,6 +698,7 @@ paths:
           - admin
           - member
           - guest
+        example: admin
       responses:
         "200":
           description: First page of users
@@ -785,6 +796,11 @@ paths:
         schema:
           type: string
           format: uuid
+        examples:
+          User found:
+            value: 00000000-0000-0000-0000-000000000001
+          User not found:
+            value: 00000000-0000-0000-0000-0000000000ff
       responses:
         "200":
           description: User found
@@ -865,6 +881,7 @@ paths:
         schema:
           type: string
           format: uuid
+        example: 00000000-0000-0000-0000-000000000001
       requestBody:
         content:
           application/json:
@@ -944,6 +961,7 @@ paths:
         schema:
           type: string
           format: uuid
+        example: 00000000-0000-0000-0000-000000000002
       responses:
         "204":
           description: User deleted

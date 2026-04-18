@@ -218,7 +218,7 @@ object BaklavaRequestContextSerializable {
       securitySchemes = c.securitySchemes.map(s => BaklavaSecuritySchemaSerializable(s)),
       bodySchema = c.bodySchema.filter(_ != Schema.emptyBodySchema).map(s => BaklavaSchemaSerializable(s)),
       headersSeq = c.headersSeq.map { h =>
-        BaklavaHeaderSerializable(h, caseInsensitiveHeaderValue(c.headers.headers, h.name))
+        BaklavaHeaderSerializable(h, caseInsensitiveHeaderValue(c.headers, h.name))
       },
       pathParametersSeq = c.pathParametersSeq.map { p =>
         BaklavaPathParamSerializable(p, pathParamValues.get(p.name))
@@ -282,9 +282,9 @@ object BaklavaRequestContextSerializable {
         .toMap
   }
 
-  private def caseInsensitiveHeaderValue(headers: Map[String, String], name: String): Option[String] = {
-    val lowered = name.toLowerCase
-    headers.find(_._1.toLowerCase == lowered).map(_._2)
+  private def caseInsensitiveHeaderValue(headers: Seq[SttpHeader], name: String): Option[String] = {
+    val lowered = name.toLowerCase(java.util.Locale.ROOT)
+    headers.find(_.name.toLowerCase(java.util.Locale.ROOT) == lowered).map(_.value)
   }
 }
 
