@@ -80,7 +80,9 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
   implicit val urlFormSchema: Schema[UrlForm] = FreeFormSchema("UrlForm")
 
   /** Multipart marshaller: map each `Baklava.Part` to an `http4s.multipart.Part[IO]` and let http4s's built-in multipart `EntityEncoder`
-    * produce the boundary-delimited wire format.
+    * produce the boundary-delimited wire format. `FilePart.contentType` is parsed as a full `Content-Type` header so callers can supply
+    * parameters (e.g. `text/plain; charset=UTF-8`) — matching the pekko adapter. Omits `filename` from `Content-Disposition` when the
+    * caller left it empty, per the `FilePart` docs.
     */
   override implicit protected def multipartToRequestBodyType: BaklavaHttp4s.ToEntityMarshaller[BaklavaMultipart] =
     implicitly[EntityEncoder[IO, org.http4s.multipart.Multipart[IO]]].contramap { baklavaMultipart =>
@@ -88,9 +90,22 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
       // inferred from the match branches down to the `Part[IO]` the Multipart constructor wants.
       val parts: Vector[Http4sPart[IO]] = baklavaMultipart.parts.toVector.map {
         case FilePart(name, contentType, filename, bytes) =>
-          val ct       = MediaType.parse(contentType).toOption.getOrElse(MediaType.application.`octet-stream`)
-          val fileName = if (filename.isEmpty) name else filename
-          Http4sPart.fileData[IO](name, fileName, Stream.chunk(fs2.Chunk.array(bytes)), headers.`Content-Type`(ct))
+          val ct = headers.`Content-Type`
+            .parse(contentType)
+            .toOption
+            .getOrElse(headers.`Content-Type`(MediaType.application.`octet-stream`))
+          val body = Stream.chunk(fs2.Chunk.array(bytes))
+          if (filename.isEmpty)
+            Http4sPart[IO](
+              Headers(
+                headers.`Content-Disposition`("form-data", Map(CIString("name") -> name)),
+                (headers.`Content-Transfer-Encoding`.Binary: headers.`Content-Transfer-Encoding`),
+                ct
+              ),
+              body
+            )
+          else
+            Http4sPart.fileData[IO](name, filename, body, ct)
         case TextPart(name, value) =>
           Http4sPart.formData[IO](name, value)
       }
