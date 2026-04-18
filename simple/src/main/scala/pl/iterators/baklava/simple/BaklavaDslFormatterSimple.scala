@@ -42,6 +42,8 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       |  .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; color: #fff; }
       |  .status-2xx { background: #198754; } .status-3xx { background: #0dcaf0; color: #000; } .status-4xx { background: #fd7e14; } .status-5xx { background: #dc3545; }
       |  .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
+      |  ul.examples { list-style: none; padding: 0; margin: 4px 0 0; font-size: 0.85rem; }
+      |  ul.examples li { padding: 2px 0; }
       |</style>""".stripMargin
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
@@ -97,24 +99,40 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       )
     }
 
+    // Collect captured `(scenarioName, exampleValue)` pairs for each named parameter across every
+    // call, so when values differ between scenarios we can show the reader all of them inline (the
+    // OpenAPI generator already does the same for `parameter.examples`).
+    def collectExamples(extract: BaklavaRequestContextSerializable => Seq[(String, Option[String])]): Map[String, Seq[(String, String)]] =
+      calls
+        .flatMap { c =>
+          val label = c.request.responseDescription.getOrElse("")
+          extract(c.request).collect { case (name, Some(value)) => name -> (label -> value) }
+        }
+        .groupMap(_._1)(_._2)
+
+    val headerExamples = collectExamples(r => r.headersSeq.map(h => h.name -> h.example))
+    val pathExamples   = collectExamples(r => r.pathParametersSeq.map(p => p.name -> p.example))
+    val queryExamples  = collectExamples(r => r.queryParametersSeq.map(p => p.name -> p.example))
+
     val headersSection = Option.when(request.headersSeq.nonEmpty) {
       card(
         "Headers",
-        s"<dl class=\"meta-grid\">${request.headersSeq.map { h =>
-            metaRow(
-              escHtml(h.name) + (if (h.schema.required) " <span class=\"required\">*</span>" else ""),
-              s"<code>${escHtml(h.schema.className)}</code>"
-            )
-          }.mkString}</dl>"
+        s"<dl class=\"meta-grid\">${request.headersSeq.map(h => paramRow(h.name, h.schema, headerExamples.getOrElse(h.name, Nil))).mkString}</dl>"
       )
     }
 
     val pathParamsSection = Option.when(request.pathParametersSeq.nonEmpty) {
-      card("Path Parameters", s"<dl class=\"meta-grid\">${request.pathParametersSeq.map(paramRow).mkString}</dl>")
+      card(
+        "Path Parameters",
+        s"<dl class=\"meta-grid\">${request.pathParametersSeq.map(p => paramRow(p.name, p.schema, pathExamples.getOrElse(p.name, Nil))).mkString}</dl>"
+      )
     }
 
     val queryParamsSection = Option.when(request.queryParametersSeq.nonEmpty) {
-      card("Query Parameters", s"<dl class=\"meta-grid\">${request.queryParametersSeq.map(paramRow).mkString}</dl>")
+      card(
+        "Query Parameters",
+        s"<dl class=\"meta-grid\">${request.queryParametersSeq.map(p => paramRow(p.name, p.schema, queryExamples.getOrElse(p.name, Nil))).mkString}</dl>"
+      )
     }
 
     // Shared request-schema block (same for every call on this endpoint).
@@ -183,16 +201,32 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
   private def metaRow(label: String, value: String): String =
     s"<dt>$label</dt><dd>$value</dd>"
 
-  private def paramRow(name: String, schema: BaklavaSchemaSerializable): String = {
+  /** Render one parameter row.
+    *
+    * `examples` is a list of `(scenarioLabel, exampleValue)` pairs captured across all calls for the named parameter. When all calls
+    * captured the same value we print a single inline `= value`; when they diverge we print a small list so the reader sees each
+    * scenario's value. An empty list produces just the type (no examples captured).
+    */
+  private def paramRow(name: String, schema: BaklavaSchemaSerializable, examples: Seq[(String, String)]): String = {
     val arrayFlag = if (schema.`type` == SchemaType.ArrayType) "[]" else ""
     val req       = if (schema.required) " <span class=\"required\">*</span>" else ""
     val enumInfo  =
       schema.`enum`.map(enums => s""" <span class="tag">${escHtml(enums.toSeq.sorted.mkString(" | "))}</span>""").getOrElse("")
-    metaRow(s"${escHtml(name)}$arrayFlag$req", s"<code>${escHtml(schema.className)}$arrayFlag</code>$enumInfo")
-  }
 
-  private def paramRow(p: BaklavaPathParamSerializable): String  = paramRow(p.name, p.schema)
-  private def paramRow(p: BaklavaQueryParamSerializable): String = paramRow(p.name, p.schema)
+    val distinctValues = examples.map(_._2).distinct
+    val exampleRender  =
+      if (distinctValues.isEmpty) ""
+      else if (distinctValues.size == 1) s" = <code>${escHtml(distinctValues.head)}</code>"
+      else {
+        val rows = examples.zipWithIndex.map { case ((label, value), idx) =>
+          val key = if (label.isEmpty) s"Example ${idx + 1}" else label
+          s"<li><em>${escHtml(key)}:</em> <code>${escHtml(value)}</code></li>"
+        }
+        s"""<ul class="examples">${rows.mkString}</ul>"""
+      }
+
+    metaRow(s"${escHtml(name)}$arrayFlag$req", s"<code>${escHtml(schema.className)}$arrayFlag</code>$enumInfo$exampleRender")
+  }
 
   /** Collision-resistant filename from a (method + path) combination. The slash/space/brace substitutions are lossy, so we append a
     * deterministic 32-bit hex hash of the original input to distinguish otherwise-equivalent names. Common collisions (`/a/b` vs `/a_b`,
