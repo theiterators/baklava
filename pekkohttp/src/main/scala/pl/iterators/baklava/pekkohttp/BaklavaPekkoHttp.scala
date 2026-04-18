@@ -11,10 +11,7 @@ import org.apache.pekko.util.ByteString
 import pl.iterators.baklava.{
   BaklavaAssertionException,
   BaklavaHttpDsl,
-  BaklavaHttpHeaders,
-  BaklavaHttpMethod,
   BaklavaHttpProtocol,
-  BaklavaHttpStatus,
   BaklavaRequestContext,
   BaklavaResponseContext,
   BaklavaTestFrameworkDsl,
@@ -24,6 +21,9 @@ import pl.iterators.baklava.{
   FreeFormSchema,
   Schema
 }
+import sttp.model.{Header => SttpHeader, Method, StatusCode}
+
+import scala.language.implicitConversions
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
@@ -55,19 +55,13 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
   override type HttpRequest    = org.apache.pekko.http.scaladsl.model.HttpRequest
   override type HttpResponse   = org.apache.pekko.http.scaladsl.model.HttpResponse
 
-  override implicit def statusCodeToBaklavaStatusCodes(statusCode: HttpStatusCode): BaklavaHttpStatus = BaklavaHttpStatus(
-    statusCode.intValue()
-  )
-  override implicit def baklavaStatusCodeToStatusCode(baklavaHttpStatus: BaklavaHttpStatus): HttpStatusCode =
-    org.apache.pekko.http.scaladsl.model.StatusCode.int2StatusCode(
-      baklavaHttpStatus.status
-    )
+  override implicit def statusCodeToBaklavaStatusCodes(statusCode: HttpStatusCode): StatusCode = StatusCode(statusCode.intValue())
+  override implicit def baklavaStatusCodeToStatusCode(status: StatusCode): HttpStatusCode      =
+    org.apache.pekko.http.scaladsl.model.StatusCode.int2StatusCode(status.code)
 
-  override implicit def httpMethodToBaklavaHttpMethod(method: HttpMethod): BaklavaHttpMethod = BaklavaHttpMethod(
-    method.value
-  )
-  override implicit def baklavaHttpMethodToHttpMethod(baklavaHttpMethod: BaklavaHttpMethod): HttpMethod =
-    baklavaHttpMethod.value match {
+  override implicit def httpMethodToBaklavaHttpMethod(method: HttpMethod): Method = Method(method.value)
+  override implicit def baklavaHttpMethodToHttpMethod(method: Method): HttpMethod =
+    method.method match {
       case "GET"     => org.apache.pekko.http.scaladsl.model.HttpMethods.GET
       case "POST"    => org.apache.pekko.http.scaladsl.model.HttpMethods.POST
       case "PUT"     => org.apache.pekko.http.scaladsl.model.HttpMethods.PUT
@@ -77,7 +71,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       case "HEAD"    => org.apache.pekko.http.scaladsl.model.HttpMethods.HEAD
       case "TRACE"   => org.apache.pekko.http.scaladsl.model.HttpMethods.TRACE
       case "CONNECT" => org.apache.pekko.http.scaladsl.model.HttpMethods.CONNECT
-      case _         => org.apache.pekko.http.scaladsl.model.HttpMethod.custom(baklavaHttpMethod.value)
+      case other     => org.apache.pekko.http.scaladsl.model.HttpMethod.custom(other)
     }
 
   override implicit def baklavaHttpProtocolToHttpProtocol(baklavaHttpProtocol: BaklavaHttpProtocol): HttpProtocol =
@@ -88,21 +82,16 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
       case _          => throw new IllegalArgumentException(s"Unsupported protocol: ${baklavaHttpProtocol.protocol}")
     }
 
-  override implicit def httpProtocolToBaklavaHttpProtocol(protocol: HttpProtocol): BaklavaHttpProtocol = BaklavaHttpProtocol(
-    protocol.value
-  )
+  override implicit def httpProtocolToBaklavaHttpProtocol(protocol: HttpProtocol): BaklavaHttpProtocol =
+    BaklavaHttpProtocol(protocol.value)
 
-  override implicit def baklavaHeadersToHttpHeaders(headers: BaklavaHttpHeaders): HttpHeaders = headers.headers
-    .map { case (k, v) =>
-      HttpHeader.parse(k, v)
-    }
-    .toSeq
-    .collect { case HttpHeader.ParsingResult.Ok(header, _) =>
-      header
-    }
-  override implicit def httpHeadersToBaklavaHeaders(headers: HttpHeaders): BaklavaHttpHeaders = BaklavaHttpHeaders(
-    headers.map(h => h.name() -> h.value()).toMap
-  )
+  override implicit def baklavaHeadersToHttpHeaders(headers: Seq[SttpHeader]): HttpHeaders =
+    headers
+      .map(h => HttpHeader.parse(h.name, h.value))
+      .collect { case HttpHeader.ParsingResult.Ok(header, _) => header }
+
+  override implicit def httpHeadersToBaklavaHeaders(headers: HttpHeaders): Seq[SttpHeader] =
+    headers.map(h => SttpHeader(h.name(), h.value())).toSeq
 
   override def httpResponseToBaklavaResponseContext[T: FromEntityUnmarshaller: ClassTag](
       request: HttpRequest,
@@ -122,9 +111,9 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
     val requestString  = Await.result(implicitly[FromEntityUnmarshaller[String]].apply(request.entity), Duration.Inf)
 
     BaklavaResponseContext(
-      response.protocol,
-      response.status,
-      response.headers,
+      httpProtocolToBaklavaHttpProtocol(response.protocol),
+      statusCodeToBaklavaStatusCodes(response.status),
+      httpHeadersToBaklavaHeaders(response.headers),
       Try(Await.result(implicitly[FromEntityUnmarshaller[T]].apply(firstResponseEntity), Duration.Inf)) match {
         case Success(value)     => value
         case Failure(exception) =>
@@ -167,8 +156,8 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
   )(implicit
       requestBody: ToEntityMarshaller[RequestBody]
   ): HttpRequest = {
-    new RequestBuilder(ctx.method.get)(ctx.path, ctx.body)
-      .withHeaders(ctx.headers)
+    new RequestBuilder(baklavaHttpMethodToHttpMethod(ctx.method.get))(ctx.path, ctx.body)
+      .withHeaders(baklavaHeadersToHttpHeaders(ctx.headers))
   }
 
   override implicit protected def emptyToRequestBodyType: ToEntityMarshaller[EmptyBody] =

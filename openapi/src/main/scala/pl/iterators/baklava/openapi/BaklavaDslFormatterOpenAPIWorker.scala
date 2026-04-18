@@ -73,10 +73,10 @@ object BaklavaDslFormatterOpenAPIWorker {
 
     calls.groupBy(_.request.symbolicPath).toList.sortBy(_._1).foreach { case (path, calls) =>
       val pathItem = new io.swagger.v3.oas.models.PathItem()
-      calls.groupBy(_.request.method).toList.sortBy(_._1.map(_.value)).foreach { case (method, calls) =>
+      calls.groupBy(_.request.method).toList.sortBy(_._1.map(_.method)).foreach { case (method, calls) =>
         val operation          = new io.swagger.v3.oas.models.Operation()
         val operationResponses = new ApiResponses()
-        calls.groupBy(_.response.status).toList.sortBy(_._1.status).foreach { case (status, commonStatusCalls) =>
+        calls.groupBy(_.response.status).toList.sortBy(_._1.code).foreach { case (status, commonStatusCalls) =>
           // One ApiResponse per status; all contentType media types accumulate into it.
           val r       = new io.swagger.v3.oas.models.responses.ApiResponse()
           val content = new Content()
@@ -133,7 +133,7 @@ object BaklavaDslFormatterOpenAPIWorker {
             }
 
           if (anyMediaTypeEmitted) { val _ = r.setContent(content) }
-          val _ = operationResponses.addApiResponse(status.status.toString, r)
+          val _ = operationResponses.addApiResponse(status.code.toString, r)
         }
         val _ = operation.responses(operationResponses)
 
@@ -142,7 +142,7 @@ object BaklavaDslFormatterOpenAPIWorker {
         val requestBody = new io.swagger.v3.oas.models.parameters.RequestBody()
         val content     = new Content()
 
-        val successfulCalls    = calls.filter(_.response.status.status / 100 == 2).sortBy(_.response.status.status)
+        val successfulCalls    = calls.filter(_.response.status.code / 100 == 2).sortBy(_.response.status.code)
         val responsesToProcess =
           if (successfulCalls.isEmpty) calls else successfulCalls // sometimes there are no successful responses
         responsesToProcess
@@ -257,7 +257,7 @@ object BaklavaDslFormatterOpenAPIWorker {
           .foreach(operation.addParametersItem)
 
         method.foreach { m =>
-          pathItem.operation(io.swagger.v3.oas.models.PathItem.HttpMethod.valueOf(m.value.toUpperCase), operation)
+          pathItem.operation(io.swagger.v3.oas.models.PathItem.HttpMethod.valueOf(m.method.toUpperCase), operation)
         }
         calls.head.request.pathSummary.foreach(pathItem.setSummary)
         calls.head.request.pathDescription.foreach(pathItem.setDescription)
@@ -323,7 +323,7 @@ object BaklavaDslFormatterOpenAPIWorker {
   ): Option[String] = {
     val lowered = name.toLowerCase
     calls.iterator
-      .flatMap(_.response.headers.headers.find(_._1.toLowerCase == lowered).map(_._2))
+      .flatMap(_.response.headers.find(_.name.toLowerCase == lowered).map(_.value))
       .nextOption()
   }
 

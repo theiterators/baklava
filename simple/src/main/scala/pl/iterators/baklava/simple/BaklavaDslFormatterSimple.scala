@@ -50,13 +50,13 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
     val endpoints = calls
       .groupBy(c => (c.request.method, c.request.symbolicPath))
       .toList
-      .sortBy(s => (s._1._2, s._1._1.map(_.value).getOrElse("UNDEFINED")))
+      .sortBy(s => (s._1._2, s._1._1.map(_.method).getOrElse("UNDEFINED")))
 
     val indexRows = endpoints.map { case ((method, symbolicPath), endpointCalls) =>
-      val methodName = method.map(_.value).getOrElse("UNDEFINED")
+      val methodName = method.map(_.method).getOrElse("UNDEFINED")
       val filename   = toFilename(s"$methodName $symbolicPath")
 
-      writeFile(s"$dirName/$filename", generateEndpointPage(endpointCalls.sortBy(_.response.status.status)))
+      writeFile(s"$dirName/$filename", generateEndpointPage(endpointCalls.sortBy(_.response.status.code)))
 
       s"""<li><a href="${escHtmlAttr(filename)}"><span class="method method-${escHtmlAttr(methodName)}">${escHtml(
           methodName
@@ -77,7 +77,7 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
   private[simple] def generateEndpointPage(calls: Seq[BaklavaSerializableCall]): String = {
     require(calls.nonEmpty, "generateEndpointPage called with empty calls")
     val request    = calls.head.request
-    val methodName = request.method.map(_.value).getOrElse("UNDEFINED")
+    val methodName = request.method.map(_.method).getOrElse("UNDEFINED")
 
     val metaRows = List(
       request.operationSummary.map(s => metaRow("Summary", escHtml(s))),
@@ -123,8 +123,8 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
         s"<details><summary>Request schema (JSON Schema v7)</summary><pre>${escHtml(baklavaSchemaToJsonSchemaV7(schema))}</pre></details>"
       )
 
-    val responseSections = calls.sortBy(c => (c.response.status.status, c.request.responseDescription.getOrElse(""))).map { c =>
-      val status    = c.response.status.status
+    val responseSections = calls.sortBy(c => (c.response.status.code, c.request.responseDescription.getOrElse(""))).map { c =>
+      val status    = c.response.status.code
       val statusCss = if (status < 300) "2xx" else if (status < 400) "3xx" else if (status < 500) "4xx" else "5xx"
       val desc      = c.request.responseDescription.map(d => s"<p>${escHtml(d)}</p>").getOrElse("")
 
@@ -144,9 +144,9 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       // Declared response headers (from the DSL) with their captured example values.
       val responseHeadersSection = Option.when(c.request.responseHeaders.nonEmpty) {
         val rows = c.request.responseHeaders.sortBy(_.name).map { h =>
-          val example = c.response.headers.headers
-            .find(_._1.toLowerCase == h.name.toLowerCase)
-            .map { case (_, v) => s" = <code>${escHtml(v)}</code>" }
+          val example = c.response.headers
+            .find(_.name.toLowerCase == h.name.toLowerCase)
+            .map(sent => s" = <code>${escHtml(sent.value)}</code>")
             .getOrElse("")
           metaRow(
             escHtml(h.name) + (if (h.schema.required) " <span class=\"required\">*</span>" else ""),

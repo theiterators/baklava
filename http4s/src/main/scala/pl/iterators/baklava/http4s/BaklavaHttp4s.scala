@@ -21,10 +21,7 @@ import org.typelevel.ci.CIString
 import pl.iterators.baklava.{
   BaklavaAssertionException,
   BaklavaHttpDsl,
-  BaklavaHttpHeaders,
-  BaklavaHttpMethod,
   BaklavaHttpProtocol,
-  BaklavaHttpStatus,
   BaklavaRequestContext,
   BaklavaResponseContext,
   BaklavaTestFrameworkDsl,
@@ -34,6 +31,9 @@ import pl.iterators.baklava.{
   FreeFormSchema,
   Schema
 }
+import sttp.model.{Header => SttpHeader, Method => SttpMethod, StatusCode => SttpStatus}
+
+import scala.language.implicitConversions
 
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
@@ -78,16 +78,16 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
   override implicit protected def emptyToResponseBodyType: BaklavaHttp4s.FromEntityUnmarshaller[EmptyBody] =
     EntityDecoder.void[IO].map(_ => EmptyBodyInstance)
 
-  override implicit def statusCodeToBaklavaStatusCodes(statusCode: Status): BaklavaHttpStatus = BaklavaHttpStatus(statusCode.code)
+  override implicit def statusCodeToBaklavaStatusCodes(statusCode: Status): SttpStatus = SttpStatus(statusCode.code)
 
-  override implicit def baklavaStatusCodeToStatusCode(baklavaHttpStatus: BaklavaHttpStatus): Status = Status
-    .fromInt(baklavaHttpStatus.status)
-    .getOrElse(throw new IllegalStateException(s"Invalid status code: ${baklavaHttpStatus.status}"))
+  override implicit def baklavaStatusCodeToStatusCode(status: SttpStatus): Status = Status
+    .fromInt(status.code)
+    .getOrElse(throw new IllegalStateException(s"Invalid status code: ${status.code}"))
 
-  override implicit def httpMethodToBaklavaHttpMethod(method: Method): BaklavaHttpMethod = BaklavaHttpMethod(method.name)
+  override implicit def httpMethodToBaklavaHttpMethod(method: Method): SttpMethod = SttpMethod(method.name)
 
-  override implicit def baklavaHttpMethodToHttpMethod(baklavaHttpMethod: BaklavaHttpMethod): Method =
-    Method.fromString(baklavaHttpMethod.value).getOrElse(throw new IllegalStateException(s"Invalid method: ${baklavaHttpMethod.value}"))
+  override implicit def baklavaHttpMethodToHttpMethod(method: SttpMethod): Method =
+    Method.fromString(method.method).getOrElse(throw new IllegalStateException(s"Invalid method: ${method.method}"))
 
   override implicit def baklavaHttpProtocolToHttpProtocol(baklavaHttpProtocol: BaklavaHttpProtocol): HttpVersion =
     baklavaHttpProtocol.protocol match {
@@ -103,13 +103,11 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     protocol.toString
   )
 
-  override implicit def baklavaHeadersToHttpHeaders(headers: BaklavaHttpHeaders): Headers = Headers(headers.headers.map { case (k, v) =>
-    Header.Raw(CIString(k), v)
-  }.toList)
+  override implicit def baklavaHeadersToHttpHeaders(headers: Seq[SttpHeader]): Headers =
+    Headers(headers.toList.map(h => Header.Raw(CIString(h.name), h.value)))
 
-  override implicit def httpHeadersToBaklavaHeaders(headers: Headers): BaklavaHttpHeaders = BaklavaHttpHeaders(
-    headers.headers.map(h => h.name.toString -> h.value).toMap
-  )
+  override implicit def httpHeadersToBaklavaHeaders(headers: Headers): Seq[SttpHeader] =
+    headers.headers.map(h => SttpHeader(h.name.toString, h.value))
 
   override def httpResponseToBaklavaResponseContext[T: BaklavaHttp4s.FromEntityUnmarshaller: ClassTag](
       request: Request[IO],
@@ -123,9 +121,9 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     val newResponse    = response.withBodyStream(fs2.Stream.emits(responseBytes))
 
     BaklavaResponseContext(
-      response.httpVersion,
-      response.status,
-      response.headers,
+      httpProtocolToBaklavaHttpProtocol(response.httpVersion),
+      statusCodeToBaklavaStatusCodes(response.status),
+      httpHeadersToBaklavaHeaders(response.headers),
       Try(newResponse.as[T].unsafeRunSync()) match {
         case Success(value)     => value
         case Failure(exception) =>
@@ -167,15 +165,15 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     ctx.body match {
       case Some(body) =>
         Request[IO](
-          method = ctx.method.get,
+          method = baklavaHttpMethodToHttpMethod(ctx.method.get),
           uri = Uri.fromString(ctx.path).fold(throw _, identity),
-          headers = ctx.headers
+          headers = baklavaHeadersToHttpHeaders(ctx.headers)
         ).withEntity(body)
       case None =>
         Request[IO](
-          method = ctx.method.get,
+          method = baklavaHttpMethodToHttpMethod(ctx.method.get),
           uri = Uri.fromString(ctx.path).fold(throw _, identity),
-          headers = ctx.headers
+          headers = baklavaHeadersToHttpHeaders(ctx.headers)
         )
     }
   }

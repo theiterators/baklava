@@ -23,7 +23,7 @@ trait BaklavaMunit[RouteType, ToRequestBodyType[_], FromResponseBodyType[_]]
       context: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       r: => R
   ): Unit =
-    test(s"${context.method.get.value} ${context.symbolicPath} should respond with -> " + text)(r)
+    test(s"${context.method.get.method} ${context.symbolicPath} should respond with -> " + text)(r)
 }
 
 trait MunitAsExecution[T]

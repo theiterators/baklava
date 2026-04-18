@@ -1,6 +1,7 @@
 package pl.iterators.baklava.tsrest
 
 import pl.iterators.baklava.*
+import sttp.model.Method
 
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Using
@@ -127,7 +128,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
 
   private def createContractForGroup(
       contractName: String,
-      endpointsWithCalls: Seq[((Option[BaklavaHttpMethod], String), Seq[BaklavaSerializableCall])]
+      endpointsWithCalls: Seq[((Option[Method], String), Seq[BaklavaSerializableCall])]
   ): String = {
     val contractConstName = toCamelCase(contractName) + "Contract"
     val code              =
@@ -146,14 +147,14 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
 
   // Contract endpoint generator
   private def createContractForEndpoint(
-      endpoint: ((Option[BaklavaHttpMethod], String), Seq[BaklavaSerializableCall])
+      endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall])
   ): String = {
     val ((httpMethodOpt, _), calls) = endpoint
     require(
       calls.nonEmpty,
-      s"createContractForEndpoint called with empty calls for method=${httpMethodOpt.map(_.value)}"
+      s"createContractForEndpoint called with empty calls for method=${httpMethodOpt.map(_.method)}"
     )
-    val httpMethod = httpMethodOpt.map(_.value).getOrElse("ANY").toLowerCase
+    val httpMethod = httpMethodOpt.map(_.method).getOrElse("ANY").toLowerCase
 
     val firstCall   = calls.head
     val req         = firstCall.request
@@ -192,7 +193,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
 
     // --- Responses ---
     val responses = calls
-      .groupBy(_.response.status.status)
+      .groupBy(_.response.status.code)
       .toList
       .sortBy(_._1)
       .map { case (status, respCalls) =>

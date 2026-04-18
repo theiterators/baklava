@@ -4,6 +4,7 @@ import io.circe.parser
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
+import sttp.model.{Header => SttpHeader, Method, StatusCode}
 
 class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
 
@@ -50,7 +51,7 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
           )
         ),
         response = base.response.copy(
-          headers = BaklavaHttpHeaders(Map("x-rate-limit" -> "100", "X-Request-Id" -> "req-42"))
+          headers = Seq(sttp.model.Header("x-rate-limit", "100"), sttp.model.Header("X-Request-Id", "req-42"))
         )
       )
       val html = generator.generateEndpointPage(Seq(withHdrs))
@@ -129,7 +130,7 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
         path = "/users",
         pathDescription = None,
         pathSummary = None,
-        method = Some(BaklavaHttpMethod("POST")),
+        method = Some(Method("POST")),
         operationDescription = None,
         operationSummary = None,
         operationId = None,
@@ -144,8 +145,8 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
       ),
       response = BaklavaResponseContextSerializable(
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
-        status = BaklavaHttpStatus(status),
-        headers = BaklavaHttpHeaders(Map.empty),
+        status = StatusCode(status),
+        headers = Seq.empty,
         requestBodyString = requestBody,
         responseBodyString = responseBody,
         requestContentType = Some("application/json"),

@@ -1,18 +1,15 @@
 package pl.iterators.baklava
 
+import sttp.model.{Header => SttpHeader, Method, StatusCode}
+
 import scala.reflect.ClassTag
 
 sealed trait EmptyBody
 
 case object EmptyBodyInstance extends EmptyBody
 
-case class BaklavaHttpMethod(value: String)
-
+// Kept as a Baklava-specific wrapper since sttp-model has no HTTP-protocol equivalent.
 case class BaklavaHttpProtocol(protocol: String)
-
-case class BaklavaHttpStatus(status: Int)
-
-case class BaklavaHttpHeaders(headers: Map[String, String])
 
 case class FormOf[T](fields: (String, String)*)(implicit val schema: Schema[T])
 
@@ -44,7 +41,7 @@ case class BaklavaRequestContext[
     path: String,
     pathDescription: Option[String],
     pathSummary: Option[String],
-    method: Option[BaklavaHttpMethod],
+    method: Option[Method],
     operationDescription: Option[String],
     operationSummary: Option[String],
     operationId: Option[String],
@@ -52,7 +49,7 @@ case class BaklavaRequestContext[
     securitySchemes: Seq[SecurityScheme],
     body: Option[Body],
     bodySchema: Option[Schema[Body]],
-    headers: BaklavaHttpHeaders,
+    headers: Seq[SttpHeader],
     headersDefinition: Headers,
     headersProvided: HeadersProvided,
     headersSeq: Seq[Header[?]],
@@ -69,8 +66,8 @@ case class BaklavaRequestContext[
 
 case class BaklavaResponseContext[ResponseBody, RequestType, ResponseType](
     protocol: BaklavaHttpProtocol,
-    status: BaklavaHttpStatus,
-    headers: BaklavaHttpHeaders,
+    status: StatusCode,
+    headers: Seq[SttpHeader],
     body: ResponseBody,
     rawRequest: RequestType,
     requestBodyString: String,
@@ -182,17 +179,17 @@ trait BaklavaHttpDsl[
 
   protected implicit def emptyToResponseBodyType: FromResponseBodyType[EmptyBody]
 
-  implicit def statusCodeToBaklavaStatusCodes(statusCode: HttpStatusCode): BaklavaHttpStatus
-  implicit def baklavaStatusCodeToStatusCode(baklavaHttpStatus: BaklavaHttpStatus): HttpStatusCode
+  implicit def statusCodeToBaklavaStatusCodes(statusCode: HttpStatusCode): StatusCode
+  implicit def baklavaStatusCodeToStatusCode(status: StatusCode): HttpStatusCode
 
-  implicit def httpMethodToBaklavaHttpMethod(method: HttpMethod): BaklavaHttpMethod
-  implicit def baklavaHttpMethodToHttpMethod(baklavaHttpMethod: BaklavaHttpMethod): HttpMethod
+  implicit def httpMethodToBaklavaHttpMethod(method: HttpMethod): Method
+  implicit def baklavaHttpMethodToHttpMethod(method: Method): HttpMethod
 
   implicit def baklavaHttpProtocolToHttpProtocol(baklavaHttpProtocol: BaklavaHttpProtocol): HttpProtocol
   implicit def httpProtocolToBaklavaHttpProtocol(protocol: HttpProtocol): BaklavaHttpProtocol
 
-  implicit def baklavaHeadersToHttpHeaders(headers: BaklavaHttpHeaders): HttpHeaders
-  implicit def httpHeadersToBaklavaHeaders(headers: HttpHeaders): BaklavaHttpHeaders
+  implicit def baklavaHeadersToHttpHeaders(headers: Seq[SttpHeader]): HttpHeaders
+  implicit def httpHeadersToBaklavaHeaders(headers: HttpHeaders): Seq[SttpHeader]
 
   def httpResponseToBaklavaResponseContext[T: FromResponseBodyType: ClassTag](
       request: HttpRequest,
