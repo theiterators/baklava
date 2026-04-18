@@ -120,6 +120,82 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
     }
   }
 
+  describe("renderCurl") {
+    it("emits an explicit curl command with method, base-URL placeholder, content-type and body") {
+      val call = jsonCall(
+        status = 201,
+        desc = "ok",
+        requestBody = """{"name":"Alice"}""",
+        responseBody = """{"id":1}"""
+      )
+      val out = generator.renderCurl(call)
+
+      out should include("curl -X POST")
+      out should include("'$BASE_URL/users'")
+      out should include("-H 'Content-Type: application/json'")
+      out should include("""--data-raw '{"name":"Alice"}'""")
+      out should include("""<button class="copy-btn" type="button" data-clipboard=""")
+    }
+
+    it("emits security-scheme placeholder headers (bearer, api key)") {
+      val base = jsonCall(status = 200, desc = "ok", requestBody = "", responseBody = "{}")
+      val call = base.copy(
+        request = base.request.copy(
+          securitySchemes = Seq(
+            BaklavaSecuritySchemaSerializable(
+              "bearerAuth",
+              BaklavaSecuritySerializable(httpBearer = Some(HttpBearer(bearerFormat = "JWT")))
+            ),
+            BaklavaSecuritySchemaSerializable(
+              "apiKey",
+              BaklavaSecuritySerializable(apiKeyInHeader = Some(ApiKeyInHeader("X-API-Key")))
+            )
+          )
+        )
+      )
+      val out = generator.renderCurl(call)
+
+      out should include("-H 'Authorization: Bearer &lt;TOKEN&gt;'")
+      out should include("-H 'X-API-Key: &lt;API_KEY&gt;'")
+    }
+
+    it("shell-escapes single quotes inside body and path") {
+      val base = jsonCall(status = 200, desc = "ok", requestBody = """he said 'hi'""", responseBody = "")
+      val out  = generator.renderCurl(base)
+      // The embedded apostrophes are closed, escaped, reopened: '\''. HTML-escaped for display
+      // (backslash passes through; apostrophe becomes &#39;).
+      out should include("""he said &#39;\&#39;&#39;hi&#39;\&#39;&#39;""")
+    }
+  }
+
+  describe("renderIndexHtml") {
+    it("groups endpoints under each tag section, with untagged operations under 'default'") {
+      val rendered: Seq[(String, String, String, Seq[String])] = Seq(
+        ("GET", "/a", "GET__a.html", Seq("Users")),
+        ("GET", "/b", "GET__b.html", Seq("Users", "Admin")),
+        ("GET", "/c", "GET__c.html", Seq.empty)
+      )
+      val html = generator.renderIndexHtml(rendered)
+
+      val adminIdx   = html.indexOf(">Admin<")
+      val usersIdx   = html.indexOf(">Users<")
+      val defaultIdx = html.indexOf(">default<")
+      adminIdx should be > -1
+      usersIdx should be > adminIdx
+      defaultIdx should be > usersIdx
+
+      // Endpoint /b appears under BOTH Users and Admin sections.
+      val bMatches = html.split("""<span class="path">/b</span>""", -1).length - 1
+      bMatches shouldBe 2
+    }
+
+    it("HTML-escapes tag names so hostile tag strings can't break out") {
+      val html = generator.renderIndexHtml(Seq(("GET", "/x", "GET__x.html", Seq("<script>"))))
+      html should include("&lt;script&gt;")
+      html should not include "<script>"
+    }
+  }
+
   describe("toFilename") {
     it("produces distinct filenames for paths that differ only by `/` vs `_` (regression for C6)") {
       generator.toFilename("GET /a/b") should not be generator.toFilename("GET /a_b")

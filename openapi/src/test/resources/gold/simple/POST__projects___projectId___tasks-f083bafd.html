@@ -27,6 +27,13 @@
   .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
   ul.examples { list-style: none; padding: 0; margin: 4px 0 0; font-size: 0.85rem; }
   ul.examples li { padding: 2px 0; }
+  .tag-group { margin-bottom: 24px; }
+  .tag-heading { margin: 20px 0 10px; font-size: 1.1rem; font-weight: 600; color: #16213e; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #dee2e6; padding-bottom: 6px; }
+  .curl-block { position: relative; margin: 0 0 8px; }
+  .curl-block pre { padding-right: 72px; }
+  .copy-btn { position: absolute; top: 8px; right: 8px; background: #495057; color: #fff; border: none; border-radius: 4px; padding: 4px 10px; font-size: 0.75rem; cursor: pointer; font-family: inherit; }
+  .copy-btn:hover { background: #0d6efd; }
+  .copy-btn:active { background: #0a58ca; }
 </style></head><body>
 <a href="index.html" class="back-link">&larr; Back to index</a>
 <h1><span class="method method-POST">POST</span> <span class="path">/projects/{projectId}/tasks</span></h1>
@@ -60,7 +67,13 @@
   ],
   "additionalProperties" : false
 }</pre></details></div></div>
-<div class="card"><div class="card-header"><span class="status-badge status-2xx">201</span> Response</div><div class="card-body"><p>Task created</p><h4>Response headers</h4><dl class="meta-grid"><dt>Location <span class="required">*</span></dt><dd><code>String</code> = <code>/projects/42/tasks/101</code></dd></dl><h4>Request body</h4><pre>{
+<div class="card"><div class="card-header"><span class="status-badge status-2xx">201</span> Response</div><div class="card-body"><p>Task created</p><h4>Curl</h4><div class="curl-block"><pre>curl -X POST '$BASE_URL/projects/42/tasks' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer &lt;OAUTH_TOKEN&gt;' \
+  --data-raw '{"title":"New task","description":null,"priority":"medium"}'</pre><button class="copy-btn" type="button" data-clipboard="curl -X POST &#39;$BASE_URL/projects/42/tasks&#39; \
+  -H &#39;Content-Type: application/json&#39; \
+  -H &#39;Authorization: Bearer &lt;OAUTH_TOKEN&gt;&#39; \
+  --data-raw &#39;{&quot;title&quot;:&quot;New task&quot;,&quot;description&quot;:null,&quot;priority&quot;:&quot;medium&quot;}&#39;">Copy</button></div><h4>Response headers</h4><dl class="meta-grid"><dt>Location <span class="required">*</span></dt><dd><code>String</code> = <code>/projects/42/tasks/101</code></dd></dl><h4>Request body</h4><pre>{
   "title" : "New task",
   "description" : null,
   "priority" : "medium"
@@ -106,4 +119,16 @@
   ],
   "additionalProperties" : false
 }</pre></details></div></div>
+<script>
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('button.copy-btn');
+  if (!btn) return;
+  var payload = btn.getAttribute('data-clipboard') || '';
+  navigator.clipboard.writeText(payload).then(function () {
+    var original = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(function () { btn.textContent = original; }, 1200);
+  });
+});
+</script>
 </body></html>

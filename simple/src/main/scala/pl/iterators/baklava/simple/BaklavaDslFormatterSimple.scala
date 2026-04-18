@@ -44,6 +44,13 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       |  .back-link { display: inline-block; margin-bottom: 16px; font-size: 0.85rem; }
       |  ul.examples { list-style: none; padding: 0; margin: 4px 0 0; font-size: 0.85rem; }
       |  ul.examples li { padding: 2px 0; }
+      |  .tag-group { margin-bottom: 24px; }
+      |  .tag-heading { margin: 20px 0 10px; font-size: 1.1rem; font-weight: 600; color: #16213e; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #dee2e6; padding-bottom: 6px; }
+      |  .curl-block { position: relative; margin: 0 0 8px; }
+      |  .curl-block pre { padding-right: 72px; }
+      |  .copy-btn { position: absolute; top: 8px; right: 8px; background: #495057; color: #fff; border: none; border-radius: 4px; padding: 4px 10px; font-size: 0.75rem; cursor: pointer; font-family: inherit; }
+      |  .copy-btn:hover { background: #0d6efd; }
+      |  .copy-btn:active { background: #0a58ca; }
       |</style>""".stripMargin
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
@@ -54,26 +61,50 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       .toList
       .sortBy(s => (s._1._2, s._1._1.map(_.method).getOrElse("UNDEFINED")))
 
-    val indexRows = endpoints.map { case ((method, symbolicPath), endpointCalls) =>
+    // (method, symbolicPath, filename, tags) — write each endpoint page up-front and remember the
+    // tags so we can group them on the index like Swagger UI does.
+    val rendered = endpoints.map { case ((method, symbolicPath), endpointCalls) =>
       val methodName = method.map(_.method).getOrElse("UNDEFINED")
       val filename   = toFilename(s"$methodName $symbolicPath")
-
       writeFile(s"$dirName/$filename", generateEndpointPage(endpointCalls.sortBy(_.response.status.code)))
-
-      s"""<li><a href="${escHtmlAttr(filename)}"><span class="method method-${escHtmlAttr(methodName)}">${escHtml(
-          methodName
-        )}</span> <span class="path">${escHtml(symbolicPath)}</span></a></li>"""
+      val tags = endpointCalls.flatMap(_.request.operationTags).distinct
+      (methodName, symbolicPath, filename, tags)
     }
 
-    val indexHtml =
-      s"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>API Documentation</title>$css</head><body>
-         |<h1>API Documentation</h1>
-         |<ul class="endpoint-list">
-         |${indexRows.mkString("\n")}
-         |</ul>
-         |</body></html>""".stripMargin
+    writeFile(s"$dirName/index.html", renderIndexHtml(rendered))
+  }
 
-    writeFile(s"$dirName/index.html", indexHtml)
+  /** Build the index HTML that groups every endpoint by its tag, Swagger-UI-style. Each operation appears under *every* tag it declares.
+    * Operations with no tags go under a `default` section. Tag sections are alphabetized; `default`, when present, is pushed to the end.
+    *
+    * `rendered` carries `(methodName, symbolicPath, filename, tags)` for every endpoint page.
+    */
+  private[simple] def renderIndexHtml(rendered: Seq[(String, String, String, Seq[String])]): String = {
+    val DefaultTag = "default"
+    val byTag      = rendered.flatMap { case e @ (_, _, _, tags) =>
+      val owners = if (tags.isEmpty) Seq(DefaultTag) else tags
+      owners.map(t => t -> e)
+    }
+    val tagSections = byTag
+      .groupMap(_._1)(_._2)
+      .toList
+      .sortBy { case (tag, _) => if (tag == DefaultTag) (1, tag) else (0, tag) }
+      .map { case (tag, entries) =>
+        val rows = entries
+          .sortBy { case (method, path, _, _) => (path, method) }
+          .map { case (method, path, filename, _) =>
+            s"""<li><a href="${escHtmlAttr(filename)}"><span class="method method-${escHtmlAttr(method)}">${escHtml(
+                method
+              )}</span> <span class="path">${escHtml(path)}</span></a></li>"""
+          }
+          .mkString("\n")
+        s"""<section class="tag-group"><h2 class="tag-heading">${escHtml(tag)}</h2><ul class="endpoint-list">$rows</ul></section>"""
+      }
+
+    s"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>API Documentation</title>$css</head><body>
+       |<h1>API Documentation</h1>
+       |${tagSections.mkString("\n")}
+       |</body></html>""".stripMargin
   }
 
   private[simple] def generateEndpointPage(calls: Seq[BaklavaSerializableCall]): String = {
@@ -146,6 +177,12 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       val statusCss = if (status < 300) "2xx" else if (status < 400) "3xx" else if (status < 500) "4xx" else "5xx"
       val desc      = c.request.responseDescription.map(d => s"<p>${escHtml(d)}</p>").getOrElse("")
 
+      // Per-call curl command with a copy-to-clipboard button. The actual Authorization token /
+      // API key isn't in the serialized call (only the scheme type is), so the curl uses
+      // placeholders the caller must fill in — same compromise the OpenAPI `securitySchemes`
+      // render makes.
+      val curlBlock = renderCurl(c)
+
       // Per-call request body — previously only calls.head was rendered, so distinct inputs
       // across calls were silently dropped. Now each call's request body shows alongside its
       // response.
@@ -176,7 +213,7 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
 
       card(
         s"""<span class="status-badge status-$statusCss">$status</span> Response""",
-        (List(Some(desc)) ++ List(responseHeadersSection, requestBodyPre, responseBodyPre, schemaPre)).flatten.mkString
+        (List(Some(desc), Some(curlBlock)) ++ List(responseHeadersSection, requestBodyPre, responseBodyPre, schemaPre)).flatten.mkString
       )
     }
 
@@ -192,8 +229,78 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
        |${if (metaRows.nonEmpty) card("Overview", s"<dl class=\"meta-grid\">${metaRows.mkString}</dl>") else ""}
        |${List(securitySection, headersSection, pathParamsSection, queryParamsSection, requestBodySection).flatten.mkString("\n")}
        |${responseSections.mkString("\n")}
+       |$copyScript
        |</body></html>""".stripMargin
   }
+
+  // One inline script for the whole page. Binds a click handler to every `button.copy-btn`,
+  // reads the payload from `data-clipboard`, writes it to the clipboard, and briefly shows
+  // "Copied" so the user gets feedback. No external JS or CSS needed.
+  private val copyScript =
+    """<script>
+      |document.addEventListener('click', function (e) {
+      |  var btn = e.target.closest('button.copy-btn');
+      |  if (!btn) return;
+      |  var payload = btn.getAttribute('data-clipboard') || '';
+      |  navigator.clipboard.writeText(payload).then(function () {
+      |    var original = btn.textContent;
+      |    btn.textContent = 'Copied';
+      |    setTimeout(function () { btn.textContent = original; }, 1200);
+      |  });
+      |});
+      |</script>""".stripMargin
+
+  /** Render a per-call curl command + a copy-to-clipboard button.
+    *
+    * The captured call gives us: method, resolved path, request-body string, request content-type, declared security schemes (as types,
+    * without the live token) and declared headers (with the value the test sent, if any). For security we emit placeholder headers the
+    * reader fills in — the actual token/secret/key isn't serialized.
+    */
+  private[simple] def renderCurl(c: BaklavaSerializableCall): String = {
+    val method = c.request.method.map(_.method).getOrElse("GET")
+
+    val authHeaders: Seq[(String, String)] = c.request.securitySchemes.flatMap { scheme =>
+      val s = scheme.security
+      s.httpBearer.map(_ => "Authorization" -> "Bearer <TOKEN>") orElse
+      s.httpBasic.map(_ => "Authorization" -> "Basic <BASE64(USER:PASSWORD)>") orElse
+      s.apiKeyInHeader.map(k => k.name -> "<API_KEY>") orElse
+      s.apiKeyInCookie.map(k => "Cookie" -> s"${k.name}=<API_KEY>") orElse
+      s.openIdConnectInBearer.map(_ => "Authorization" -> "Bearer <OIDC_TOKEN>") orElse
+      s.oAuth2InBearer.map(_ => "Authorization" -> "Bearer <OAUTH_TOKEN>")
+    }
+
+    val declaredHeaders: Seq[(String, String)] =
+      c.request.headersSeq.flatMap(h => h.example.map(v => h.name -> v))
+
+    val contentTypeHeader: Seq[(String, String)] =
+      c.response.requestContentType.map("Content-Type" -> _).toSeq
+
+    val allHeaders = (contentTypeHeader ++ declaredHeaders ++ authHeaders).distinctBy(_._1.toLowerCase(java.util.Locale.ROOT))
+
+    val headerLines = allHeaders.map { case (k, v) => s"  -H ${shellSingleQuote(s"$k: $v")} \\\n" }
+
+    val bodyLine = if (c.response.requestBodyString.nonEmpty) s"  --data-raw ${shellSingleQuote(c.response.requestBodyString)}\n" else ""
+
+    val cmd =
+      s"curl -X $method ${shellSingleQuote(s"$$BASE_URL${c.request.path}")} \\\n" +
+        headerLines.mkString +
+        bodyLine
+
+    // Trim the trailing ` \` off the last continuation so the command pastes cleanly.
+    val trimmed = cmd.stripSuffix(" \\\n").stripSuffix("\n")
+
+    s"""<h4>Curl</h4><div class="curl-block"><pre>${escHtml(
+        trimmed
+      )}</pre><button class="copy-btn" type="button" data-clipboard="${escHtmlAttr(
+        trimmed
+      )}">Copy</button></div>"""
+  }
+
+  /** Wrap `s` in single quotes for safe shell consumption. Single quotes can't be escaped inside a single-quoted string, so any literal
+    * `'` is emitted as `'\''` (close quote, escaped quote, reopen quote). All other characters pass through unchanged.
+    */
+  private def shellSingleQuote(s: String): String =
+    "'" + s.replace("'", "'\\''") + "'"
 
   private def card(title: String, body: String): String =
     s"""<div class="card"><div class="card-header">$title</div><div class="card-body">$body</div></div>"""
