@@ -313,7 +313,8 @@ object BaklavaDslFormatterOpenAPIWorker {
   }
 
   /** Collect `(scenarioName -> exampleValue)` pairs for a named parameter across all calls. The scenario name comes from
-    * `responseDescription`; calls without a description are skipped. Calls whose example is `None` (no captured value) are also skipped.
+    * `responseDescription` when present; calls without a description are included with an empty scenario name (which
+    * `attachParameterExamples` later fills in with `Example <idx>`). Calls whose example is `None` (no captured value) are skipped.
     */
   private def collectQueryExamples(calls: Seq[BaklavaSerializableCall], name: String): Seq[(String, String)] =
     calls.flatMap { c =>

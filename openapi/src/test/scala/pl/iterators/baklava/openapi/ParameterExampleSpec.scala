@@ -128,6 +128,92 @@ class ParameterExampleSpec extends AnyFunSpec with Matchers {
     }
   }
 
+  describe("end-to-end extraction through BaklavaRequestContextSerializable.apply") {
+    // These tests drive the real serializer — no duplicated extraction logic — to catch regressions
+    // in the URL parsing that the synthCall-based tests above can't see.
+
+    it("extracts path and query examples from a real resolved URL") {
+      val ctx = buildRequestContext(
+        symbolicPath = "/users/{id}",
+        resolvedPath = "/users/42?limit=10&offset=20",
+        pathParamNames = Seq("id"),
+        queryParamNames = Seq("limit", "offset")
+      )
+      val serialized = BaklavaRequestContextSerializable(ctx)
+
+      serialized.pathParametersSeq.find(_.name == "id").flatMap(_.example) shouldBe Some("42")
+      serialized.queryParametersSeq.find(_.name == "limit").flatMap(_.example) shouldBe Some("10")
+      serialized.queryParametersSeq.find(_.name == "offset").flatMap(_.example) shouldBe Some("20")
+    }
+
+    it("strips URL fragments before extracting path params (regression for #72 review)") {
+      val ctx = buildRequestContext(
+        symbolicPath = "/users/{id}",
+        resolvedPath = "/users/42#section-3",
+        pathParamNames = Seq("id")
+      )
+      val serialized = BaklavaRequestContextSerializable(ctx)
+
+      serialized.pathParametersSeq.find(_.name == "id").flatMap(_.example) shouldBe Some("42")
+    }
+
+    it("strips URL fragments before extracting query params (regression for #72 review)") {
+      val ctx = buildRequestContext(
+        symbolicPath = "/search",
+        resolvedPath = "/search?q=1#frag",
+        queryParamNames = Seq("q")
+      )
+      val serialized = BaklavaRequestContextSerializable(ctx)
+
+      serialized.queryParametersSeq.find(_.name == "q").flatMap(_.example) shouldBe Some("1")
+    }
+  }
+
+  // PathParam/QueryParam have `ToPathParam`/`ToQueryParam` implicits that live in traits, not
+  // companion objects, so they aren't found by implicit resolution from a non-mixin test. Supply
+  // them explicitly — the actual `unapply` logic is immaterial here, we only need the name to
+  // flow through and the URL parser on the serializer side to do its job.
+  private implicit val stringPathParam: ToPathParam[String] = new ToPathParam[String] {
+    override def apply(s: String): String = s
+  }
+  private implicit val stringQueryParam: ToQueryParam[String] = new ToQueryParam[String] {
+    override def apply(s: String): Seq[String] = Seq(s)
+  }
+
+  private def buildRequestContext(
+      symbolicPath: String,
+      resolvedPath: String,
+      pathParamNames: Seq[String] = Nil,
+      queryParamNames: Seq[String] = Nil
+  ): BaklavaRequestContext[Unit, Unit, Unit, Unit, Unit, Unit, Unit] =
+    BaklavaRequestContext[Unit, Unit, Unit, Unit, Unit, Unit, Unit](
+      symbolicPath = symbolicPath,
+      path = resolvedPath,
+      pathDescription = None,
+      pathSummary = None,
+      method = Some(BaklavaHttpMethod("GET")),
+      operationDescription = None,
+      operationSummary = None,
+      operationId = None,
+      operationTags = Nil,
+      securitySchemes = Nil,
+      body = None,
+      bodySchema = None,
+      headers = BaklavaHttpHeaders(Map.empty),
+      headersDefinition = (),
+      headersProvided = (),
+      headersSeq = Nil,
+      security = AppliedSecurity(NoopSecurity, Map.empty),
+      pathParameters = (),
+      pathParametersProvided = (),
+      pathParametersSeq = pathParamNames.map(n => PathParam[String](n, None)),
+      queryParameters = (),
+      queryParametersProvided = (),
+      queryParametersSeq = queryParamNames.map(n => QueryParam[String](n, None)),
+      responseDescription = None,
+      responseHeaders = Nil
+    )
+
   private val stringSchema = BaklavaSchemaSerializable(Schema.stringSchema)
 
   private def synthCall(

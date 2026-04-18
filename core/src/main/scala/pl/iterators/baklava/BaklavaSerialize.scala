@@ -230,12 +230,20 @@ object BaklavaRequestContextSerializable {
     )
   }
 
+  /** Strip any `#fragment` and `?query` from a resolved path, in that order. */
+  private def stripFragmentAndQuery(resolvedPath: String): String =
+    resolvedPath.split('#').headOption.getOrElse(resolvedPath).split('?').headOption.getOrElse("")
+
+  /** Strip any `#fragment` from a resolved path. */
+  private def stripFragment(resolvedPath: String): String =
+    resolvedPath.split('#').headOption.getOrElse(resolvedPath)
+
   /** Extract `{name} -> actualValue` from a resolved URL by matching against its symbolic template. Both inputs are split on `/`; the
-    * resolved path is stripped of its query string first. A segment `{name}` in the template maps to whatever appears in the same position
-    * in the resolved path. URL-decoding is applied to the extracted values so `%20` etc. round-trip.
+    * resolved path is stripped of its fragment and query string first. A segment `{name}` in the template maps to whatever appears in the
+    * same position in the resolved path. URL-decoding is applied to the extracted values so `%20` etc. round-trip.
     */
   private def extractPathParamValues(symbolicPath: String, resolvedPath: String): Map[String, String] = {
-    val pathOnly      = resolvedPath.split('?').headOption.getOrElse(resolvedPath)
+    val pathOnly      = stripFragmentAndQuery(resolvedPath)
     val templateParts = symbolicPath.split('/')
     val resolvedParts = pathOnly.split('/')
     if (templateParts.length != resolvedParts.length) Map.empty
@@ -250,11 +258,12 @@ object BaklavaRequestContextSerializable {
         .toMap
   }
 
-  /** Parse a URL query string into `name -> value` pairs. If a key appears multiple times (e.g. `?tag=a&tag=b`), the values are joined
-    * with commas — matching OpenAPI's default explode=true representation reasonably well for a single example value.
+  /** Parse a URL query string into `name -> value` pairs. The resolved path is stripped of its `#fragment` first so a trailing fragment
+    * doesn't leak into the last query value. If a key appears multiple times (e.g. `?tag=a&tag=b`), the values are joined with commas —
+    * matching OpenAPI's default explode=true representation reasonably well for a single example value.
     */
   private def extractQueryParamValues(resolvedPath: String): Map[String, String] = {
-    val queryPart = resolvedPath.split('?').drop(1).headOption.getOrElse("")
+    val queryPart = stripFragment(resolvedPath).split('?').drop(1).headOption.getOrElse("")
     if (queryPart.isEmpty) Map.empty
     else
       queryPart
