@@ -21,6 +21,7 @@ import pl.iterators.baklava.scalatest.{BaklavaScalatest, ScalatestAsExecution}
 import pl.iterators.baklava.postman.BaklavaDslFormatterPostman
 import pl.iterators.baklava.simple.BaklavaDslFormatterSimple
 import pl.iterators.baklava.sttpclient.BaklavaDslFormatterSttpClient
+import pl.iterators.baklava.tsfetch.BaklavaDslFormatterTsFetch
 import pl.iterators.baklava.tsrest.BaklavaDslFormatterTsRest
 import pl.iterators.baklava.{
   ApiKeyInHeader,
@@ -51,9 +52,9 @@ import java.util.UUID
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
-/** Gold test for the five Baklava generators (OpenAPI, ts-rest, simple HTML, Postman Collection, sttp-client).
+/** Gold test for the six Baklava generators (OpenAPI, ts-rest, simple HTML, Postman Collection, sttp-client, ts-fetch).
   *
-  * Builds a comprehensive but realistic API and drives it end-to-end through the Baklava DSL, then generates all five output formats from
+  * Builds a comprehensive but realistic API and drives it end-to-end through the Baklava DSL, then generates all six output formats from
   * the captured calls and compares byte-for-byte against checked-in golden files under `openapi/src/test/resources/gold/`.
   *
   * Run with `BAKLAVA_REGEN_GOLD=1` to overwrite the golden files when the generator output legitimately changes (review the diff before
@@ -522,6 +523,12 @@ class ComprehensiveGoldSpec
     deleteRecursively(sttpclientDir)
     new BaklavaDslFormatterSttpClient().create(config, listCalls)
     assertGoldDir("sttpclient", sttpclientDir)
+
+    // 6. ts-fetch
+    val tsfetchDir = new File("target/baklava/tsfetch")
+    deleteRecursively(tsfetchDir)
+    new BaklavaDslFormatterTsFetch().create(config, listCalls)
+    assertGoldDir("tsfetch", tsfetchDir)
 
     if (regen) println(s"[gold] Regenerated gold files under ${goldRoot.getAbsolutePath}")
     val _ = system.terminate()
