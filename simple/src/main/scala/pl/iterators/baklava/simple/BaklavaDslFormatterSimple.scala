@@ -419,9 +419,10 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
         "type"        -> baklavaSchema.`type`.asJson,
         "format"      -> baklavaSchema.format.asJson,
         "description" -> baklavaSchema.description.asJson,
-        "default"     -> baklavaSchema.default.asJson,
-        "enum"        -> baklavaSchema.`enum`.map(_.toList.asJson).getOrElse(Json.Null),
-        "properties"  -> (if (baklavaSchema.`type` == SchemaType.ObjectType)
+        // `default` now arrives as structured JSON (issue #61) — inline it directly.
+        "default"    -> baklavaSchema.default.getOrElse(Json.Null),
+        "enum"       -> baklavaSchema.`enum`.map(_.toList.asJson).getOrElse(Json.Null),
+        "properties" -> (if (baklavaSchema.`type` == SchemaType.ObjectType)
                            baklavaSchema.properties.view.mapValues(j => toJsonSchemaV7(j)).toMap.asJson
                          else Json.Null),
         "required" -> (if (baklavaSchema.`type` == SchemaType.ObjectType)

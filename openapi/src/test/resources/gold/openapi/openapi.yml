@@ -99,6 +99,7 @@ paths:
                     type: array
                     items:
                       type: string
+                    default: null
                 x-class: ErrorResponse
               examples:
                 Invalid credentials:
@@ -214,6 +215,7 @@ paths:
           - active
           - archived
           - draft
+          default: null
         examples:
           All active projects:
             value: active
@@ -239,6 +241,7 @@ paths:
                       type: string
                     description:
                       type: string
+                      default: null
                     id:
                       type: integer
                       format: int64
@@ -303,6 +306,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  default: null
                 status:
                   type: string
                   description: Lifecycle state of a project
@@ -337,6 +341,7 @@ paths:
                     type: string
                   description:
                     type: string
+                    default: null
                   id:
                     type: integer
                     format: int64
@@ -382,6 +387,7 @@ paths:
                     type: array
                     items:
                       type: string
+                    default: null
                 x-class: ErrorResponse
               examples:
                 Validation failed:
@@ -423,8 +429,10 @@ paths:
               properties:
                 name:
                   type: string
+                  default: null
                 description:
                   type: string
+                  default: null
                 status:
                   type: string
                   description: Lifecycle state of a project
@@ -432,6 +440,7 @@ paths:
                   - active
                   - archived
                   - draft
+                  default: null
               x-class: PatchProjectRequest
             examples:
               Project updated:
@@ -459,6 +468,7 @@ paths:
                     type: string
                   description:
                     type: string
+                    default: null
                   id:
                     type: integer
                     format: int64
@@ -532,6 +542,7 @@ paths:
                       - high
                     description:
                       type: string
+                      default: null
                     id:
                       type: integer
                       format: int64
@@ -591,6 +602,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  default: null
                 priority:
                   type: string
                   description: Task priority level
@@ -636,6 +648,7 @@ paths:
                     - high
                   description:
                     type: string
+                    default: null
                   id:
                     type: integer
                     format: int64
@@ -676,6 +689,7 @@ paths:
         schema:
           type: integer
           format: int32
+          default: null
         example: "20"
       - name: page
         in: query
@@ -685,6 +699,7 @@ paths:
         schema:
           type: integer
           format: int32
+          default: null
         example: "1"
       - name: role
         in: query
@@ -698,6 +713,7 @@ paths:
           - admin
           - member
           - guest
+          default: null
         example: admin
       responses:
         "200":
@@ -856,6 +872,7 @@ paths:
                     type: array
                     items:
                       type: string
+                    default: null
                 x-class: ErrorResponse
               examples:
                 User not found:
