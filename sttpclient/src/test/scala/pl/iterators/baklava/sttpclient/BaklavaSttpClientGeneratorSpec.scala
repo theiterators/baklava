@@ -144,7 +144,7 @@ class BaklavaSttpClientGeneratorSpec extends AnyFunSpec with Matchers {
 
   private def getCall(
       path: String,
-      tag: Option[String] = None,
+      tag: Option[String],
       operationId: Option[String] = None,
       pathParams: Seq[String] = Nil
   ): BaklavaSerializableCall =
