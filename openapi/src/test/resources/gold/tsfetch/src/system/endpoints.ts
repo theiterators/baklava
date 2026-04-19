@@ -1,10 +1,10 @@
-import { BaklavaClient, BaklavaHttpError } from "./client";
-import type * as T from "./types";
+import { BaklavaClient, BaklavaHttpError } from "../client";
+import type { HealthResponse } from "./types";
 
 /** Liveness probe — Return service liveness — no authentication required */
-export async function health(_client: BaklavaClient): Promise<T.HealthResponse> {
+export async function health(_client: BaklavaClient): Promise<HealthResponse> {
   const url = new URL(`${client.baseUrl}/health`);
-  let __ret!: T.HealthResponse;
+  let __ret!: HealthResponse;
   const res = await client.fetch(url.toString(), {
     method: "GET",
     headers: {

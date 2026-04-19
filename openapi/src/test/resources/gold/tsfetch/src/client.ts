@@ -1,14 +1,9 @@
 /** API client configuration. Instantiate once and pass to every generated endpoint function. */
 export interface BaklavaClientConfig {
-  /** Base URL for every request, e.g. "https://api.example.com". No trailing slash. */
   baseUrl: string;
-  /** Override for `fetch`. Defaults to `globalThis.fetch` — override for Node < 18 or to inject instrumentation. */
   fetch?: typeof fetch;
-  /** Bearer / OAuth / OpenID Connect token used by any scheme that sends `Authorization: Bearer <token>`. */
   bearerToken?: string;
-  /** HTTP Basic credentials. */
   basic?: { username: string; password: string };
-  /** API key values keyed by the scheme's declared header / query / cookie name. */
   apiKeys?: Record<string, string>;
 }
 
@@ -27,9 +22,6 @@ export class BaklavaClient {
     this.apiKeys     = config.apiKeys;
   }
 
-  /** Headers contributed by any declared scheme that writes into `Authorization` or an API key header. Schemes that put
-   *  credentials in query string or cookie produce no header here — the generated endpoint functions set those inline.
-   */
   authHeaders(): Record<string, string> {
     const h: Record<string, string> = {};
     if (this.bearerToken) h["Authorization"] = `Bearer ${this.bearerToken}`;

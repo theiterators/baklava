@@ -1,17 +1,18 @@
-import { BaklavaClient, BaklavaHttpError } from "./client";
-import type * as T from "./types";
+import { BaklavaClient, BaklavaHttpError } from "../client";
+import type { PaginatedUsers, UpdateUserRequest } from "./types";
+import type { ErrorResponse, User } from "../common/types";
 
 /** List users — List users with pagination and optional role filter */
 export async function listUsers(client: BaklavaClient, params?: {
   page?: number;
   limit?: number;
   role?: "admin" | "guest" | "member";
-}): Promise<T.PaginatedUsers> {
+}): Promise<PaginatedUsers> {
   const url = new URL(`${client.baseUrl}/users`);
   if (params?.page !== undefined) url.searchParams.set("page", String(params.page));
   if (params?.limit !== undefined) url.searchParams.set("limit", String(params.limit));
   if (params?.role !== undefined) url.searchParams.set("role", String(params.role));
-  let __ret!: T.PaginatedUsers;
+  let __ret!: PaginatedUsers;
   const res = await client.fetch(url.toString(), {
     method: "GET",
     headers: {
@@ -40,9 +41,9 @@ export async function deleteUser(client: BaklavaClient, params: {
 /** Get user — Fetch a single user by UUID */
 export async function getUser(client: BaklavaClient, params: {
   userId: string;
-}): Promise<T.User> {
+}): Promise<User> {
   const url = new URL(`${client.baseUrl}/users/${encodeURIComponent(String(params.userId))}`);
-  let __ret!: T.User;
+  let __ret!: User;
   const res = await client.fetch(url.toString(), {
     method: "GET",
     headers: {
@@ -57,10 +58,10 @@ export async function getUser(client: BaklavaClient, params: {
 /** Update user — Replace a user's profile (admin only) */
 export async function updateUser(client: BaklavaClient, params: {
   userId: string;
-  body: T.UpdateUserRequest;
-}): Promise<T.User> {
+  body: UpdateUserRequest;
+}): Promise<User> {
   const url = new URL(`${client.baseUrl}/users/${encodeURIComponent(String(params.userId))}`);
-  let __ret!: T.User;
+  let __ret!: User;
   const res = await client.fetch(url.toString(), {
     method: "PUT",
     headers: {

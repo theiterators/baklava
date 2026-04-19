@@ -9,11 +9,11 @@ import scala.util.Using
   *
   * Output layout (under `target/baklava/tsfetch/`):
   *   - `package.json` / `tsconfig.json` — minimal npm package shape
-  *   - `src/client.ts` — `BaklavaClient` class with `baseUrl`, credential config, and `BaklavaHttpError`
-  *   - `src/types.ts` — TS interfaces derived from captured schemas
-  *   - `src/{tag}.ts` — one file per `operationTag`, containing one `async function` per endpoint, plus a top-level `default.ts` for
-  *     untagged operations
-  *   - `src/index.ts` — re-exports everything
+  *   - `src/client.ts` — `BaklavaClient` + `BaklavaHttpError`
+  *   - `src/index.ts` — re-exports
+  *   - `src/common/types.ts` — types shared by two or more tags (omitted if empty)
+  *   - `src/{tag}/types.ts` — types used only within one tag (omitted if empty)
+  *   - `src/{tag}/endpoints.ts` — one `async function` per endpoint. Untagged operations land in `src/default/endpoints.ts`.
   *
   * Each generated function takes an instance of `BaklavaClient` plus typed path/query/body parameters and returns a `Promise<T>` where `T`
   * is the 2xx response body's TS type (or `void` when no body). Non-2xx responses throw `BaklavaHttpError`.
@@ -37,11 +37,12 @@ class BaklavaDslFormatterTsFetch extends BaklavaDslFormatter {
 
     val generator = new BaklavaTsFetchGenerator(calls)
     generator.writeClient(s"$sourcesDirName/client.ts")
-    generator.writeTypes(s"$sourcesDirName/types.ts")
-    val tagFiles = generator.writeTagFiles(sourcesDirName)
-    generator.writeIndex(s"$sourcesDirName/index.ts", tagFiles)
+    val tagNames = generator.writeTagFolders(sourcesDirName, (relPath, content) => writeFile(s"$sourcesDirName/$relPath", content))
+    generator.writeIndex(s"$sourcesDirName/index.ts", tagNames)
   }
 
-  private def writeFile(path: String, content: String): Unit =
+  private def writeFile(path: String, content: String): Unit = {
+    new File(path).getParentFile.mkdirs()
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
+  }
 }
