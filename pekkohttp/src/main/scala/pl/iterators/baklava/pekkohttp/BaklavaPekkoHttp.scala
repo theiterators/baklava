@@ -216,10 +216,6 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
 
   implicit val formDataSchema: Schema[FormData] = FreeFormSchema("FormData")
 
-  /** Multipart marshaller: each `Part` becomes a pekko-http `BodyPart` with the right Content-Disposition / Content-Type headers, then we
-    * serialize with a *fixed* boundary so the captured request body is deterministic across test runs (pekko-http's default marshaller
-    * uses a random boundary per call, which would break the gold test).
-    */
   override implicit protected def multipartToRequestBodyType: ToEntityMarshaller[BaklavaMultipart] =
     Marshaller.strict[BaklavaMultipart, MessageEntity] { baklavaMultipart =>
       val parts = baklavaMultipart.parts.map {
@@ -231,6 +227,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
         case TextPart(name, value) =>
           PekkoMultipart.FormData.BodyPart(name, HttpEntity(value))
       }
+      // Fixed boundary keeps the captured request body byte-stable across gold-test runs.
       Marshalling.Opaque(() => PekkoMultipart.FormData(parts: _*).toEntity(boundary = "baklava-multipart-boundary"))
     }
 

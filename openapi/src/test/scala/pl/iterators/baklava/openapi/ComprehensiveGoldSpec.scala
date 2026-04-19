@@ -77,9 +77,7 @@ class ComprehensiveGoldSpec
   implicit val stringUnmarshaller: FromEntityUnmarshaller[String]   = Unmarshaller.stringUnmarshaller
   implicit val byteArrayMarshaller: ToEntityMarshaller[Array[Byte]] = PredefinedToEntityMarshallers.ByteArrayMarshaller
 
-  // Stub: the test doesn't care about real HTTP — canned responses per assertion. We also
-  // remember the last built request so tests can assert on what the adapter produced (used for
-  // multipart / content-type overrides).
+  // Canned per-assertion responses; `lastRequest` lets tests inspect what the adapter actually built.
   private var nextResponse: HttpResponse                                            = HttpResponse(OK)
   private val lastRequest: java.util.concurrent.atomic.AtomicReference[HttpRequest] =
     new java.util.concurrent.atomic.AtomicReference[HttpRequest]()
@@ -449,9 +447,6 @@ class ComprehensiveGoldSpec
     )
   )
 
-  // Multipart upload — file part + text part in the same request body. The generator captures
-  // `Content-Type: multipart/form-data; boundary=…` from the wire request, so the OpenAPI spec
-  // emits `requestBody.content["multipart/form-data"]`. Covers issue #81.
   path("/users/{userId}/photo", description = "Upload a profile photo with a caption", summary = "Photo")(
     supports(
       POST,
@@ -473,9 +468,6 @@ class ComprehensiveGoldSpec
         .assert { ctx =>
           nextResponse = emptyResponse(NoContent)
           val response = ctx.performRequest(routes)
-          // The request that hit `performRequest` must carry a multipart/form-data Content-Type
-          // — proves the adapter mapped Baklava's `Multipart` to pekko's native multipart form.
-          // The content type includes a boundary parameter, so compare the mediaType prefix.
           lastRequest.get().entity.contentType.mediaType.value should startWith("multipart/form-data")
           response.status.intValue() shouldBe 204
         }
