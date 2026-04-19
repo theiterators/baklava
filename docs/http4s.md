@@ -223,40 +223,60 @@ class GetUsersUserIdRouteSpec extends BaseRouteSpec {
 }
 ```
 
-## Serving Open API and Swagger UI
+## Documenting file uploads
 
-Adding `baklava-http4s-routes` dependency to your project you can easily serve Open API and Swagger UI:
+To document a binary upload (e.g. an avatar PNG), declare `Content-Type` among the request headers and pass the matching value on the `onRequest(...)` call — the http4s adapter honors that declared value, overriding the content type the `EntityEncoder` bakes into the request.
 
 ```scala
-import cats.effect.{IO, IOApp}
-import com.comcast.ip4s.*
-import com.typesafe.config.{Config, ConfigFactory}
-import org.http4s.ember.server.EmberServerBuilder
-import org.http4s.server.Router
-import org.http4s.HttpRoutes
-import pl.iterators.baklava.http4s.routes.BaklavaRoutes
+import java.nio.charset.StandardCharsets
 
-object Main extends IOApp.Simple {
-  def run: IO[Unit] = {
-    val apiRoutes: HttpRoutes[IO] = ??? // all your API routes
-    val config: Config            = ConfigFactory.load()
+class PutUsersUserIdAvatarSpec extends BaseRouteSpec {
 
-    val appRoutes: HttpRoutes[IO] = Router(
-      "/"    -> BaklavaRoutes.routes(config),
-      "/v1"  -> apiRoutes
+  // Byte-array entity encoders ship with http4s; no extra setup needed.
+
+  path(path = "/users/{userId}/avatar")(
+    supports(
+      PUT,
+      pathParameters = p[Long]("userId"),
+      headers = h[String]("Content-Type"),
+      description = "Upload or update a user's avatar",
+      summary = "Upload or update a user's avatar",
+      tags = List("Users")
+    )(
+      onRequest(
+        pathParameters = 1L,
+        headers = "image/png",
+        body = "\u0089PNG\r\n...".getBytes(StandardCharsets.UTF_8)
+      ).respondsWith[EmptyBody](NoContent, description = "User avatar updated successfully")
+        .assert { ctx =>
+          val response = ctx.performRequest(allRoutes)
+          response.status.code shouldBe 204
+        }
     )
-
-    EmberServerBuilder
-      .default[IO]
-      .withHost(host"0.0.0.0")
-      .withPort(port"8080")
-      .withHttpApp(appRoutes.orNotFound)
-      .build
-      .useForever
-  }
+  )
 }
 ```
 
-For detailed configuration options check [the SwaggerUI and routes configuration section](installation.md#swaggerui-and-routes-configuration).
+The generator renders this as `requestBody.content["image/png"]` with a `schema: { type: string, format: binary }` in OpenAPI, and the test request goes out with `Content-Type: image/png` on the wire so server routes that pattern-match on it run under the right conditions.
 
-The http4s and pekko-http variants expose the same endpoints (`GET /openapi`, `GET /swagger-ui/<version>/…`, `GET /swagger`) and share the same configuration keys under `baklava-routes`.
+### Downloads
+
+Binary downloads work with `respondsWith[Array[Byte]]`. http4s ships entity decoders for byte arrays; no extra setup needed. The test stub's response must carry the right `Content-Type` — whatever the server serves becomes the OpenAPI `responseContentType`:
+
+```scala
+supports(
+  GET,
+  pathParameters = p[Long]("userId"),
+  description = "Download the user's avatar as raw image bytes",
+  tags = List("Users")
+)(
+  onRequest(pathParameters = 1L)
+    .respondsWith[Array[Byte]](Ok, description = "Avatar bytes")
+    .assert { ctx =>
+      val response = ctx.performRequest(allRoutes)
+      response.status.code shouldBe 200
+    }
+)
+```
+
+`Schema[Array[Byte]]` is a default on the classpath, so the generated OpenAPI renders `responses[code].content["<content-type>"].schema = { type: string, format: binary }`.
