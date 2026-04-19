@@ -102,7 +102,7 @@ object BaklavaDslFormatterOpenAPIWorker {
 
           var anyMediaTypeEmitted = false
           commonStatusCalls
-            .groupBy(_.response.responseContentType)
+            .groupBy(_.response.responseContentType.map(stripMediaTypeParams))
             .toList
             .sortBy(_._1.getOrElse(""))
             .foreach { case (contentType, unsortedContentTypeCalls) =>
@@ -146,7 +146,7 @@ object BaklavaDslFormatterOpenAPIWorker {
         val responsesToProcess =
           if (successfulCalls.isEmpty) calls else successfulCalls // sometimes there are no successful responses
         responsesToProcess
-          .groupBy(_.response.requestContentType)
+          .groupBy(_.response.requestContentType.map(stripMediaTypeParams))
           .toList
           .sortBy(_._1.getOrElse(""))
           .foreach { case (contentType, unsortedCalls) =>
@@ -439,4 +439,8 @@ object BaklavaDslFormatterOpenAPIWorker {
         obj.toIterable.map { case (k, v) => k -> jsonToJavaDefault(v).orNull }.toMap.asJava
       )
   )
+
+  // OpenAPI keys `content` by media type only, so drop any `;charset=…` / `;boundary=…` parameters before grouping.
+  private def stripMediaTypeParams(contentType: String): String =
+    contentType.split(';').headOption.map(_.trim).getOrElse(contentType)
 }

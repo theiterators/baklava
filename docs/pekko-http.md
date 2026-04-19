@@ -345,3 +345,40 @@ import scala.io.StdIn
 ```
 
 For detailed configuration options check [installation.md#swaggerui-and-routes-configuration]
+
+## Documenting multipart/form-data uploads
+
+Beyond raw binary bodies (above), `Multipart` bundles one or more named parts — typed as `FilePart` (binary data with its own MIME type + optional filename) or `TextPart` (a plain form field) — into a single request. The pekko-http adapter reassembles them into a native `Multipart.FormData` body with a deterministic boundary.
+
+```scala
+import pl.iterators.baklava.{FilePart, Multipart, TextPart}
+import java.nio.charset.StandardCharsets
+
+class PostUsersUserIdPhotoSpec extends BaseRouteSpec {
+
+  path(path = "/users/{userId}/photo")(
+    supports(
+      POST,
+      pathParameters = p[Long]("userId"),
+      description = "Upload a profile photo with a caption",
+      summary = "Upload photo",
+      tags = List("Users")
+    )(
+      onRequest(
+        pathParameters = 1L,
+        body = Multipart(
+          FilePart("photo", "image/png", "photo.png",
+            "\u0089PNG\r\n...".getBytes(StandardCharsets.UTF_8)),
+          TextPart("caption", "profile photo")
+        )
+      ).respondsWith[EmptyBody](NoContent, description = "Photo uploaded")
+        .assert { ctx =>
+          val response = ctx.performRequest(allRoutes)
+          response.status.status should beEqualTo(NoContent.status)
+        }
+    )
+  )
+}
+```
+
+The generated OpenAPI emits `requestBody.content["multipart/form-data"]` with a free-form `type: object` schema (describing each per-part schema would need a runtime-derived Schema; users who need richer docs can replace the implicit `Schema[Multipart]`).

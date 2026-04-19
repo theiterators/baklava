@@ -2,7 +2,15 @@ package pl.iterators.baklava.pekkohttp
 
 import org.apache.pekko.http.scaladsl.client.RequestBuilding.RequestBuilder
 import org.apache.pekko.http.scaladsl.marshalling.{Marshaller, Marshalling, ToEntityMarshaller}
-import org.apache.pekko.http.scaladsl.model.{ContentType, FormData, HttpEntity, HttpHeader, MessageEntity}
+import org.apache.pekko.http.scaladsl.model.{
+  ContentType,
+  ContentTypes,
+  FormData,
+  HttpEntity,
+  HttpHeader,
+  MessageEntity,
+  Multipart => PekkoMultipart
+}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import org.apache.pekko.stream.Materializer
@@ -17,9 +25,12 @@ import pl.iterators.baklava.{
   BaklavaTestFrameworkDsl,
   EmptyBody,
   EmptyBodyInstance,
+  FilePart,
   FormOf,
   FreeFormSchema,
-  Schema
+  Multipart => BaklavaMultipart,
+  Schema,
+  TextPart
 }
 import sttp.model.{Header => SttpHeader, Method, StatusCode}
 
@@ -204,6 +215,21 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
     }
 
   implicit val formDataSchema: Schema[FormData] = FreeFormSchema("FormData")
+
+  override implicit protected def multipartToRequestBodyType: ToEntityMarshaller[BaklavaMultipart] =
+    Marshaller.strict[BaklavaMultipart, MessageEntity] { baklavaMultipart =>
+      val parts = baklavaMultipart.parts.map {
+        case FilePart(name, contentType, filename, bytes) =>
+          val ct     = ContentType.parse(contentType).fold(_ => ContentTypes.`application/octet-stream`, identity)
+          val entity = HttpEntity(ct, bytes)
+          if (filename.nonEmpty) PekkoMultipart.FormData.BodyPart(name, entity, Map("filename" -> filename))
+          else PekkoMultipart.FormData.BodyPart(name, entity)
+        case TextPart(name, value) =>
+          PekkoMultipart.FormData.BodyPart(name, HttpEntity(value))
+      }
+      // Fixed boundary keeps the captured request body byte-stable across gold-test runs.
+      Marshalling.Opaque(() => PekkoMultipart.FormData(parts: _*).toEntity(boundary = "baklava-multipart-boundary"))
+    }
 
   override implicit protected def emptyToResponseBodyType: FromEntityUnmarshaller[EmptyBody] =
     Unmarshaller.strict(_ => EmptyBodyInstance)

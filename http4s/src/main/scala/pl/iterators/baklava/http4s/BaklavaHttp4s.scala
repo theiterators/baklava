@@ -2,6 +2,8 @@ package pl.iterators.baklava.http4s
 
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
+import fs2.Stream
+import org.http4s.multipart.{Boundary, Part => Http4sPart}
 import org.http4s.{
   EntityDecoder,
   EntityEncoder,
@@ -9,6 +11,7 @@ import org.http4s.{
   Headers,
   HttpRoutes,
   HttpVersion,
+  MediaType,
   Method,
   Request,
   Response,
@@ -27,9 +30,12 @@ import pl.iterators.baklava.{
   BaklavaTestFrameworkDsl,
   EmptyBody,
   EmptyBodyInstance,
+  FilePart,
   FormOf,
   FreeFormSchema,
-  Schema
+  Multipart => BaklavaMultipart,
+  Schema,
+  TextPart
 }
 import sttp.model.{Header => SttpHeader, Method => SttpMethod, StatusCode => SttpStatus}
 
@@ -72,6 +78,34 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     }
 
   implicit val urlFormSchema: Schema[UrlForm] = FreeFormSchema("UrlForm")
+
+  override implicit protected def multipartToRequestBodyType: BaklavaHttp4s.ToEntityMarshaller[BaklavaMultipart] =
+    implicitly[EntityEncoder[IO, org.http4s.multipart.Multipart[IO]]].contramap { baklavaMultipart =>
+      // `Vector[Http4sPart[IO]]` annotation: Scala 2.13 otherwise widens the match to `Part[Pure] | Part[IO]`.
+      val parts: Vector[Http4sPart[IO]] = baklavaMultipart.parts.toVector.map {
+        case FilePart(name, contentType, filename, bytes) =>
+          val ct = headers.`Content-Type`
+            .parse(contentType)
+            .toOption
+            .getOrElse(headers.`Content-Type`(MediaType.application.`octet-stream`))
+          val body = Stream.chunk(fs2.Chunk.array(bytes))
+          if (filename.isEmpty)
+            Http4sPart[IO](
+              Headers(
+                headers.`Content-Disposition`("form-data", Map(CIString("name") -> name)),
+                (headers.`Content-Transfer-Encoding`.Binary: headers.`Content-Transfer-Encoding`),
+                ct
+              ),
+              body
+            )
+          else
+            Http4sPart.fileData[IO](name, filename, body, ct)
+        case TextPart(name, value) =>
+          Http4sPart.formData[IO](name, value)
+      }
+      // Fixed boundary keeps the captured request body byte-stable across gold-test runs.
+      org.http4s.multipart.Multipart[IO](parts, Boundary("baklava-multipart-boundary"))
+    }
 
   override implicit protected def emptyToResponseBodyType: BaklavaHttp4s.FromEntityUnmarshaller[EmptyBody] =
     EntityDecoder.void[IO].map(_ => EmptyBodyInstance)

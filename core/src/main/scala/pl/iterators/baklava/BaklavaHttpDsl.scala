@@ -177,6 +177,8 @@ trait BaklavaHttpDsl[
 
   protected implicit def formUrlencodedToRequestBodyType[T]: ToRequestBodyType[FormOf[T]]
 
+  protected implicit def multipartToRequestBodyType: ToRequestBodyType[Multipart]
+
   protected implicit def emptyToResponseBodyType: FromResponseBodyType[EmptyBody]
 
   implicit def statusCodeToBaklavaStatusCodes(statusCode: HttpStatusCode): StatusCode
