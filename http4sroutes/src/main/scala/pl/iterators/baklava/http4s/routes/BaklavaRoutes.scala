@@ -2,6 +2,7 @@ package pl.iterators.baklava.http4s.routes
 
 import cats.data.Kleisli
 import cats.effect.IO
+import com.typesafe.config.{Config => TypesafeConfig}
 import io.swagger.v3.core.util.Yaml
 import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.parser.OpenAPIV3Parser
@@ -11,19 +12,13 @@ import org.http4s.headers.{Location, `Content-Type`}
 import org.http4s.server.middleware.authentication.BasicAuth
 import org.webjars.WebJarAssetLocator
 
+import java.io.FileNotFoundException
 import scala.io.Source
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.util.{Try, Using}
 
 object BaklavaRoutes {
 
-  /** The swagger-ui webjar version is the source of truth; we serve assets at `/swagger-ui/<version>/...` so the version must match the
-    * resources actually on the classpath. Read the webjar's own metadata rather than hard-coding it here — otherwise a webjar upgrade in
-    * build.sbt silently breaks these routes with 404s.
-    *
-    * If the webjar is missing from the classpath (the user didn't add the dependency) we fail fast — letting the route respond with a
-    * confusing 404 at request time would be worse than a clear startup error.
-    */
   private lazy val swaggerVersion: String =
     Option(new WebJarAssetLocator().getWebJars.get("swagger-ui")).getOrElse(
       throw new IllegalStateException(
@@ -32,20 +27,15 @@ object BaklavaRoutes {
       )
     )
 
-  /** Ensure a public-path prefix ends with exactly one trailing slash. The configured prefix is concatenated with fixed sub-paths
-    * (`"swagger-ui/<v>/index.html"`, `"openapi"`); missing the separator silently produced `/api-docsswagger-ui/...` for
-    * `public-path-prefix = "/api-docs"`.
-    */
   private def withTrailingSlash(prefix: String): String =
     if (prefix.endsWith("/")) prefix else prefix + "/"
 
-  def routes(config: com.typesafe.config.Config): HttpRoutes[IO] = {
+  def routes(config: TypesafeConfig): HttpRoutes[IO] = {
     val internalConfig = Config(config)
     if (!internalConfig.enabled) HttpRoutes.empty[IO]
     else
       (internalConfig.basicAuthUser, internalConfig.basicAuthPassword) match {
         case (Some(user), Some(password)) =>
-          // `BasicAuth` expects `AuthedRoutes`; adapt the plain routes by ignoring the auth info.
           val validate: BasicAuth.BasicAuthenticator[IO, Unit] = creds =>
             IO.pure(if (creds.username == user && creds.password == password) Some(()) else None)
           val authed: AuthedRoutes[Unit, IO] = Kleisli(ar => coreRoutes(internalConfig).run(ar.req))
@@ -57,13 +47,9 @@ object BaklavaRoutes {
 
   private def coreRoutes(c: Config): HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "openapi" =>
-      // `openApiFileContent` does blocking file I/O + YAML parsing; wrap in IO.blocking so
-      // failures land inside the effect. A missing file gets a helpful 404; anything else
-      // propagates so the caller's own error middleware (`ErrorAction.log`, etc.) can decide
-      // how to log/respond — the routes module shouldn't pick a logging backend.
       IO.blocking(openApiFileContent(c))
         .flatMap(content => Ok(content).map(_.withContentType(`Content-Type`(MediaType.text.yaml))))
-        .recoverWith { case _: java.io.FileNotFoundException =>
+        .recoverWith { case _: FileNotFoundException =>
           NotFound("openapi document not available — run `sbt test` first to generate it")
         }
 
@@ -71,9 +57,6 @@ object BaklavaRoutes {
       Ok(swaggerInitializerContent(c)).map(_.withContentType(`Content-Type`(MediaType.application.javascript)))
 
     case req @ GET -> "swagger-ui" /: rest =>
-      // Use http4s's built-in `StaticFile.fromResource` — it handles classpath lookup on a
-      // blocking dispatcher, streams the body, sets a content-type from the extension, and
-      // turns a missing resource into `OptionT.none` (translated to 404 here).
       val relPath = rest.segments.map(_.decoded()).mkString("/")
       Try((new WebJarAssetLocator).getFullPath("swagger-ui", relPath)).toOption match {
         case Some(fullPath) => StaticFile.fromResource(fullPath, Some(req)).getOrElseF(NotFound())
@@ -85,9 +68,6 @@ object BaklavaRoutes {
       IO.fromEither(Uri.fromString(swaggerUiUrl)).flatMap(uri => SeeOther(Location(uri)))
   }
 
-  // Swagger UI's yaml includes a `servers:` block that Swagger UI uses as the API base URL. We
-  // parse, replace with the user-configured `api-public-path-prefix`, then re-serialize so the
-  // rendered docs can call the real API directly.
   private def openApiFileContent(c: Config): String =
     Using.resource(Source.fromFile(s"${c.fileSystemPath}/openapi/openapi.yml")) { source =>
       val parser  = new OpenAPIV3Parser
@@ -129,7 +109,7 @@ object BaklavaRoutes {
   )
 
   private object Config {
-    def apply(config: com.typesafe.config.Config): Config = {
+    def apply(config: TypesafeConfig): Config = {
       val c = config.getConfig("baklava-routes")
       Config(
         enabled = c.getBoolean("enabled"),
