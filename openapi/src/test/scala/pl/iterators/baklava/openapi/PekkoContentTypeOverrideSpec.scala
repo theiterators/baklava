@@ -2,7 +2,7 @@ package pl.iterators.baklava.openapi
 
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.marshalling.ToEntityMarshaller
-import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse, MediaTypes}
+import org.apache.pekko.http.scaladsl.model.MediaTypes
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import org.apache.pekko.stream.Materializer
