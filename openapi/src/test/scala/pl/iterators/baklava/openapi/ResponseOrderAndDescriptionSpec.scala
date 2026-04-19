@@ -92,6 +92,7 @@ class ResponseOrderAndDescriptionSpec extends AnyFunSpec with Matchers {
         operationTags = Seq.empty,
         securitySchemes = Seq.empty,
         bodySchema = None,
+        bodyString = "",
         headersSeq = Seq.empty,
         pathParametersSeq = Seq.empty,
         queryParametersSeq = Seq.empty,
@@ -102,8 +103,7 @@ class ResponseOrderAndDescriptionSpec extends AnyFunSpec with Matchers {
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
         status = StatusCode(200),
         headers = Seq.empty,
-        requestBodyString = "",
-        responseBodyString = body,
+        bodyString = body,
         requestContentType = None,
         responseContentType = Some("application/json"),
         bodySchema = Some(BaklavaSchemaSerializable(Schema.stringSchema))

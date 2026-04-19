@@ -140,7 +140,7 @@ class ParameterExampleSpec extends AnyFunSpec with Matchers {
         pathParamNames = Seq("id"),
         queryParamNames = Seq("limit", "offset")
       )
-      val serialized = BaklavaRequestContextSerializable(ctx)
+      val serialized = BaklavaRequestContextSerializable(ctx, "")
 
       serialized.pathParametersSeq.find(_.name == "id").flatMap(_.example) shouldBe Some("42")
       serialized.queryParametersSeq.find(_.name == "limit").flatMap(_.example) shouldBe Some("10")
@@ -153,7 +153,7 @@ class ParameterExampleSpec extends AnyFunSpec with Matchers {
         resolvedPath = "/users/42#section-3",
         pathParamNames = Seq("id")
       )
-      val serialized = BaklavaRequestContextSerializable(ctx)
+      val serialized = BaklavaRequestContextSerializable(ctx, "")
 
       serialized.pathParametersSeq.find(_.name == "id").flatMap(_.example) shouldBe Some("42")
     }
@@ -164,7 +164,7 @@ class ParameterExampleSpec extends AnyFunSpec with Matchers {
         resolvedPath = "/search?q=1#frag",
         queryParamNames = Seq("q")
       )
-      val serialized = BaklavaRequestContextSerializable(ctx)
+      val serialized = BaklavaRequestContextSerializable(ctx, "")
 
       serialized.queryParametersSeq.find(_.name == "q").flatMap(_.example) shouldBe Some("1")
     }
@@ -244,6 +244,7 @@ class ParameterExampleSpec extends AnyFunSpec with Matchers {
         operationTags = Nil,
         securitySchemes = Nil,
         bodySchema = None,
+        bodyString = "",
         headersSeq = headers.map { case (name, _) =>
           BaklavaHeaderSerializable(
             name,
@@ -265,8 +266,7 @@ class ParameterExampleSpec extends AnyFunSpec with Matchers {
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
         status = StatusCode(200),
         headers = sentHeaders.map { case (k, v) => SttpHeader(k, v) }.toSeq,
-        requestBodyString = "",
-        responseBodyString = "",
+        bodyString = "",
         requestContentType = None,
         responseContentType = None,
         bodySchema = None

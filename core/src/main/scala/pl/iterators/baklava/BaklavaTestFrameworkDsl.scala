@@ -758,12 +758,6 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
   }
 }
 
-/** The header, cookie, and query-parameter contribution a single `AppliedSecurity` makes to an outgoing request.
-  *
-  *   - `headers`: additional headers to merge on top of whatever the caller already set (e.g. `Authorization: Bearer …`).
-  *   - `cookie`: an optional `name=value` segment to append to any existing `Cookie` header (or to create one).
-  *   - `queryParameters`: query params to merge into the URI (e.g. `?api_key=…`).
-  */
 final case class SecurityContribution(
     headers: Map[String, String],
     cookie: Option[(String, String)],
@@ -772,9 +766,6 @@ final case class SecurityContribution(
 
 object BaklavaTestFrameworkDsl {
 
-  /** Compute everything an `AppliedSecurity` needs to inject into the outgoing request, in a single pass. Previously this was three
-    * separate `match` expressions over the same value — easy to drift out of sync.
-    */
   def securityContribution(security: AppliedSecurity): SecurityContribution = {
     def bearerAuth(token: String): Map[String, String]             = Map("Authorization" -> s"Bearer $token")
     def basicAuth(id: String, secret: String): Map[String, String] =
@@ -798,9 +789,7 @@ object BaklavaTestFrameworkDsl {
     }
   }
 
-  /** Append a `name=value` segment to the `Cookie` header in the map (case-insensitive key lookup), or create a fresh `Cookie` header if
-    * none exists. Preserves any pre-existing cookie(s) via `;` concatenation.
-    */
+  /** Case-insensitive Cookie-header lookup; concatenates to an existing cookie with `;` or creates a fresh `Cookie` header. */
   def appendCookie(headers: Map[String, String], cookie: (String, String)): Map[String, String] = {
     val (name, value) = cookie
     headers.find(_._1.toLowerCase == "cookie") match {
@@ -810,7 +799,8 @@ object BaklavaTestFrameworkDsl {
   }
 }
 
-trait BaklavaTestFrameworkDslDebug[
+/** Collects calls in memory (via `listCalls`) instead of serializing each to disk. */
+trait BaklavaTestFrameworkDslInMemory[
     RouteType,
     ToRequestBodyType[_],
     FromResponseBodyType[_],
@@ -838,7 +828,10 @@ trait BaklavaTestFrameworkDslDebug[
     new AtomicReference(Seq.empty)
 
   override protected def store(request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
-    val call = BaklavaSerializableCall(BaklavaRequestContextSerializable(request), BaklavaResponseContextSerializable(response))
+    val call = BaklavaSerializableCall(
+      BaklavaRequestContextSerializable(request, response.requestBodyString),
+      BaklavaResponseContextSerializable(response)
+    )
     atomicSeq.updateAndGet(seq => seq :+ call)
     ()
   }

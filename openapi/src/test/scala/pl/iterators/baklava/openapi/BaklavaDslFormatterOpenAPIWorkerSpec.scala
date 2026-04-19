@@ -38,6 +38,7 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
         operationTags = tags,
         securitySchemes = schemes,
         bodySchema = None,
+        bodyString = "",
         headersSeq = Seq.empty,
         pathParametersSeq = Seq.empty,
         queryParametersSeq = Seq.empty,
@@ -48,8 +49,7 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
         status = StatusCode(status),
         headers = Seq.empty,
-        requestBodyString = "",
-        responseBodyString = "",
+        bodyString = "",
         requestContentType = None,
         responseContentType = None,
         bodySchema = None
@@ -249,12 +249,12 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
           request = call("GET", "/v1/dup", None, None, Nil, None, Nil).request.copy(responseDescription = Some(sameDescription)),
           response = call("GET", "/v1/dup", None, None, Nil, None, Nil).response.copy(
             responseContentType = Some("application/json"),
-            responseBodyString = """{"a":1}""",
+            bodyString = """{"a":1}""",
             bodySchema = Some(BaklavaSchemaSerializable(Schema.stringSchema))
           )
         )
         val c2 = c1.copy(
-          response = c1.response.copy(responseBodyString = """{"b":2}""")
+          response = c1.response.copy(bodyString = """{"b":2}""")
         )
 
         val openAPI = new OpenAPI()

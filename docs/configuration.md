@@ -112,14 +112,14 @@ By default, Baklava truncates response bodies in assertion error messages to 819
 override def maxBodyLengthInAssertion: Int = 16384
 ```
 
-### Debug Mode
+### In-Memory Capture
 
-For development, you can use `BaklavaTestFrameworkDslDebug` instead of the standard `BaklavaTestFrameworkDsl`. The debug variant collects test calls in memory rather than serializing to disk, and exposes them via `listCalls`. This lets you process calls inline — for example, generating OpenAPI output directly in your test's `afterAll`:
+For development, you can mix in `BaklavaTestFrameworkDslInMemory` alongside the standard `BaklavaTestFrameworkDsl`. This variant collects test calls in memory rather than serializing each one to disk, and exposes them via `listCalls`. This lets you process calls inline — for example, generating OpenAPI output directly in your test's `afterAll`:
 
 ```scala
-trait MyDebugSpec
+trait MyInMemorySpec
     extends BaklavaScalatest[Route, ToEntityMarshaller, FromEntityUnmarshaller]
-    with BaklavaTestFrameworkDslDebug[Route, ToEntityMarshaller, FromEntityUnmarshaller, Unit, Unit, ScalatestAsExecution] {
+    with BaklavaTestFrameworkDslInMemory[Route, ToEntityMarshaller, FromEntityUnmarshaller, Unit, Unit, ScalatestAsExecution] {
 
   override def afterAll(): Unit = {
     val calls = listCalls  // Seq[BaklavaSerializableCall]

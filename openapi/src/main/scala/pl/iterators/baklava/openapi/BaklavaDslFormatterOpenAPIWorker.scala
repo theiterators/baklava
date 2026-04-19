@@ -69,8 +69,8 @@ object BaklavaDslFormatterOpenAPIWorker {
               commonContentTypeCalls.zipWithIndex.foreach { case (BaklavaSerializableCall(ctx, response), idx) =>
                 val responseStr =
                   if (contentType.contains("application/json"))
-                    parse(response.responseBodyString).map(_.printWith(Printer.spaces2)).getOrElse(response.responseBodyString)
-                  else response.responseBodyString
+                    parse(response.bodyString).map(_.printWith(Printer.spaces2)).getOrElse(response.bodyString)
+                  else response.bodyString
 
                 val baseKey   = ctx.responseDescription.getOrElse(s"Example $idx")
                 val uniqueKey = disambiguateKey(baseKey, usedExampleKeys)
@@ -91,9 +91,6 @@ object BaklavaDslFormatterOpenAPIWorker {
         }
         val _ = operation.responses(operationResponses)
 
-        // Build requestBody at status-group level and attach at operation level: OpenAPI places
-        // `requestBody` on the operation, but captured bodies vary by response status; we iterate
-        // over per-status calls and merge.
         val requestBody = new io.swagger.v3.oas.models.parameters.RequestBody()
         val content     = new Content()
 
@@ -107,7 +104,7 @@ object BaklavaDslFormatterOpenAPIWorker {
           .foreach { case (contentType, unsortedCalls) =>
             val calls       = unsortedCalls.sortBy(_.request.responseDescription.getOrElse(""))
             val firstSchema = calls.flatMap(_.request.bodySchema).headOption
-            val hasAnyBody  = calls.exists(_.response.requestBodyString.nonEmpty)
+            val hasAnyBody  = calls.exists(_.request.bodyString.nonEmpty)
 
             // Emit a media-type entry when there's either a captured contentType, a schema,
             // or some request body evidence — skipping only the pure "no body at all" case
@@ -118,14 +115,11 @@ object BaklavaDslFormatterOpenAPIWorker {
 
               val usedRequestExampleKeys = scala.collection.mutable.Set.empty[String]
               calls.zipWithIndex.foreach { case (call, idx) =>
-                // `requestBodyString` lives on BaklavaResponseContextSerializable because it's
-                // captured after the adapter marshals the entity — i.e. during response assembly.
-                // Logically belongs to the request; kept there to avoid breaking the on-disk format.
-                if (call.response.requestBodyString.nonEmpty) {
+                if (call.request.bodyString.nonEmpty) {
                   val requestStr =
                     if (contentType.contains("application/json"))
-                      parse(call.response.requestBodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.response.requestBodyString)
-                    else call.response.requestBodyString
+                      parse(call.request.bodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.request.bodyString)
+                    else call.request.bodyString
 
                   val baseKey   = call.request.responseDescription.getOrElse(s"Example $idx")
                   val uniqueKey = disambiguateKey(baseKey, usedRequestExampleKeys)

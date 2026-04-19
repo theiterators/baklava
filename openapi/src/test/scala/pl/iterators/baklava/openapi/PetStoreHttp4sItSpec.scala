@@ -19,7 +19,7 @@ import pl.iterators.kebs.enumeratum.KebsEnumeratum
 trait PetStoreHttp4sItSpec
     extends AnyFunSpec
     with Matchers
-    with BaklavaScalatestDebug[HttpRoutes[IO], BaklavaHttp4s.ToEntityMarshaller, BaklavaHttp4s.FromEntityUnmarshaller]
+    with BaklavaScalatestInMemory[HttpRoutes[IO], BaklavaHttp4s.ToEntityMarshaller, BaklavaHttp4s.FromEntityUnmarshaller]
     with BaklavaHttp4s[Unit, Unit, ScalatestAsExecution]
     with FailFastCirceSupport
     with KebsCirce

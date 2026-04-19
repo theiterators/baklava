@@ -106,6 +106,7 @@ class SchemaDefaultJsonSpec extends AnyFunSpec with Matchers {
         operationTags = Seq.empty,
         securitySchemes = Seq.empty,
         bodySchema = None,
+        bodyString = "",
         headersSeq = Seq.empty,
         pathParametersSeq = Seq.empty,
         queryParametersSeq = Seq(queryParam),
@@ -116,8 +117,7 @@ class SchemaDefaultJsonSpec extends AnyFunSpec with Matchers {
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
         status = StatusCode(200),
         headers = Seq.empty,
-        requestBodyString = "",
-        responseBodyString = "",
+        bodyString = "",
         requestContentType = None,
         responseContentType = None,
         bodySchema = None

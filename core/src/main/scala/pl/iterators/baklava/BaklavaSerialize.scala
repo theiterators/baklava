@@ -33,9 +33,7 @@ private[baklava] object JsonCirceCodec {
   }
 }
 
-/** On-disk representation of a `Security` value. Kept as an option-bag rather than a field of the sealed `Security` type so jsoniter's
-  * structural codec can round-trip it without requiring a discriminator tag — the resulting JSON is just the one non-empty field.
-  */
+/** Option-bag shape (vs. sealed-trait field) so jsoniter's structural codec round-trips without a discriminator tag. */
 case class BaklavaSecuritySerializable(
     httpBearer: Option[HttpBearer] = None,
     httpBasic: Option[HttpBasic] = None,
@@ -49,9 +47,6 @@ case class BaklavaSecuritySerializable(
     oAuth2InCookie: Option[OAuth2InCookie] = None
 ) extends Serializable {
 
-  /** The single non-empty `Security` value carried by this wrapper. Throws if all fields are empty — only possible if the wrapper was
-    * constructed with `BaklavaSecuritySerializable()`, which the public `apply(Security)` never produces.
-    */
   def toSecurity: Security =
     httpBearer
       .orElse(httpBasic)
@@ -227,6 +222,7 @@ case class BaklavaRequestContextSerializable(
     operationTags: Seq[String],
     securitySchemes: Seq[BaklavaSecuritySchemaSerializable],
     bodySchema: Option[BaklavaSchemaSerializable],
+    bodyString: String,
     headersSeq: Seq[BaklavaHeaderSerializable],
     pathParametersSeq: Seq[BaklavaPathParamSerializable],
     queryParametersSeq: Seq[BaklavaQueryParamSerializable],
@@ -235,7 +231,10 @@ case class BaklavaRequestContextSerializable(
 ) extends Serializable
 
 object BaklavaRequestContextSerializable {
-  def apply(c: BaklavaRequestContext[_, _, _, _, _, _, _]): BaklavaRequestContextSerializable = {
+  def apply(
+      c: BaklavaRequestContext[_, _, _, _, _, _, _],
+      bodyString: String
+  ): BaklavaRequestContextSerializable = {
     val pathParamValues  = extractPathParamValues(c.symbolicPath, c.path)
     val queryParamValues = extractQueryParamValues(c.path)
 
@@ -251,6 +250,7 @@ object BaklavaRequestContextSerializable {
       operationTags = c.operationTags,
       securitySchemes = c.securitySchemes.map(s => BaklavaSecuritySchemaSerializable(s)),
       bodySchema = c.bodySchema.filter(_ != Schema.emptyBodySchema).map(s => BaklavaSchemaSerializable(s)),
+      bodyString = bodyString,
       headersSeq = c.headersSeq.map { h =>
         BaklavaHeaderSerializable(h, caseInsensitiveHeaderValue(c.headers, h.name))
       },
@@ -326,8 +326,7 @@ case class BaklavaResponseContextSerializable(
     protocol: BaklavaHttpProtocol,
     status: StatusCode,
     headers: Seq[SttpHeader],
-    requestBodyString: String,
-    responseBodyString: String,
+    bodyString: String,
     requestContentType: Option[String],
     responseContentType: Option[String],
     bodySchema: Option[BaklavaSchemaSerializable]
@@ -339,8 +338,7 @@ object BaklavaResponseContextSerializable {
       protocol = c.protocol,
       status = c.status,
       headers = c.headers,
-      requestBodyString = c.requestBodyString,
-      responseBodyString = c.responseBodyString,
+      bodyString = c.responseBodyString,
       requestContentType = c.requestContentType,
       responseContentType = c.responseContentType,
       bodySchema = c.bodySchema.filter(_ != Schema.emptyBodySchema).map(s => BaklavaSchemaSerializable(s))
@@ -369,7 +367,10 @@ object BaklavaSerialize {
   ): Try[Unit] = {
     for {
       _ <- Try(dirFile.mkdirs())
-      context   = BaklavaSerializableCall(BaklavaRequestContextSerializable(request), BaklavaResponseContextSerializable(response))
+      context = BaklavaSerializableCall(
+        BaklavaRequestContextSerializable(request, response.requestBodyString),
+        BaklavaResponseContextSerializable(response)
+      )
       jsonBytes = writeToArray(context)
       hashBytes = MessageDigest.getInstance("SHA-256").digest(jsonBytes)
       chunkName = Base64.getUrlEncoder.encodeToString(hashBytes).replaceAll("=", "")
