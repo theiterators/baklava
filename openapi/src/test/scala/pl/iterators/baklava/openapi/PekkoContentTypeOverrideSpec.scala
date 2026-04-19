@@ -1,8 +1,8 @@
 package pl.iterators.baklava.openapi
 
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.marshalling.{Marshal, ToEntityMarshaller}
-import org.apache.pekko.http.scaladsl.model.{HttpHeader, HttpRequest, HttpResponse, MediaTypes}
+import org.apache.pekko.http.scaladsl.marshalling.ToEntityMarshaller
+import org.apache.pekko.http.scaladsl.model.{HttpRequest, HttpResponse, MediaTypes}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.FromEntityUnmarshaller
 import org.apache.pekko.stream.Materializer
@@ -47,7 +47,7 @@ class PekkoContentTypeOverrideSpec
       val ctx     = buildRequestContext(Seq(SttpHeader("Content-Type", "image/png")), "raw bytes")
       val request = baklavaContextToHttpRequest(ctx)
 
-      val ctHeaders: Seq[HttpHeader] = request.headers.filter(_.is("content-type"))
+      val ctHeaders = request.headers.filter(_.is("content-type"))
       ctHeaders shouldBe empty
       request.entity.contentType.mediaType shouldBe MediaTypes.`image/png`
     }
@@ -74,10 +74,6 @@ class PekkoContentTypeOverrideSpec
       ex.getMessage should include("Multiple Content-Type headers")
     }
   }
-
-  // Silence "unused" warning: ensure Marshal is reachable from this compile unit if a future
-  // marshaller needs threading. Practically, String has a default ToEntityMarshaller in pekko.
-  locally(Marshal)
 
   private def buildRequestContext(hs: Seq[SttpHeader], body: String): BaklavaRequestContext[String, Unit, Unit, Unit, Unit, Unit, Unit] =
     BaklavaRequestContext[String, Unit, Unit, Unit, Unit, Unit, Unit](
@@ -108,5 +104,5 @@ class PekkoContentTypeOverrideSpec
       responseHeaders = Seq.empty
     )
 
-  override def afterAll(): Unit = system.terminate()
+  override def afterAll(): Unit = { val _ = system.terminate() }
 }
