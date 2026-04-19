@@ -4,7 +4,7 @@ import io.swagger.v3.core.util.Yaml
 import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.parser.OpenAPIV3Parser
 import org.apache.pekko.http.scaladsl.model.headers.Location
-import org.apache.pekko.http.scaladsl.model.{HttpResponse, StatusCodes}
+import org.apache.pekko.http.scaladsl.model.{ContentType, HttpCharsets, HttpEntity, HttpResponse, MediaType, MediaTypes, StatusCodes}
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.directives.{Credentials, RouteDirectives}
@@ -12,25 +12,36 @@ import org.webjars.WebJarAssetLocator
 
 import scala.io.Source
 import scala.jdk.CollectionConverters.SeqHasAsJava
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 object BaklavaRoutes {
-  private val swaggerVersion = "5.17.11"
+
+  private lazy val swaggerVersion: String =
+    Option(new WebJarAssetLocator().getWebJars.get("swagger-ui")).getOrElse(
+      throw new IllegalStateException(
+        "swagger-ui webjar not on the classpath — add `\"org.webjars\" % \"swagger-ui\" % \"...\"` to your project's dependencies " +
+          "or remove baklava-pekko-http-routes if you don't intend to serve SwaggerUI."
+      )
+    )
+
+  private val yamlContentType: ContentType.WithFixedCharset =
+    MediaType.customWithFixedCharset("application", "yaml", HttpCharsets.`UTF-8`).toContentType
+
+  private val javascriptContentType: ContentType.NonBinary =
+    MediaTypes.`application/javascript`.toContentType(HttpCharsets.`UTF-8`)
 
   def routes(config: com.typesafe.config.Config): Route = {
     implicit val internalConfig: BaklavaRoutes.Config = BaklavaRoutes.Config(config)
     if (internalConfig.enabled)
       authenticateBasic("docs", basicAuthOpt) { _ =>
-        /* TODO uncomment after introduce simple formatter
         pathPrefix("docs") {
           pathSingleSlash {
             getFromFile(s"${internalConfig.fileSystemPath}/simple/index.html")
           } ~ getFromDirectory(s"${internalConfig.fileSystemPath}/simple")
-        } ~ */
-        path("openapi") {
-          complete(openApiFileContent)
+        } ~ path("openapi") {
+          complete(HttpEntity(yamlContentType, openApiFileContent))
         } ~ (path("swagger-ui" / swaggerVersion / "swagger-initializer.js") & get) {
-          complete(swaggerInitializerContent)
+          complete(HttpEntity(javascriptContentType, swaggerInitializerContent))
         } ~ pathPrefix("swagger-ui") {
           swaggerWebJar
         } ~ pathPrefix("swagger") {
@@ -51,19 +62,15 @@ object BaklavaRoutes {
       case _ => Some("")
     }
 
-  private def openApiFileContent(implicit internalConfig: BaklavaRoutes.Config): String = {
-    val source = Source.fromFile(s"${internalConfig.fileSystemPath}/openapi/openapi.yml")
-    try {
+  private def openApiFileContent(implicit internalConfig: BaklavaRoutes.Config): String =
+    Using.resource(Source.fromFile(s"${internalConfig.fileSystemPath}/openapi/openapi.yml")) { source =>
       val parser  = new OpenAPIV3Parser
       val openApi = parser.readContents(source.mkString, null, null).getOpenAPI
       val server  = new Server()
       server.setUrl(internalConfig.apiPublicPathPrefix)
       openApi.setServers(List(server).asJava)
       Yaml.pretty(openApi)
-    } finally {
-      source.close()
     }
-  }
 
   private def swaggerInitializerContent(implicit internalConfig: BaklavaRoutes.Config): String = {
     val swaggerDocsUrl = s"${internalConfig.publicPathPrefix}openapi"
