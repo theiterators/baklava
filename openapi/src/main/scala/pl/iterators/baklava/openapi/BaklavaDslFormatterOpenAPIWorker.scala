@@ -91,8 +91,9 @@ object BaklavaDslFormatterOpenAPIWorker {
         }
         val _ = operation.responses(operationResponses)
 
-        // TODO: are we sure? bodyRequest could be moved to METHOD-level as it's defined on the `operation` level in OpenAPI but
-        // this would make the DSL less intuitive
+        // Build requestBody at status-group level and attach at operation level: OpenAPI places
+        // `requestBody` on the operation, but captured bodies vary by response status; we iterate
+        // over per-status calls and merge.
         val requestBody = new io.swagger.v3.oas.models.parameters.RequestBody()
         val content     = new Content()
 
@@ -117,7 +118,9 @@ object BaklavaDslFormatterOpenAPIWorker {
 
               val usedRequestExampleKeys = scala.collection.mutable.Set.empty[String]
               calls.zipWithIndex.foreach { case (call, idx) =>
-                // todo this is wierd that requestBodyString is in response
+                // `requestBodyString` lives on BaklavaResponseContextSerializable because it's
+                // captured after the adapter marshals the entity — i.e. during response assembly.
+                // Logically belongs to the request; kept there to avoid breaking the on-disk format.
                 if (call.response.requestBodyString.nonEmpty) {
                   val requestStr =
                     if (contentType.contains("application/json"))

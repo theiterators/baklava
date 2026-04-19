@@ -446,7 +446,6 @@ trait BaklavaPathParams {
     ): String = uri
   }
 
-  // TODO: it's ugly
   implicit def providePathParamsSingleValue[T, U <: T]: ProvidePathParams[PathParam[T], U] = new ProvidePathParams[PathParam[T], U] {
     override def apply(
         pathParams: PathParam[T],

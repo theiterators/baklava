@@ -29,8 +29,6 @@ case class HttpBasic(description: String = "") extends Security with Serializabl
   def apply(id: String, secret: String): AppliedSecurity = AppliedSecurity(this, Map("id" -> id, "secret" -> secret))
 }
 
-// TODO: support other schemes?
-
 case class ApiKeyInHeader(name: String, description: String = "") extends Security with Serializable {
   override val `type`: String = "apiKey"
 
@@ -78,8 +76,6 @@ case class OAuth2InCookie(flows: OAuthFlows, description: String = "") extends S
 
   def apply(name: String, token: String): AppliedSecurity = AppliedSecurity(this, Map("name" -> name, "token" -> token))
 }
-
-// TODO: OpenIdConnect, OAuth2 can provide token in query, customer header, POST-form, etc.
 
 case class OAuthFlows(
     implicitFlow: Option[OAuthImplicitFlow] = None,

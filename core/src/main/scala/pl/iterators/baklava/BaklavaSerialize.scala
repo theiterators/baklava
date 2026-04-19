@@ -226,18 +226,9 @@ case class BaklavaRequestContextSerializable(
     operationId: Option[String],
     operationTags: Seq[String],
     securitySchemes: Seq[BaklavaSecuritySchemaSerializable],
-    // body: Option[Body], todo on all commented out types
     bodySchema: Option[BaklavaSchemaSerializable],
-    // headers: BaklavaHttpHeaders,
-    // headersDefinition: Headers,
-    // headersProvided: HeadersProvided,
     headersSeq: Seq[BaklavaHeaderSerializable],
-    // security: AppliedSecurity,
-    // pathParameters: PathParameters,
-    // pathParametersProvided: PathParametersProvided,
     pathParametersSeq: Seq[BaklavaPathParamSerializable],
-    // queryParameters: QueryParameters,
-    // queryParametersProvided: QueryParametersProvided,
     queryParametersSeq: Seq[BaklavaQueryParamSerializable],
     responseDescription: Option[String],
     responseHeaders: Seq[BaklavaHeaderSerializable]
@@ -335,10 +326,7 @@ case class BaklavaResponseContextSerializable(
     protocol: BaklavaHttpProtocol,
     status: StatusCode,
     headers: Seq[SttpHeader],
-    // body: ResponseBody, //maybe byte array? or maybe not needed
-    // rawRequest: RequestType,//todo probably not needed
     requestBodyString: String,
-    // rawResponse: ResponseType, //todo probably not needed
     responseBodyString: String,
     requestContentType: Option[String],
     responseContentType: Option[String],

@@ -19,8 +19,11 @@ object BaklavaDslFormatter {
       .toSeq
 
     if (inner.isEmpty) {
-      // todo better message and probably only warn or info or debug or delete it at all
-      sys.error(s"Unable to find class formatters")
+      sys.error(
+        "No BaklavaDslFormatter implementations were found on the classpath. " +
+          "Add one of: `baklava-openapi`, `baklava-simple`, `baklava-tsrest` to your project's dependencies, " +
+          "or remove the call to BaklavaDslFormatter.formatters if no documentation output is intended."
+      )
     }
     inner
   }

@@ -810,7 +810,6 @@ object BaklavaTestFrameworkDsl {
   }
 }
 
-//todo better name
 trait BaklavaTestFrameworkDslDebug[
     RouteType,
     ToRequestBodyType[_],
