@@ -62,6 +62,7 @@ class ResponseContentTypeMergeSpec extends AnyFunSpec with Matchers {
         operationTags = Nil,
         securitySchemes = Nil,
         bodySchema = None,
+        bodyString = "",
         headersSeq = Nil,
         pathParametersSeq = Nil,
         queryParametersSeq = Nil,
@@ -72,8 +73,7 @@ class ResponseContentTypeMergeSpec extends AnyFunSpec with Matchers {
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
         status = StatusCode(status),
         headers = Seq.empty,
-        requestBodyString = "",
-        responseBodyString = body,
+        bodyString = body,
         requestContentType = None,
         responseContentType = contentType,
         bodySchema = Some(BaklavaSchemaSerializable(Schema.stringSchema))

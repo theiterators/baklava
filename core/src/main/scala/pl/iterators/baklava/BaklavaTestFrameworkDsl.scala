@@ -2,6 +2,7 @@ package pl.iterators.baklava
 
 import sttp.model.{Header => SttpHeader, Method, StatusCode}
 
+import java.nio.charset.StandardCharsets
 import java.util.Base64
 import java.util.concurrent.atomic.AtomicReference
 import scala.reflect.ClassTag
@@ -176,60 +177,11 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     HeadersProvided
   ] = {
     val headersToInclude = provideHeaders.apply(requestContext.headersDefinition, headersProvided)
-    // TODO: this security logic is duplicated in multiple places and messy and NEEDS TESTS
-    // TODO: e.g. cookie concatenation by hand?!
-    val additionalSecurityHeaders = security match {
-      case AppliedSecurity(_: HttpBearer, params) => Map("Authorization" -> s"Bearer ${params("token")}")
-      case AppliedSecurity(_: HttpBasic, params)  =>
-        Map("Authorization" -> s"Basic ${Base64.getEncoder.encodeToString(s"${params("id")}:${params("secret")}".getBytes)}")
-      case AppliedSecurity(s: ApiKeyInHeader, params)        => Map(s.name -> params("apiKey"))
-      case AppliedSecurity(_: ApiKeyInQuery, _)              => Map.empty[String, String]
-      case AppliedSecurity(_: ApiKeyInCookie, _)             => Map.empty[String, String]
-      case AppliedSecurity(_: MutualTls, _)                  => Map.empty[String, String]
-      case AppliedSecurity(_: OpenIdConnectInBearer, params) => Map("Authorization" -> s"Bearer ${params("token")}")
-      case AppliedSecurity(_: OpenIdConnectInCookie, _)      => Map.empty[String, String]
-      case AppliedSecurity(_: OAuth2InBearer, params)        => Map("Authorization" -> s"Bearer ${params("token")}")
-      case AppliedSecurity(_: OAuth2InCookie, _)             => Map.empty[String, String]
-      case AppliedSecurity(_: NoopSecurity.type, _)          => Map.empty[String, String]
-    }
-    val headersWithCookieModifiedForSecurity: Map[String, String] = security match {
-      case AppliedSecurity(_: HttpBearer, _)          => headersToInclude
-      case AppliedSecurity(_: HttpBasic, _)           => headersToInclude
-      case AppliedSecurity(_: ApiKeyInHeader, _)      => headersToInclude
-      case AppliedSecurity(_: ApiKeyInQuery, _)       => headersToInclude
-      case AppliedSecurity(s: ApiKeyInCookie, params) =>
-        headersToInclude.find(_._1.toLowerCase == "cookie") match {
-          case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${s.name}=${params("apiKey")}")
-          case None             => headersToInclude + ("Cookie" -> s"${s.name}=${params("apiKey")}")
-        }
-      case AppliedSecurity(_: MutualTls, _)                  => headersToInclude
-      case AppliedSecurity(_: OpenIdConnectInBearer, _)      => headersToInclude
-      case AppliedSecurity(_: OpenIdConnectInCookie, params) =>
-        headersToInclude.find(_._1.toLowerCase == "cookie") match {
-          case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
-          case None             => headersToInclude + ("Cookie" -> s"${params("name")}=${params("token")}")
-        }
-      case AppliedSecurity(_: OAuth2InBearer, _)      => headersToInclude
-      case AppliedSecurity(_: OAuth2InCookie, params) =>
-        headersToInclude.find(_._1.toLowerCase == "cookie") match {
-          case Some((_, value)) => headersToInclude + ("Cookie" -> s"$value; ${params("name")}=${params("token")}")
-          case None             => headersToInclude + ("Cookie" -> s"${params("name")}=${params("token")}")
-        }
-      case AppliedSecurity(_: NoopSecurity.type, _) => headersToInclude
-    }
-    val securityQueryParameters = security match {
-      case AppliedSecurity(_: HttpBearer, _)            => Map.empty[String, Seq[String]]
-      case AppliedSecurity(_: HttpBasic, _)             => Map.empty[String, Seq[String]]
-      case AppliedSecurity(_: ApiKeyInHeader, _)        => Map.empty[String, Seq[String]]
-      case AppliedSecurity(s: ApiKeyInQuery, params)    => Map(s.name -> Seq(params("apiKey")))
-      case AppliedSecurity(_: ApiKeyInCookie, _)        => Map.empty[String, Seq[String]]
-      case AppliedSecurity(_: MutualTls, _)             => Map.empty[String, Seq[String]]
-      case AppliedSecurity(_: OpenIdConnectInBearer, _) => Map.empty[String, Seq[String]]
-      case AppliedSecurity(_: OpenIdConnectInCookie, _) => Map.empty[String, Seq[String]]
-      case AppliedSecurity(_: OAuth2InBearer, _)        => Map.empty[String, Seq[String]]
-      case AppliedSecurity(_: OAuth2InCookie, _)        => Map.empty[String, Seq[String]]
-      case AppliedSecurity(_: NoopSecurity.type, _)     => Map.empty[String, Seq[String]]
-    }
+    val SecurityContribution(additionalSecurityHeaders, cookieContrib, queryContrib) =
+      BaklavaTestFrameworkDsl.securityContribution(security)
+    val headersWithCookieModifiedForSecurity: Map[String, String] =
+      cookieContrib.fold(headersToInclude)(c => BaklavaTestFrameworkDsl.appendCookie(headersToInclude, c))
+    val securityQueryParameters: Map[String, Seq[String]] = queryContrib
 
     requestContext.copy(
       path = provideQueryParams.apply(
@@ -807,8 +759,50 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
   }
 }
 
-//todo better name
-trait BaklavaTestFrameworkDslDebug[
+final case class SecurityContribution(
+    headers: Map[String, String],
+    cookie: Option[(String, String)],
+    queryParameters: Map[String, Seq[String]]
+)
+
+object BaklavaTestFrameworkDsl {
+
+  def securityContribution(security: AppliedSecurity): SecurityContribution = {
+    def bearerAuth(token: String): Map[String, String]             = Map("Authorization" -> s"Bearer $token")
+    def basicAuth(id: String, secret: String): Map[String, String] =
+      Map("Authorization" -> s"Basic ${Base64.getEncoder.encodeToString(s"$id:$secret".getBytes(StandardCharsets.UTF_8))}")
+
+    security match {
+      case AppliedSecurity(_: HttpBearer, p)     => SecurityContribution(bearerAuth(p("token")), None, Map.empty)
+      case AppliedSecurity(_: HttpBasic, p)      => SecurityContribution(basicAuth(p("id"), p("secret")), None, Map.empty)
+      case AppliedSecurity(s: ApiKeyInHeader, p) => SecurityContribution(Map(s.name -> p("apiKey")), None, Map.empty)
+      case AppliedSecurity(s: ApiKeyInQuery, p)  =>
+        SecurityContribution(Map.empty, None, Map(s.name -> Seq(p("apiKey"))))
+      case AppliedSecurity(s: ApiKeyInCookie, p)        => SecurityContribution(Map.empty, Some(s.name -> p("apiKey")), Map.empty)
+      case AppliedSecurity(_: MutualTls, _)             => SecurityContribution(Map.empty, None, Map.empty)
+      case AppliedSecurity(_: OpenIdConnectInBearer, p) => SecurityContribution(bearerAuth(p("token")), None, Map.empty)
+      case AppliedSecurity(_: OpenIdConnectInCookie, p) =>
+        SecurityContribution(Map.empty, Some(p("name") -> p("token")), Map.empty)
+      case AppliedSecurity(_: OAuth2InBearer, p) => SecurityContribution(bearerAuth(p("token")), None, Map.empty)
+      case AppliedSecurity(_: OAuth2InCookie, p) =>
+        SecurityContribution(Map.empty, Some(p("name") -> p("token")), Map.empty)
+      case AppliedSecurity(NoopSecurity, _) => SecurityContribution(Map.empty, None, Map.empty)
+    }
+  }
+
+  /** Merge a new `name=value` segment into the map's Cookie header, replacing any existing cookie entry (regardless of its key casing) so
+    * the result contains exactly one canonical "Cookie" key.
+    */
+  def appendCookie(headers: Map[String, String], cookie: (String, String)): Map[String, String] = {
+    val (name, value) = cookie
+    val existing      = headers.collectFirst { case (k, v) if k.equalsIgnoreCase("Cookie") => v }
+    val merged        = existing.fold(s"$name=$value")(e => s"$e; $name=$value")
+    headers.filterNot { case (k, _) => k.equalsIgnoreCase("Cookie") } + ("Cookie" -> merged)
+  }
+}
+
+/** Collects calls in memory (via `listCalls`) instead of serializing each to disk. */
+trait BaklavaTestFrameworkDslInMemory[
     RouteType,
     ToRequestBodyType[_],
     FromResponseBodyType[_],
@@ -836,7 +830,10 @@ trait BaklavaTestFrameworkDslDebug[
     new AtomicReference(Seq.empty)
 
   override protected def store(request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
-    val call = BaklavaSerializableCall(BaklavaRequestContextSerializable(request), BaklavaResponseContextSerializable(response))
+    val call = BaklavaSerializableCall(
+      BaklavaRequestContextSerializable(request, response.requestBodyString),
+      BaklavaResponseContextSerializable(response)
+    )
     atomicSeq.updateAndGet(seq => seq :+ call)
     ()
   }

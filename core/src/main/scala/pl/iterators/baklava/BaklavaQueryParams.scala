@@ -72,11 +72,26 @@ trait BaklavaQueryParams {
     override def apply(t: Seq[T]): Seq[String] = t.flatMap(tsm.apply)
   }
 
+  implicit def listToQueryParam[T](implicit tsm: ToQueryParam[T]): ToQueryParam[List[T]] = new ToQueryParam[List[T]] {
+    override def apply(t: List[T]): Seq[String] = t.flatMap(tsm.apply)
+  }
+
+  implicit def vectorToQueryParam[T](implicit tsm: ToQueryParam[T]): ToQueryParam[Vector[T]] = new ToQueryParam[Vector[T]] {
+    override def apply(t: Vector[T]): Seq[String] = t.flatMap(tsm.apply)
+  }
+
+  implicit def setToQueryParam[T](implicit tsm: ToQueryParam[T]): ToQueryParam[Set[T]] = new ToQueryParam[Set[T]] {
+    // Set iteration order is undefined; sort the rendered string values so generated URLs are deterministic.
+    override def apply(t: Set[T]): Seq[String] = t.toSeq.flatMap(tsm.apply).sorted
+  }
+
+  implicit def arrayToQueryParam[T](implicit tsm: ToQueryParam[T]): ToQueryParam[Array[T]] = new ToQueryParam[Array[T]] {
+    override def apply(t: Array[T]): Seq[String] = t.toSeq.flatMap(tsm.apply)
+  }
+
   implicit def optionToQueryParam[T](implicit tsm: ToQueryParam[T]): ToQueryParam[Option[T]] = new ToQueryParam[Option[T]] {
     override def apply(t: Option[T]): Seq[String] = t.map(tsm.apply).getOrElse(Seq.empty)
   }
-
-  // TODO: arrays, collections
 
   implicit val unitToQueryParamSeq: ToQueryParamSeq[Unit] = (_: Unit) => Seq.empty
 

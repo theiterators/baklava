@@ -3,9 +3,9 @@ package pl.iterators.baklava.openapi
 import io.swagger.v3.core.util.Yaml
 import io.swagger.v3.oas.models.OpenAPI
 import pl.iterators.baklava.scalatest.{BaklavaScalatest, ScalatestAsExecution}
-import pl.iterators.baklava.{BaklavaHttpDsl, BaklavaTestFrameworkDslDebug}
+import pl.iterators.baklava.{BaklavaHttpDsl, BaklavaTestFrameworkDslInMemory}
 
-trait BaklavaScalatestDebug[
+trait BaklavaScalatestInMemory[
     RouteType,
     ToRequestBodyType[_],
     FromResponseBodyType[_]
@@ -14,7 +14,7 @@ trait BaklavaScalatestDebug[
       ToRequestBodyType,
       FromResponseBodyType
     ]
-    with BaklavaTestFrameworkDslDebug[RouteType, ToRequestBodyType, FromResponseBodyType, Unit, Unit, ScalatestAsExecution] {
+    with BaklavaTestFrameworkDslInMemory[RouteType, ToRequestBodyType, FromResponseBodyType, Unit, Unit, ScalatestAsExecution] {
   this: BaklavaHttpDsl[RouteType, ToRequestBodyType, FromResponseBodyType, Unit, Unit, ScalatestAsExecution] =>
 
   override def afterAll(): Unit = {

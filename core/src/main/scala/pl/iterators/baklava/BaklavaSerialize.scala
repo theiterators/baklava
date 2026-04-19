@@ -33,6 +33,7 @@ private[baklava] object JsonCirceCodec {
   }
 }
 
+/** Option-bag shape (vs. sealed-trait field) so jsoniter's structural codec round-trips without a discriminator tag. */
 case class BaklavaSecuritySerializable(
     httpBearer: Option[HttpBearer] = None,
     httpBasic: Option[HttpBasic] = None,
@@ -45,73 +46,37 @@ case class BaklavaSecuritySerializable(
     oAuth2InBearer: Option[OAuth2InBearer] = None,
     oAuth2InCookie: Option[OAuth2InCookie] = None
 ) extends Serializable {
-  def `type`: Option[String] =
-    Seq(
-      httpBearer.map(_.`type`),
-      httpBasic.map(_.`type`),
-      apiKeyInHeader.map(_.`type`),
-      apiKeyInQuery.map(_.`type`),
-      apiKeyInCookie.map(_.`type`),
-      mutualTls.map(_.`type`),
-      openIdConnectInBearer.map(_.`type`),
-      openIdConnectInCookie.map(_.`type`),
-      oAuth2InBearer.map(_.`type`),
-      oAuth2InCookie.map(_.`type`)
-    ).flatten.headOption
 
-  def descriptionParsed: Option[String] = {
-    val descriptions = Seq(
-      httpBearer.flatMap(_.descriptionParsed),
-      httpBasic.flatMap(_.descriptionParsed),
-      apiKeyInHeader.flatMap(_.descriptionParsed),
-      apiKeyInQuery.flatMap(_.descriptionParsed),
-      apiKeyInCookie.flatMap(_.descriptionParsed),
-      mutualTls.flatMap(_.descriptionParsed),
-      openIdConnectInBearer.flatMap(_.descriptionParsed),
-      openIdConnectInCookie.flatMap(_.descriptionParsed),
-      oAuth2InBearer.flatMap(_.descriptionParsed),
-      oAuth2InCookie.flatMap(_.descriptionParsed)
-    )
-    descriptions.flatten.headOption
-  }
+  def toSecurity: Security =
+    httpBearer
+      .orElse(httpBasic)
+      .orElse(apiKeyInHeader)
+      .orElse(apiKeyInQuery)
+      .orElse(apiKeyInCookie)
+      .orElse(mutualTls)
+      .orElse(openIdConnectInBearer)
+      .orElse(openIdConnectInCookie)
+      .orElse(oAuth2InBearer)
+      .orElse(oAuth2InCookie)
+      .getOrElse(throw new IllegalStateException("BaklavaSecuritySerializable has no Security set"))
+
+  def `type`: Option[String]            = Some(toSecurity.`type`)
+  def descriptionParsed: Option[String] = toSecurity.descriptionParsed
 }
 
 object BaklavaSecuritySerializable {
-  def apply(security: Security): BaklavaSecuritySerializable = {
-    security match {
-      case httpBearer: HttpBearer =>
-        BaklavaSecuritySerializable(httpBearer = Some(httpBearer))
-
-      case httpBasic: HttpBasic =>
-        BaklavaSecuritySerializable(httpBasic = Some(httpBasic))
-
-      case apiKeyInHeader: ApiKeyInHeader =>
-        BaklavaSecuritySerializable(apiKeyInHeader = Some(apiKeyInHeader))
-
-      case apiKeyInQuery: ApiKeyInQuery =>
-        BaklavaSecuritySerializable(apiKeyInQuery = Some(apiKeyInQuery))
-
-      case apiKeyInCookie: ApiKeyInCookie =>
-        BaklavaSecuritySerializable(apiKeyInCookie = Some(apiKeyInCookie))
-
-      case mutualTls: MutualTls =>
-        BaklavaSecuritySerializable(mutualTls = Some(mutualTls))
-
-      case openIdConnectInBearer: OpenIdConnectInBearer =>
-        BaklavaSecuritySerializable(openIdConnectInBearer = Some(openIdConnectInBearer))
-
-      case openIdConnectInCookie: OpenIdConnectInCookie =>
-        BaklavaSecuritySerializable(openIdConnectInCookie = Some(openIdConnectInCookie))
-
-      case oAuth2InBearer: OAuth2InBearer =>
-        BaklavaSecuritySerializable(oAuth2InBearer = Some(oAuth2InBearer))
-
-      case oAuth2InCookie: OAuth2InCookie =>
-        BaklavaSecuritySerializable(oAuth2InCookie = Some(oAuth2InCookie))
-
-      case _ =>
-        throw new IllegalArgumentException("Unknown Security Type")
-    }
+  def apply(security: Security): BaklavaSecuritySerializable = security match {
+    case s: HttpBearer            => BaklavaSecuritySerializable(httpBearer = Some(s))
+    case s: HttpBasic             => BaklavaSecuritySerializable(httpBasic = Some(s))
+    case s: ApiKeyInHeader        => BaklavaSecuritySerializable(apiKeyInHeader = Some(s))
+    case s: ApiKeyInQuery         => BaklavaSecuritySerializable(apiKeyInQuery = Some(s))
+    case s: ApiKeyInCookie        => BaklavaSecuritySerializable(apiKeyInCookie = Some(s))
+    case s: MutualTls             => BaklavaSecuritySerializable(mutualTls = Some(s))
+    case s: OpenIdConnectInBearer => BaklavaSecuritySerializable(openIdConnectInBearer = Some(s))
+    case s: OpenIdConnectInCookie => BaklavaSecuritySerializable(openIdConnectInCookie = Some(s))
+    case s: OAuth2InBearer        => BaklavaSecuritySerializable(oAuth2InBearer = Some(s))
+    case s: OAuth2InCookie        => BaklavaSecuritySerializable(oAuth2InCookie = Some(s))
+    case NoopSecurity             => throw new IllegalArgumentException("NoopSecurity is an internal sentinel and cannot be serialized")
   }
 }
 
@@ -256,25 +221,20 @@ case class BaklavaRequestContextSerializable(
     operationId: Option[String],
     operationTags: Seq[String],
     securitySchemes: Seq[BaklavaSecuritySchemaSerializable],
-    // body: Option[Body], todo on all commented out types
     bodySchema: Option[BaklavaSchemaSerializable],
-    // headers: BaklavaHttpHeaders,
-    // headersDefinition: Headers,
-    // headersProvided: HeadersProvided,
+    bodyString: String = "",
     headersSeq: Seq[BaklavaHeaderSerializable],
-    // security: AppliedSecurity,
-    // pathParameters: PathParameters,
-    // pathParametersProvided: PathParametersProvided,
     pathParametersSeq: Seq[BaklavaPathParamSerializable],
-    // queryParameters: QueryParameters,
-    // queryParametersProvided: QueryParametersProvided,
     queryParametersSeq: Seq[BaklavaQueryParamSerializable],
     responseDescription: Option[String],
     responseHeaders: Seq[BaklavaHeaderSerializable]
 ) extends Serializable
 
 object BaklavaRequestContextSerializable {
-  def apply(c: BaklavaRequestContext[_, _, _, _, _, _, _]): BaklavaRequestContextSerializable = {
+  def apply(
+      c: BaklavaRequestContext[_, _, _, _, _, _, _],
+      bodyString: String
+  ): BaklavaRequestContextSerializable = {
     val pathParamValues  = extractPathParamValues(c.symbolicPath, c.path)
     val queryParamValues = extractQueryParamValues(c.path)
 
@@ -290,6 +250,7 @@ object BaklavaRequestContextSerializable {
       operationTags = c.operationTags,
       securitySchemes = c.securitySchemes.map(s => BaklavaSecuritySchemaSerializable(s)),
       bodySchema = c.bodySchema.filter(_ != Schema.emptyBodySchema).map(s => BaklavaSchemaSerializable(s)),
+      bodyString = bodyString,
       headersSeq = c.headersSeq.map { h =>
         BaklavaHeaderSerializable(h, caseInsensitiveHeaderValue(c.headers, h.name))
       },
@@ -365,11 +326,7 @@ case class BaklavaResponseContextSerializable(
     protocol: BaklavaHttpProtocol,
     status: StatusCode,
     headers: Seq[SttpHeader],
-    // body: ResponseBody, //maybe byte array? or maybe not needed
-    // rawRequest: RequestType,//todo probably not needed
-    requestBodyString: String,
-    // rawResponse: ResponseType, //todo probably not needed
-    responseBodyString: String,
+    bodyString: String = "",
     requestContentType: Option[String],
     responseContentType: Option[String],
     bodySchema: Option[BaklavaSchemaSerializable]
@@ -381,8 +338,7 @@ object BaklavaResponseContextSerializable {
       protocol = c.protocol,
       status = c.status,
       headers = c.headers,
-      requestBodyString = c.requestBodyString,
-      responseBodyString = c.responseBodyString,
+      bodyString = c.responseBodyString,
       requestContentType = c.requestContentType,
       responseContentType = c.responseContentType,
       bodySchema = c.bodySchema.filter(_ != Schema.emptyBodySchema).map(s => BaklavaSchemaSerializable(s))
@@ -411,7 +367,10 @@ object BaklavaSerialize {
   ): Try[Unit] = {
     for {
       _ <- Try(dirFile.mkdirs())
-      context   = BaklavaSerializableCall(BaklavaRequestContextSerializable(request), BaklavaResponseContextSerializable(response))
+      context = BaklavaSerializableCall(
+        BaklavaRequestContextSerializable(request, response.requestBodyString),
+        BaklavaResponseContextSerializable(response)
+      )
       jsonBytes = writeToArray(context)
       hashBytes = MessageDigest.getInstance("SHA-256").digest(jsonBytes)
       chunkName = Base64.getUrlEncoder.encodeToString(hashBytes).replaceAll("=", "")

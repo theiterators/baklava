@@ -285,6 +285,7 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
         operationTags = Nil,
         securitySchemes = Nil,
         bodySchema = None,
+        bodyString = requestBody,
         headersSeq = Nil,
         pathParametersSeq = Nil,
         queryParametersSeq = Nil,
@@ -295,8 +296,7 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
         status = StatusCode(status),
         headers = Seq.empty,
-        requestBodyString = requestBody,
-        responseBodyString = responseBody,
+        bodyString = responseBody,
         requestContentType = Some("application/json"),
         responseContentType = Some("application/json"),
         bodySchema = None

@@ -186,11 +186,11 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       // Per-call request body — previously only calls.head was rendered, so distinct inputs
       // across calls were silently dropped. Now each call's request body shows alongside its
       // response.
-      val requestBodyJson = jsonStr(c.response.requestBodyString)
+      val requestBodyJson = jsonStr(c.request.bodyString)
       val requestBodyPre  = Option
         .when(requestBodyJson.nonEmpty)(s"<h4>Request body</h4><pre>${escHtml(requestBodyJson)}</pre>")
 
-      val responseBodyJson = jsonStr(c.response.responseBodyString)
+      val responseBodyJson = jsonStr(c.response.bodyString)
       val responseBodyPre  = Option
         .when(responseBodyJson.nonEmpty)(s"<h4>Response body</h4><pre>${escHtml(responseBodyJson)}</pre>")
       val schemaPre = c.response.bodySchema
@@ -314,7 +314,7 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
 
     val headerLines = allHeaders.map { case (k, v) => s"  -H ${shellSingleQuote(s"$k: $v")} \\\n" }
 
-    val bodyLine = if (c.response.requestBodyString.nonEmpty) s"  --data-raw ${shellSingleQuote(c.response.requestBodyString)}\n" else ""
+    val bodyLine = if (c.request.bodyString.nonEmpty) s"  --data-raw ${shellSingleQuote(c.request.bodyString)}\n" else ""
 
     val cmd =
       s"curl -X $method ${shellSingleQuote(s"$$BASE_URL${c.request.path}")} \\\n" +

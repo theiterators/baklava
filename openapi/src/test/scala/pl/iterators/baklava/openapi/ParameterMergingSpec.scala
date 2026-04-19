@@ -110,6 +110,7 @@ class ParameterMergingSpec extends AnyFunSpec with Matchers {
         operationTags = Nil,
         securitySchemes = Nil,
         bodySchema = None,
+        bodyString = "",
         headersSeq = headers.map { case (name, schema) => BaklavaHeaderSerializable(name, None, schema) },
         pathParametersSeq = pathParams.map { case (name, schema) => BaklavaPathParamSerializable(name, None, schema) },
         queryParametersSeq = queryParams.map { case (name, schema) => BaklavaQueryParamSerializable(name, None, schema) },
@@ -120,8 +121,7 @@ class ParameterMergingSpec extends AnyFunSpec with Matchers {
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
         status = StatusCode(200),
         headers = Seq.empty,
-        requestBodyString = "",
-        responseBodyString = "",
+        bodyString = "",
         requestContentType = None,
         responseContentType = None,
         bodySchema = None

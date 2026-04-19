@@ -174,7 +174,44 @@ trait SchemaDefaults {
   implicit val byteArraySchema: PrimitiveSchema[Array[Byte]] =
     PrimitiveSchema[Array[Byte]]("Array[Byte]", SchemaType.StringType, Some("binary"))
 
-  // TODO: arrays, collections
+  implicit def setSchema[T](implicit schema: Schema[T]): Schema[Set[T]] = new Schema[Set[T]] {
+    val className: String                  = "Set[" + schema.className + "]"
+    val `type`: SchemaType                 = SchemaType.ArrayType
+    val format: Option[String]             = None
+    val properties: Map[String, Schema[?]] = Map.empty
+    val items: Option[Schema[?]]           = Some(schema)
+    val `enum`: Option[Set[String]]        = None
+    val required: Boolean                  = true
+    val additionalProperties: Boolean      = false
+    val default: Option[Set[T]]            = None
+    val description: Option[String]        = None
+  }
+
+  implicit def vectorSchema[T](implicit schema: Schema[T]): Schema[Vector[T]] = new Schema[Vector[T]] {
+    val className: String                  = "Vector[" + schema.className + "]"
+    val `type`: SchemaType                 = SchemaType.ArrayType
+    val format: Option[String]             = None
+    val properties: Map[String, Schema[?]] = Map.empty
+    val items: Option[Schema[?]]           = Some(schema)
+    val `enum`: Option[Set[String]]        = None
+    val required: Boolean                  = true
+    val additionalProperties: Boolean      = false
+    val default: Option[Vector[T]]         = None
+    val description: Option[String]        = None
+  }
+
+  implicit def arraySchema[T](implicit schema: Schema[T]): Schema[Array[T]] = new Schema[Array[T]] {
+    val className: String                  = "Array[" + schema.className + "]"
+    val `type`: SchemaType                 = SchemaType.ArrayType
+    val format: Option[String]             = None
+    val properties: Map[String, Schema[?]] = Map.empty
+    val items: Option[Schema[?]]           = Some(schema)
+    val `enum`: Option[Set[String]]        = None
+    val required: Boolean                  = true
+    val additionalProperties: Boolean      = false
+    val default: Option[Array[T]]          = None
+    val description: Option[String]        = None
+  }
 
 }
 

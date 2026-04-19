@@ -12,53 +12,8 @@ import scala.jdk.CollectionConverters.*
 object BaklavaDslFormatterOpenAPIWorker {
   def generateForCalls(openAPI: OpenAPI, calls: Seq[BaklavaSerializableCall]): Unit = {
     val securitySchemes = calls.flatMap(_.request.securitySchemes).distinctBy(_.name).map { scheme =>
-      // TODO: massive repetition and boilerplate ahead, to be refactored
-      val securityScheme = new io.swagger.v3.oas.models.security.SecurityScheme()
-      scheme.security.descriptionParsed.foreach(securityScheme.setDescription)
-      scheme.security.httpBearer.foreach { case HttpBearer(bearerFormat, _) =>
-        securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.HTTP)
-        securityScheme.setScheme("bearer")
-        securityScheme.setBearerFormat(bearerFormat)
-      }
-      scheme.security.httpBasic.foreach { case HttpBasic(_) =>
-        securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.HTTP)
-        securityScheme.setScheme("basic")
-      }
-      scheme.security.apiKeyInHeader.foreach { case ApiKeyInHeader(name, _) =>
-        securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.APIKEY)
-        securityScheme.setIn(io.swagger.v3.oas.models.security.SecurityScheme.In.HEADER)
-        securityScheme.setName(name)
-      }
-      scheme.security.apiKeyInQuery.foreach { case ApiKeyInQuery(name, _) =>
-        securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.APIKEY)
-        securityScheme.setIn(io.swagger.v3.oas.models.security.SecurityScheme.In.QUERY)
-        securityScheme.setName(name)
-      }
-      scheme.security.apiKeyInCookie.foreach { case ApiKeyInCookie(name, _) =>
-        securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.APIKEY)
-        securityScheme.setIn(io.swagger.v3.oas.models.security.SecurityScheme.In.COOKIE)
-        securityScheme.setName(name)
-      }
-      scheme.security.mutualTls.foreach { case MutualTls(_) =>
-        securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.MUTUALTLS)
-      }
-      scheme.security.openIdConnectInBearer.foreach { case OpenIdConnectInBearer(openIdConnectUrl, _) =>
-        securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OPENIDCONNECT)
-        securityScheme.setOpenIdConnectUrl(openIdConnectUrl.toString)
-      }
-      scheme.security.openIdConnectInCookie.foreach { case OpenIdConnectInCookie(openIdConnectUrl, _) =>
-        securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OPENIDCONNECT)
-        securityScheme.setOpenIdConnectUrl(openIdConnectUrl.toString)
-      }
-      scheme.security.oAuth2InBearer.foreach { case OAuth2InBearer(flows, _) =>
-        securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OAUTH2)
-        securityScheme.setFlows(buildOAuthFlows(flows))
-      }
-      scheme.security.oAuth2InCookie.foreach { case OAuth2InCookie(flows, _) =>
-        securityScheme.setType(io.swagger.v3.oas.models.security.SecurityScheme.Type.OAUTH2)
-        securityScheme.setFlows(buildOAuthFlows(flows))
-      }
-      scheme.name -> securityScheme
+      val security = scheme.security.toSecurity
+      scheme.name -> buildSecurityScheme(security, security.descriptionParsed)
     }
 
     // Merge generated security schemes into any user-supplied components (e.g. from openapi-info).
@@ -115,8 +70,8 @@ object BaklavaDslFormatterOpenAPIWorker {
               commonContentTypeCalls.zipWithIndex.foreach { case (BaklavaSerializableCall(ctx, response), idx) =>
                 val responseStr =
                   if (contentType.contains("application/json"))
-                    parse(response.responseBodyString).map(_.printWith(Printer.spaces2)).getOrElse(response.responseBodyString)
-                  else response.responseBodyString
+                    parse(response.bodyString).map(_.printWith(Printer.spaces2)).getOrElse(response.bodyString)
+                  else response.bodyString
 
                 val baseKey   = ctx.responseDescription.getOrElse(s"Example $idx")
                 val uniqueKey = disambiguateKey(baseKey, usedExampleKeys)
@@ -137,8 +92,6 @@ object BaklavaDslFormatterOpenAPIWorker {
         }
         val _ = operation.responses(operationResponses)
 
-        // TODO: are we sure? bodyRequest could be moved to METHOD-level as it's defined on the `operation` level in OpenAPI but
-        // this would make the DSL less intuitive
         val requestBody = new io.swagger.v3.oas.models.parameters.RequestBody()
         val content     = new Content()
 
@@ -152,7 +105,7 @@ object BaklavaDslFormatterOpenAPIWorker {
           .foreach { case (contentType, unsortedCalls) =>
             val calls       = unsortedCalls.sortBy(_.request.responseDescription.getOrElse(""))
             val firstSchema = calls.flatMap(_.request.bodySchema).headOption
-            val hasAnyBody  = calls.exists(_.response.requestBodyString.nonEmpty)
+            val hasAnyBody  = calls.exists(_.request.bodyString.nonEmpty)
 
             // Emit a media-type entry when there's either a captured contentType, a schema,
             // or some request body evidence — skipping only the pure "no body at all" case
@@ -163,12 +116,11 @@ object BaklavaDslFormatterOpenAPIWorker {
 
               val usedRequestExampleKeys = scala.collection.mutable.Set.empty[String]
               calls.zipWithIndex.foreach { case (call, idx) =>
-                // todo this is wierd that requestBodyString is in response
-                if (call.response.requestBodyString.nonEmpty) {
+                if (call.request.bodyString.nonEmpty) {
                   val requestStr =
                     if (contentType.contains("application/json"))
-                      parse(call.response.requestBodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.response.requestBodyString)
-                    else call.response.requestBodyString
+                      parse(call.request.bodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.request.bodyString)
+                    else call.request.bodyString
 
                   val baseKey   = call.request.responseDescription.getOrElse(s"Example $idx")
                   val uniqueKey = disambiguateKey(baseKey, usedRequestExampleKeys)
@@ -275,6 +227,38 @@ object BaklavaDslFormatterOpenAPIWorker {
       }
       openAPI.path(path, pathItem)
     }
+  }
+
+  private def buildSecurityScheme(
+      security: Security,
+      description: Option[String]
+  ): io.swagger.v3.oas.models.security.SecurityScheme = {
+    import io.swagger.v3.oas.models.security.{SecurityScheme => SwaggerSecurityScheme}
+    val s = new SwaggerSecurityScheme()
+    description.foreach(s.setDescription)
+    security match {
+      case HttpBearer(bearerFormat, _) =>
+        s.setType(SwaggerSecurityScheme.Type.HTTP); s.setScheme("bearer"); s.setBearerFormat(bearerFormat)
+      case HttpBasic(_)            => s.setType(SwaggerSecurityScheme.Type.HTTP); s.setScheme("basic")
+      case ApiKeyInHeader(name, _) =>
+        s.setType(SwaggerSecurityScheme.Type.APIKEY); s.setIn(SwaggerSecurityScheme.In.HEADER); s.setName(name)
+      case ApiKeyInQuery(name, _) =>
+        s.setType(SwaggerSecurityScheme.Type.APIKEY); s.setIn(SwaggerSecurityScheme.In.QUERY); s.setName(name)
+      case ApiKeyInCookie(name, _) =>
+        s.setType(SwaggerSecurityScheme.Type.APIKEY); s.setIn(SwaggerSecurityScheme.In.COOKIE); s.setName(name)
+      case MutualTls(_)                  => s.setType(SwaggerSecurityScheme.Type.MUTUALTLS)
+      case OpenIdConnectInBearer(url, _) =>
+        s.setType(SwaggerSecurityScheme.Type.OPENIDCONNECT); s.setOpenIdConnectUrl(url.toString)
+      case OpenIdConnectInCookie(url, _) =>
+        s.setType(SwaggerSecurityScheme.Type.OPENIDCONNECT); s.setOpenIdConnectUrl(url.toString)
+      case OAuth2InBearer(flows, _) =>
+        s.setType(SwaggerSecurityScheme.Type.OAUTH2); s.setFlows(buildOAuthFlows(flows))
+      case OAuth2InCookie(flows, _) =>
+        s.setType(SwaggerSecurityScheme.Type.OAUTH2); s.setFlows(buildOAuthFlows(flows))
+      case NoopSecurity =>
+        throw new IllegalArgumentException("NoopSecurity should never be exposed to the OpenAPI generator")
+    }
+    s
   }
 
   private def buildOAuthFlows(flows: OAuthFlows): io.swagger.v3.oas.models.security.OAuthFlows = {

@@ -22,7 +22,7 @@ import pl.iterators.baklava.simple.BaklavaDslFormatterSimple
 import pl.iterators.baklava.tsrest.BaklavaDslFormatterTsRest
 import pl.iterators.baklava.{
   ApiKeyInHeader,
-  BaklavaTestFrameworkDslDebug,
+  BaklavaTestFrameworkDslInMemory,
   EmptyBody,
   FilePart,
   FormOf,
@@ -62,7 +62,7 @@ class ComprehensiveGoldSpec
     with Matchers
     with BaklavaPekkoHttp[Unit, Unit, ScalatestAsExecution]
     with BaklavaScalatest[Route, ToEntityMarshaller, FromEntityUnmarshaller]
-    with BaklavaTestFrameworkDslDebug[Route, ToEntityMarshaller, FromEntityUnmarshaller, Unit, Unit, ScalatestAsExecution]
+    with BaklavaTestFrameworkDslInMemory[Route, ToEntityMarshaller, FromEntityUnmarshaller, Unit, Unit, ScalatestAsExecution]
     with FailFastCirceSupport
     with KebsCirce
     with KebsCirceEnumsLowercase

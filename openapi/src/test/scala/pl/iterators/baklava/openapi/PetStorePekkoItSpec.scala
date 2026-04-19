@@ -27,7 +27,7 @@ trait PetStorePekkoItSpec
     extends AnyFunSpec
     with Matchers
     with BaklavaPekkoHttp[Unit, Unit, ScalatestAsExecution]
-    with BaklavaScalatestDebug[Route, ToEntityMarshaller, FromEntityUnmarshaller]
+    with BaklavaScalatestInMemory[Route, ToEntityMarshaller, FromEntityUnmarshaller]
     with FailFastCirceSupport
     with KebsCirce
     with KebsCirceEnumsLowercase
