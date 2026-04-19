@@ -126,8 +126,8 @@ lazy val postman = project
   .settings(
     name := "baklava-postman",
     libraryDependencies ++= Seq(
-      "io.circe" %% "circe-core"    % circeV,
-      "io.circe" %% "circe-parser"  % circeV
+      "io.circe" %% "circe-core"   % circeV,
+      "io.circe" %% "circe-parser" % circeV
     )
   )
 
