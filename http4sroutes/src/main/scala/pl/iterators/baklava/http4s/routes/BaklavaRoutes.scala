@@ -32,8 +32,6 @@ object BaklavaRoutes {
       )
     )
 
-  private val log: org.slf4j.Logger = org.slf4j.LoggerFactory.getLogger("pl.iterators.baklava.http4s.routes.BaklavaRoutes")
-
   /** Ensure a public-path prefix ends with exactly one trailing slash. The configured prefix is concatenated with fixed sub-paths
     * (`"swagger-ui/<v>/index.html"`, `"openapi"`); missing the separator silently produced `/api-docsswagger-ui/...` for
     * `public-path-prefix = "/api-docs"`.
@@ -60,16 +58,13 @@ object BaklavaRoutes {
   private def coreRoutes(c: Config): HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "openapi" =>
       // `openApiFileContent` does blocking file I/O + YAML parsing; wrap in IO.blocking so
-      // exceptions land inside the effect (a missing or malformed file becomes a 404/500, not a
-      // crashed request handler). Error bodies are generic; the real cause goes to the log only.
+      // failures land inside the effect. A missing file gets a helpful 404; anything else
+      // propagates so the caller's own error middleware (`ErrorAction.log`, etc.) can decide
+      // how to log/respond — the routes module shouldn't pick a logging backend.
       IO.blocking(openApiFileContent(c))
         .flatMap(content => Ok(content).map(_.withContentType(`Content-Type`(MediaType.text.yaml))))
-        .recoverWith {
-          case _: java.io.FileNotFoundException =>
-            NotFound("openapi document not available — run `sbt test` first to generate it")
-          case e: Throwable =>
-            IO(log.warn(s"Failed to serve openapi document from ${c.fileSystemPath}/openapi/openapi.yml", e)) *>
-            InternalServerError("Failed to serve openapi document")
+        .recoverWith { case _: java.io.FileNotFoundException =>
+          NotFound("openapi document not available — run `sbt test` first to generate it")
         }
 
     case GET -> Root / "swagger-ui" / version / "swagger-initializer.js" if version == swaggerVersion =>
@@ -87,12 +82,7 @@ object BaklavaRoutes {
 
     case GET -> Root / "swagger" =>
       val swaggerUiUrl = s"${withTrailingSlash(c.publicPathPrefix)}swagger-ui/$swaggerVersion/index.html"
-      Uri.fromString(swaggerUiUrl) match {
-        case Right(uri) => SeeOther(Location(uri))
-        case Left(_)    =>
-          IO(log.warn(s"Invalid swagger-ui URL constructed from publicPathPrefix='${c.publicPathPrefix}': $swaggerUiUrl")) *>
-          InternalServerError("Misconfigured swagger-ui URL")
-      }
+      IO.fromEither(Uri.fromString(swaggerUiUrl)).flatMap(uri => SeeOther(Location(uri)))
   }
 
   // Swagger UI's yaml includes a `servers:` block that Swagger UI uses as the API base URL. We
