@@ -1,13 +1,14 @@
-import { BaklavaClient, BaklavaHttpError } from "./client";
-import type * as T from "./types";
+import { BaklavaClient, BaklavaHttpError } from "../client";
+import type { CreateProjectRequest, PatchProjectRequest, Project } from "./types";
+import type { ErrorResponse } from "../common/types";
 
 /** List projects — List projects, optionally filtered by status */
 export async function listProjects(client: BaklavaClient, params?: {
   status?: "active" | "archived" | "draft";
-}): Promise<T.Project[]> {
+}): Promise<Project[]> {
   const url = new URL(`${client.baseUrl}/projects`);
   if (params?.status !== undefined) url.searchParams.set("status", String(params.status));
-  let __ret!: T.Project[];
+  let __ret!: Project[];
   const res = await client.fetch(url.toString(), {
     method: "GET",
     headers: {
@@ -21,10 +22,10 @@ export async function listProjects(client: BaklavaClient, params?: {
 
 /** Create project — Create a new project */
 export async function createProject(client: BaklavaClient, params: {
-  body: T.CreateProjectRequest;
-}): Promise<T.Project> {
+  body: CreateProjectRequest;
+}): Promise<Project> {
   const url = new URL(`${client.baseUrl}/projects`);
-  let __ret!: T.Project;
+  let __ret!: Project;
   const res = await client.fetch(url.toString(), {
     method: "POST",
     headers: {
@@ -41,10 +42,10 @@ export async function createProject(client: BaklavaClient, params: {
 /** Patch project — Partially update a project */
 export async function patchProject(client: BaklavaClient, params: {
   projectId: number;
-  body: T.PatchProjectRequest;
-}): Promise<T.Project> {
+  body: PatchProjectRequest;
+}): Promise<Project> {
   const url = new URL(`${client.baseUrl}/projects/${encodeURIComponent(String(params.projectId))}`);
-  let __ret!: T.Project;
+  let __ret!: Project;
   const res = await client.fetch(url.toString(), {
     method: "PATCH",
     headers: {

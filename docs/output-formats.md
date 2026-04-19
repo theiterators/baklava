@@ -185,9 +185,19 @@ Generates a plain-TypeScript client library that uses the browser/Node `fetch` A
 
 - `package.json` / `tsconfig.json` — minimal npm package with a single `typescript` dev dep
 - `src/client.ts` — `BaklavaClient` class with `baseUrl`, pluggable `fetch`, optional bearer/basic/API-key credentials; plus `BaklavaHttpError` for failed responses
-- `src/types.ts` — TypeScript interfaces generated from every named object schema used in the API
-- `src/{tag}.ts` — one file per operation tag, with one `async function` per endpoint. Untagged operations go into `src/default.ts`.
-- `src/index.ts` — re-exports everything
+- `src/common/types.ts` — interfaces for types used by two or more tags
+- `src/{tag}/types.ts` — interfaces for types used only within that tag
+- `src/{tag}/endpoints.ts` — one `async function` per endpoint in that tag. Untagged operations go into `src/default/endpoints.ts`.
+- `src/index.ts` — re-exports every tag's endpoints. Per-tag types are re-exported under a namespace (`Users`, `Projects`, …) to avoid collisions; shared types appear under `Common`.
+
+### Type Distribution
+
+Each named schema is routed based on which tags' endpoints reference it:
+
+- Used by **one tag** → `src/{tag}/types.ts`
+- Used by **two or more tags** → `src/common/types.ts`
+
+Endpoint files import types from the appropriate location (`./types`, `../common/types`, or `../{other-tag}/types`). Interface references inside other interfaces follow the same rule, so the output never duplicates a type.
 
 ### Schema Type Mapping
 
@@ -235,15 +245,15 @@ pnpm install && pnpm run build
 ```
 
 ```typescript
-import { BaklavaClient, listUsers, createUser, T } from "@company/api-client";
+import { BaklavaClient, listUsers, createUser, Users, Common } from "@company/api-client";
 
 const client = new BaklavaClient({
   baseUrl: "https://api.example.com",
   bearerToken: "jwt-token-here"
 });
 
-const users: T.User[] = await listUsers(client);
-const newUser: T.User = await createUser(client, { body: { name: "Alice" } });
+const page: Users.PaginatedUsers = await listUsers(client);
+const newUser: Common.User = await createUser(client, { body: { name: "Alice" } });
 ```
 
 ### Caveats

@@ -1,12 +1,13 @@
-import { BaklavaClient, BaklavaHttpError } from "./client";
-import type * as T from "./types";
+import { BaklavaClient, BaklavaHttpError } from "../client";
+import type { LoginForm, LoginResponse } from "./types";
+import type { ErrorResponse, User } from "../common/types";
 
 /** Login — Exchange HTTP Basic credentials for a JWT token */
 export async function login(client: BaklavaClient, params: {
-  body: T.LoginForm;
-}): Promise<T.LoginResponse> {
+  body: LoginForm;
+}): Promise<LoginResponse> {
   const url = new URL(`${client.baseUrl}/auth/login`);
-  let __ret!: T.LoginResponse;
+  let __ret!: LoginResponse;
   const res = await client.fetch(url.toString(), {
     method: "POST",
     headers: {
@@ -21,9 +22,9 @@ export async function login(client: BaklavaClient, params: {
 }
 
 /** Who am I — Return the profile of the currently authenticated user */
-export async function me(_client: BaklavaClient): Promise<T.User> {
+export async function me(_client: BaklavaClient): Promise<User> {
   const url = new URL(`${client.baseUrl}/me`);
-  let __ret!: T.User;
+  let __ret!: User;
   const res = await client.fetch(url.toString(), {
     method: "GET",
     headers: {

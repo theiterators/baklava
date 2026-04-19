@@ -1,12 +1,12 @@
-import { BaklavaClient, BaklavaHttpError } from "./client";
-import type * as T from "./types";
+import { BaklavaClient, BaklavaHttpError } from "../client";
+import type { CreateTaskRequest, Task } from "./types";
 
 /** List tasks — List all tasks in a project */
 export async function listTasks(client: BaklavaClient, params: {
   projectId: number;
-}): Promise<T.Task[]> {
+}): Promise<Task[]> {
   const url = new URL(`${client.baseUrl}/projects/${encodeURIComponent(String(params.projectId))}/tasks`);
-  let __ret!: T.Task[];
+  let __ret!: Task[];
   const res = await client.fetch(url.toString(), {
     method: "GET",
     headers: {
@@ -21,10 +21,10 @@ export async function listTasks(client: BaklavaClient, params: {
 /** Create task — Create a task in a project */
 export async function createTask(client: BaklavaClient, params: {
   projectId: number;
-  body: T.CreateTaskRequest;
-}): Promise<T.Task> {
+  body: CreateTaskRequest;
+}): Promise<Task> {
   const url = new URL(`${client.baseUrl}/projects/${encodeURIComponent(String(params.projectId))}/tasks`);
-  let __ret!: T.Task;
+  let __ret!: Task;
   const res = await client.fetch(url.toString(), {
     method: "POST",
     headers: {
