@@ -222,3 +222,41 @@ class GetUsersUserIdRouteSpec extends BaseRouteSpec {
 
 }
 ```
+
+## Serving Open API and Swagger UI
+
+Adding `baklava-http4s-routes` dependency to your project you can easily serve Open API and Swagger UI:
+
+```scala
+import cats.effect.{IO, IOApp}
+import com.comcast.ip4s.*
+import com.typesafe.config.{Config, ConfigFactory}
+import org.http4s.ember.server.EmberServerBuilder
+import org.http4s.server.Router
+import org.http4s.HttpRoutes
+import pl.iterators.baklava.http4s.routes.BaklavaRoutes
+
+object Main extends IOApp.Simple {
+  def run: IO[Unit] = {
+    val apiRoutes: HttpRoutes[IO] = ??? // all your API routes
+    val config: Config            = ConfigFactory.load()
+
+    val appRoutes: HttpRoutes[IO] = Router(
+      "/"    -> BaklavaRoutes.routes(config),
+      "/v1"  -> apiRoutes
+    )
+
+    EmberServerBuilder
+      .default[IO]
+      .withHost(host"0.0.0.0")
+      .withPort(port"8080")
+      .withHttpApp(appRoutes.orNotFound)
+      .build
+      .useForever
+  }
+}
+```
+
+For detailed configuration options check [the SwaggerUI and routes configuration section](installation.md#swaggerui-and-routes-configuration).
+
+The http4s and pekko-http variants expose the same endpoints (`GET /openapi`, `GET /swagger-ui/<version>/…`, `GET /swagger`) and share the same configuration keys under `baklava-routes`.

@@ -69,11 +69,14 @@ libraryDependencies += "pl.iterators" %% "baklava-tsrest" % "VERSION" % Test
 
 #### Optional: SwaggerUI Support
 
-**⚠️ SwaggerUI is only available with Pekko HTTP + OpenAPI format combination**
+SwaggerUI is available for both Pekko HTTP and http4s (combined with the OpenAPI output format). Add the matching routes module:
 
 ```scala
-// Only add this if you're using Pekko HTTP AND OpenAPI format
+// Pekko HTTP
 libraryDependencies += "pl.iterators" %% "baklava-pekko-http-routes" % "VERSION"
+
+// http4s
+libraryDependencies += "pl.iterators" %% "baklava-http4s-routes" % "VERSION"
 ```
 
 ## Configuration
@@ -220,6 +223,16 @@ inConfig(Test)(
 )
 ```
 
+To serve SwaggerUI from an http4s app, add `baklava-http4s-routes` and the OpenAPI format:
+
+```scala
+libraryDependencies ++= Seq(
+  "pl.iterators" %% "baklava-http4s" % "VERSION" % Test,
+  "pl.iterators" %% "baklava-openapi" % "VERSION" % Test,
+  "pl.iterators" %% "baklava-http4s-routes" % "VERSION"
+)
+```
+
 ### Example 3: Pekko HTTP + Specs2 + Multiple Formats
 
 ```scala
@@ -279,7 +292,7 @@ The documentation will be generated in `target/baklava/` directory after running
 
 ### SwaggerUI and Routes Configuration
 
-If you're using SwaggerUI (Pekko HTTP + OpenAPI), you can configure the routes behavior at runtime.
+If you're using SwaggerUI (Pekko HTTP or http4s + OpenAPI), you can configure the routes behavior at runtime. Both `baklava-pekko-http-routes` and `baklava-http4s-routes` modules read the same `baklava-routes { ... }` section, so the configuration below applies to either.
 
 #### Configuration via application.conf
 
