@@ -1,7 +1,9 @@
-package baklavaclient
+package baklavaclient.users
 
 import sttp.client4.*
 import sttp.model.Uri
+import baklavaclient.common.ErrorResponse
+import baklavaclient.common.User
 
 object UsersEndpoints {
 

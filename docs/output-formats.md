@@ -240,11 +240,20 @@ Generates a tree of Scala source files containing [sttp-client4](https://sttp.so
 ### Generated Files
 
 - `README.md` — usage overview
-- `src/main/scala/{package}/common/Types.scala` — case classes shared by 2+ tags (omitted if empty)
-- `src/main/scala/{package}/{tag}/Types.scala` — tag-local case classes (omitted if empty)
+- `src/main/scala/{package}/common/Types.scala` — case classes shared by two or more tags (omitted if empty)
+- `src/main/scala/{package}/{tag}/Types.scala` — case classes used only within that tag (omitted if empty)
 - `src/main/scala/{package}/{tag}/Endpoints.scala` — one `{Tag}Endpoints` object with a `def` per endpoint. Untagged operations land in `default/Endpoints.scala`.
 
 Package name defaults to `baklavaclient` and can be overridden via the `sttp-client-package` config key. Each `Endpoints.scala` file emits `import` statements for the `common` sub-package and any cross-tag types it references, so method bodies can use short class names.
+
+### Type Distribution
+
+Each named schema is routed based on how many tags' endpoints reference it:
+
+- Used by **one tag** → `{tag}/Types.scala` in that tag's sub-package
+- Used by **two or more tags** → `common/Types.scala` under the `common` sub-package
+
+`Endpoints.scala` files emit Scala `import` statements pointing at the right sub-package, so endpoint method bodies can use the short class name directly.
 
 ### Endpoint Shape
 

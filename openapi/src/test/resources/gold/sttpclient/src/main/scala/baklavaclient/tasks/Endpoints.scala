@@ -1,4 +1,4 @@
-package baklavaclient
+package baklavaclient.tasks
 
 import sttp.client4.*
 import sttp.model.Uri

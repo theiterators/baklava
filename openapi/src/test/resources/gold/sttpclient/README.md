@@ -7,8 +7,9 @@ return `Request[Either[String, String]]` values that you `.send(backend)` with a
 
 ## Layout
 
-- `src/main/scala/baklavaclient/Types.scala` — case classes for named schemas
-- `src/main/scala/baklavaclient/{Tag}Endpoints.scala` — one object per operation tag, with a
+- `src/main/scala/baklavaclient/common/Types.scala` — case classes shared by 2+ tags (omitted if empty)
+- `src/main/scala/baklavaclient/{tag}/Types.scala` — tag-local case classes (omitted if empty)
+- `src/main/scala/baklavaclient/{tag}/Endpoints.scala` — one `{Tag}Endpoints` object with a
   `def` per endpoint
 
 ## Usage
@@ -19,12 +20,12 @@ Copy the files into your project under a matching package, add
 ```scala
 import sttp.client4.*
 import sttp.model.Uri
-import baklavaclient.*
+import baklavaclient.users.UsersEndpoints
 
 val backend = DefaultSyncBackend()
 val base    = uri"https://api.example.com"
 
-val req = UsersEndpoints.listUsers(baseUri = base)
+val req = UsersEndpoints.listUsers(bearerAuthToken = "jwt", baseUri = base)
 val res = req.send(backend)
 ```
 

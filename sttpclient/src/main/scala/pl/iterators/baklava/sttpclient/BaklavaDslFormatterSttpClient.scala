@@ -5,29 +5,34 @@ import pl.iterators.baklava.*
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Using
 
-/** Emits a Scala source tree under `target/baklava/sttpclient/` that users drop into their own project. Output is intentionally minimal: a
-  * single `Types.scala` with case classes derived from named object schemas, plus one file per operation tag with endpoint-builder methods
-  * that return `sttp.client4.Request[Either[String, String], Any]`. Users pick their own sttp backend and JSON codec library and call
-  * `.send(backend)` themselves — this generator has no opinion on effect type or serialization format.
+/** Emits a Scala source tree under `target/baklava/sttpclient/` that users drop into their own project. Output structure mirrors the
+  * tsfetch generator: one sub-package per operation tag with its own `Endpoints.scala` and `Types.scala`, plus a `common` sub-package for
+  * types shared between two or more tags.
   */
 class BaklavaDslFormatterSttpClient extends BaklavaDslFormatter {
 
-  private val dirName        = "target/baklava/sttpclient"
-  private val sourcesDirName = s"$dirName/src/main/scala/baklavaclient"
+  private val dirName = "target/baklava/sttpclient"
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
-    new File(sourcesDirName).mkdirs()
+    val basePackage = config.getOrElse("sttp-client-package", "baklavaclient")
+    val basePath    = s"$dirName/src/main/scala/${basePackage.replace('.', '/')}"
+    new File(basePath).mkdirs()
 
-    val packageName = config.getOrElse("sttp-client-package", "baklavaclient")
-    val gen         = new BaklavaSttpClientGenerator(packageName, calls)
+    val gen = new BaklavaSttpClientGenerator(basePackage, calls)
 
-    writeFile(s"$sourcesDirName/Types.scala", gen.renderTypes)
-    gen.renderTagFiles.foreach { case (fileName, content) =>
-      writeFile(s"$sourcesDirName/$fileName", content)
+    // Common types (optional).
+    gen.renderSharedTypes.foreach { content =>
+      writeFile(s"$basePath/common/Types.scala", content)
+    }
+    // Per-tag subfolders.
+    gen.renderTagFiles.foreach { case (relPath, content) =>
+      writeFile(s"$basePath/$relPath", content)
     }
     writeFile(s"$dirName/README.md", gen.renderReadme)
   }
 
-  private def writeFile(path: String, content: String): Unit =
+  private def writeFile(path: String, content: String): Unit = {
+    new File(path).getParentFile.mkdirs()
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
+  }
 }
