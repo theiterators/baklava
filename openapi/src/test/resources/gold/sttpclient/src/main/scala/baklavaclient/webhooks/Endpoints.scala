@@ -1,6 +1,6 @@
 package baklavaclient.webhooks
 
-import sttp.client4.*
+import sttp.client4._
 import sttp.model.Uri
 
 object WebhooksEndpoints {

@@ -1,6 +1,6 @@
 package baklavaclient.system
 
-import sttp.client4.*
+import sttp.client4._
 import sttp.model.Uri
 
 object SystemEndpoints {

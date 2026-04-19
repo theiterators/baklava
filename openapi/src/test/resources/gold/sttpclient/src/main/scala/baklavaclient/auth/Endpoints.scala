@@ -1,6 +1,6 @@
 package baklavaclient.auth
 
-import sttp.client4.*
+import sttp.client4._
 import sttp.model.Uri
 import baklavaclient.common.ErrorResponse
 import baklavaclient.common.User

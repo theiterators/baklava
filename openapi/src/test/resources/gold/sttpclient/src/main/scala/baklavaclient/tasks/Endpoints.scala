@@ -1,6 +1,6 @@
 package baklavaclient.tasks
 
-import sttp.client4.*
+import sttp.client4._
 import sttp.model.Uri
 
 object TasksEndpoints {
@@ -12,7 +12,7 @@ object TasksEndpoints {
       baseUri: Uri
   ): Request[Either[String, String]] = {
     basicRequest
-      .get(baseUri.addPath("projects", "$projectId", "tasks"))
+      .get(baseUri.addPath("projects", s"$projectId", "tasks"))
       .header("Authorization", s"Bearer ${oauth2Token}")
   }
 
@@ -24,7 +24,7 @@ object TasksEndpoints {
       baseUri: Uri
   ): Request[Either[String, String]] = {
     basicRequest
-      .post(baseUri.addPath("projects", "$projectId", "tasks"))
+      .post(baseUri.addPath("projects", s"$projectId", "tasks"))
       .header("Authorization", s"Bearer ${oauth2Token}")
       .body(bodyJson)
       .contentType("application/json")

@@ -91,7 +91,7 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     val referenced = tagCalls.flatMap(referencedClassesInCall).distinct
 
     val importLines = new scala.collection.mutable.ListBuffer[String]
-    importLines += "import sttp.client4.*"
+    importLines += "import sttp.client4._"
     importLines += "import sttp.model.Uri"
 
     val sharedRefs = referenced.filter(sharedClasses.contains).sorted
@@ -151,15 +151,15 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
       val name = p.name
       val id   = scalaSafeIdent(name)
       if (p.schema.required) s"""        .addParam("$name", $id.toString)"""
-      else s"""        .addParam(Option.when($id.isDefined)("$name" -> $id.get.toString))"""
-    }
+      else s"""        .addParam("$name", $id.map(_.toString))"""
+    } ++ securityQueryLines(req.securitySchemes)
 
     val headerLines = securityHeaderLines(req.securitySchemes) ++
       declaredHs.map { h =>
         val name = h.name
         val id   = scalaSafeIdent(h.name)
         if (h.schema.required) s"""      .header("$name", $id.toString)"""
-        else s"""      .header(Option.when($id.isDefined)(Header("$name", $id.get.toString)))"""
+        else s"""      .header("$name", $id.map(_.toString))"""
       }
 
     val methodCall = method.toLowerCase
@@ -181,10 +181,13 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
   }
 
   private def renderPathExpression(symbolicPath: String, pathParamNames: Seq[String]): String = {
-    val interpolated = pathParamNames.foldLeft(symbolicPath) { (acc, name) =>
-      acc.replace(s"{$name}", s"$$${scalaSafeIdent(name)}")
+    val ParamSeg = """^\{(.+)\}$""".r
+    val segments = symbolicPath.stripPrefix("/").split("/").filter(_.nonEmpty).toSeq
+    val parts    = segments.map {
+      case ParamSeg(name) if pathParamNames.contains(name) => "s\"$" + scalaSafeIdent(name) + "\""
+      case lit                                             => "\"" + lit + "\""
     }
-    s"""baseUri.addPath("${interpolated.stripPrefix("/").split("/").mkString("\", \"")}")"""
+    s"""baseUri.addPath(${parts.mkString(", ")})"""
   }
 
   private def securityCredentialParams(schemes: Seq[BaklavaSecuritySchemaSerializable]): Seq[String] =
@@ -210,7 +213,17 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
       else if (sec.apiKeyInHeader.isDefined) {
         val k = sec.apiKeyInHeader.get.name
         Seq(s"""      .header("$k", ${name}Value)""")
+      } else if (sec.apiKeyInCookie.isDefined) {
+        val k = sec.apiKeyInCookie.get.name
+        Seq(s"""      .cookie("$k", ${name}Value)""")
       } else Seq.empty
+    }
+
+  private def securityQueryLines(schemes: Seq[BaklavaSecuritySchemaSerializable]): Seq[String] =
+    schemes.headOption.toSeq.flatMap { s =>
+      val sec  = s.security
+      val name = scalaSafeIdent(s.name)
+      sec.apiKeyInQuery.toSeq.map(k => s"""        .addParam("${k.name}", ${name}Value)""")
     }
 
   private def renderScaladoc(req: BaklavaRequestContextSerializable): String = {
@@ -407,7 +420,7 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
        |`"com.softwaremill.sttp.client4" %% "core" % "4.x.y"` to your dependencies, then:
        |
        |```scala
-       |import sttp.client4.*
+       |import sttp.client4._
        |import sttp.model.Uri
        |import $basePackage.users.UsersEndpoints
        |

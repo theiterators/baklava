@@ -1,6 +1,6 @@
 package baklavaclient.projects
 
-import sttp.client4.*
+import sttp.client4._
 import sttp.model.Uri
 import baklavaclient.common.ErrorResponse
 
@@ -13,7 +13,7 @@ object ProjectsEndpoints {
       baseUri: Uri
   ): Request[Either[String, String]] = {
     basicRequest
-      .get(baseUri.addPath("projects")        .addParam(Option.when(status.isDefined)("status" -> status.get.toString)))
+      .get(baseUri.addPath("projects")        .addParam("status", status.map(_.toString)))
       .header("Authorization", s"Bearer ${oauth2Token}")
   }
 
@@ -38,7 +38,7 @@ object ProjectsEndpoints {
       baseUri: Uri
   ): Request[Either[String, String]] = {
     basicRequest
-      .patch(baseUri.addPath("projects", "$projectId"))
+      .patch(baseUri.addPath("projects", s"$projectId"))
       .header("Authorization", s"Bearer ${oauth2Token}")
       .body(bodyJson)
       .contentType("application/json")

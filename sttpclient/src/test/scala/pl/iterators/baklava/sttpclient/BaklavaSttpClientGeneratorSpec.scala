@@ -42,7 +42,7 @@ class BaklavaSttpClientGeneratorSpec extends AnyFunSpec with Matchers {
         "src/main/scala/baklavaclient/users/Endpoints.scala",
         Seq(getCall("/users/{userId}", tag = Some("Users"), pathParams = Seq("userId")))
       )
-      content should include("""baseUri.addPath("users", "$userId")""")
+      content should include("""baseUri.addPath("users", s"$userId")""")
       content should include("userId: String")
     }
 

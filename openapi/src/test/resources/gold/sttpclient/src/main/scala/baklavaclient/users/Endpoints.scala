@@ -1,6 +1,6 @@
 package baklavaclient.users
 
-import sttp.client4.*
+import sttp.client4._
 import sttp.model.Uri
 import baklavaclient.common.ErrorResponse
 import baklavaclient.common.User
@@ -16,9 +16,9 @@ object UsersEndpoints {
       baseUri: Uri
   ): Request[Either[String, String]] = {
     basicRequest
-      .get(baseUri.addPath("users")        .addParam(Option.when(page.isDefined)("page" -> page.get.toString))
-        .addParam(Option.when(limit.isDefined)("limit" -> limit.get.toString))
-        .addParam(Option.when(role.isDefined)("role" -> role.get.toString)))
+      .get(baseUri.addPath("users")        .addParam("page", page.map(_.toString))
+        .addParam("limit", limit.map(_.toString))
+        .addParam("role", role.map(_.toString)))
       .header("Authorization", s"Bearer ${bearerAuthToken}")
   }
 
@@ -29,7 +29,7 @@ object UsersEndpoints {
       baseUri: Uri
   ): Request[Either[String, String]] = {
     basicRequest
-      .delete(baseUri.addPath("users", "$userId"))
+      .delete(baseUri.addPath("users", s"$userId"))
       .header("Authorization", s"Bearer ${bearerAuthToken}")
   }
 
@@ -40,7 +40,7 @@ object UsersEndpoints {
       baseUri: Uri
   ): Request[Either[String, String]] = {
     basicRequest
-      .get(baseUri.addPath("users", "$userId"))
+      .get(baseUri.addPath("users", s"$userId"))
       .header("Authorization", s"Bearer ${bearerAuthToken}")
   }
 
@@ -52,7 +52,7 @@ object UsersEndpoints {
       baseUri: Uri
   ): Request[Either[String, String]] = {
     basicRequest
-      .put(baseUri.addPath("users", "$userId"))
+      .put(baseUri.addPath("users", s"$userId"))
       .header("Authorization", s"Bearer ${bearerAuthToken}")
       .body(bodyJson)
       .contentType("application/json")
@@ -66,7 +66,7 @@ object UsersEndpoints {
       baseUri: Uri
   ): Request[Either[String, String]] = {
     basicRequest
-      .post(baseUri.addPath("users", "$userId", "photo"))
+      .post(baseUri.addPath("users", s"$userId", "photo"))
       .header("Authorization", s"Bearer ${bearerAuthToken}")
       .body(bodyJson)
       .contentType("application/json")

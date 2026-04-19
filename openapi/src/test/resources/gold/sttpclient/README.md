@@ -18,7 +18,7 @@ Copy the files into your project under a matching package, add
 `"com.softwaremill.sttp.client4" %% "core" % "4.x.y"` to your dependencies, then:
 
 ```scala
-import sttp.client4.*
+import sttp.client4._
 import sttp.model.Uri
 import baklavaclient.users.UsersEndpoints
 
