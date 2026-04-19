@@ -18,6 +18,7 @@ import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.pekkohttp.BaklavaPekkoHttp
 import pl.iterators.baklava.scalatest.{BaklavaScalatest, ScalatestAsExecution}
+import pl.iterators.baklava.postman.BaklavaDslFormatterPostman
 import pl.iterators.baklava.simple.BaklavaDslFormatterSimple
 import pl.iterators.baklava.tsrest.BaklavaDslFormatterTsRest
 import pl.iterators.baklava.{
@@ -49,9 +50,9 @@ import java.util.UUID
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
-/** Gold test for the three Baklava generators (OpenAPI, ts-rest, simple HTML).
+/** Gold test for the four Baklava generators (OpenAPI, ts-rest, simple HTML, Postman Collection).
   *
-  * Builds a comprehensive but realistic API and drives it end-to-end through the Baklava DSL, then generates all three output formats from
+  * Builds a comprehensive but realistic API and drives it end-to-end through the Baklava DSL, then generates all four output formats from
   * the captured calls and compares byte-for-byte against checked-in golden files under `openapi/src/test/resources/gold/`.
   *
   * Run with `BAKLAVA_REGEN_GOLD=1` to overwrite the golden files when the generator output legitimately changes (review the diff before
@@ -487,7 +488,8 @@ class ComprehensiveGoldSpec
     // comes from openapi-info.
     val config = Map(
       "openapi-info"                  -> openApiInfo,
-      "ts-rest-package-contract-json" -> tsRestPackageJson
+      "ts-rest-package-contract-json" -> tsRestPackageJson,
+      "postman.collectionName"        -> "Baklava Comprehensive Gold Spec"
     )
 
     // 1. OpenAPI YAML
@@ -508,6 +510,12 @@ class ComprehensiveGoldSpec
     new BaklavaDslFormatterTsRest().create(config, listCalls)
     assertGoldDir("tsrest", tsrestDir)
 
+    // 4. Postman Collection
+    val postmanDir = new File("target/baklava/postman")
+    deleteRecursively(postmanDir)
+    new BaklavaDslFormatterPostman().create(config, listCalls)
+    assertGoldDir("postman", postmanDir)
+
     if (regen) println(s"[gold] Regenerated gold files under ${goldRoot.getAbsolutePath}")
     val _ = system.terminate()
     super.afterAll()
@@ -518,7 +526,7 @@ class ComprehensiveGoldSpec
       |  "openapi": "3.0.1",
       |  "info": {
       |    "title": "Baklava Comprehensive Gold Spec",
-      |    "description": "Fixture API used by the gold test to exercise all three generators.",
+      |    "description": "Fixture API used by the gold test to exercise all generators.",
       |    "version": "0.0.0-test"
       |  }
       |}

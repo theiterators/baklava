@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
   title: Baklava Comprehensive Gold Spec
-  description: Fixture API used by the gold test to exercise all three generators.
+  description: Fixture API used by the gold test to exercise all generators.
   version: 0.0.0-test
 servers:
 - url: /
