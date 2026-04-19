@@ -1,0 +1,846 @@
+{
+  "info" : {
+    "name" : "Baklava Comprehensive Gold Spec",
+    "schema" : "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item" : [
+    {
+      "name" : "Auth",
+      "item" : [
+        {
+          "name" : "Login",
+          "request" : {
+            "method" : "POST",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/auth/login",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "auth",
+                "login"
+              ]
+            },
+            "body" : {
+              "mode" : "raw",
+              "raw" : "client_id=web&grant_type=password",
+              "options" : {
+                "raw" : {
+                  "language" : "text"
+                }
+              }
+            },
+            "auth" : {
+              "type" : "basic",
+              "basic" : [
+                {
+                  "key" : "username",
+                  "value" : "{{basicAuthUsername}}",
+                  "type" : "string"
+                },
+                {
+                  "key" : "password",
+                  "value" : "{{basicAuthPassword}}",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Exchange HTTP Basic credentials for a JWT token"
+          },
+          "response" : [
+            {
+              "name" : "Successful login",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "{\"token\":\"jwt.token.xyz\",\"user\":{\"id\":\"00000000-0000-0000-0000-000000000001\",\"email\":\"alice@example.com\",\"name\":\"Alice\",\"role\":\"admin\"}}",
+              "_postman_previewlanguage" : "json"
+            },
+            {
+              "name" : "Invalid credentials",
+              "status" : "Unauthorized",
+              "code" : 401,
+              "header" : [
+              ],
+              "body" : "{\"code\":\"unauthorized\",\"message\":\"Bad credentials\",\"details\":null}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        },
+        {
+          "name" : "Who am I",
+          "request" : {
+            "method" : "GET",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/me",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "me"
+              ]
+            },
+            "auth" : {
+              "type" : "bearer",
+              "bearer" : [
+                {
+                  "key" : "token",
+                  "value" : "{{bearerAuthToken}}",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Return the profile of the currently authenticated user"
+          },
+          "response" : [
+            {
+              "name" : "Authenticated user profile",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "{\"id\":\"00000000-0000-0000-0000-000000000001\",\"email\":\"alice@example.com\",\"name\":\"Alice\",\"role\":\"admin\"}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name" : "Projects",
+      "item" : [
+        {
+          "name" : "List projects",
+          "request" : {
+            "method" : "GET",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/projects?status=active",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "projects"
+              ],
+              "query" : [
+                {
+                  "key" : "status",
+                  "value" : "active",
+                  "description" : "Filter by lifecycle state"
+                }
+              ]
+            },
+            "auth" : {
+              "type" : "oauth2",
+              "oauth2" : [
+                {
+                  "key" : "accessToken",
+                  "value" : "{{oauth2Token}}",
+                  "type" : "string"
+                },
+                {
+                  "key" : "addTokenTo",
+                  "value" : "header",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "List projects, optionally filtered by status"
+          },
+          "response" : [
+            {
+              "name" : "All active projects",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "[{\"id\":42,\"name\":\"Apollo\",\"description\":\"Mission control\",\"status\":\"active\",\"ownerId\":\"00000000-0000-0000-0000-000000000001\",\"createdAt\":\"2026-01-01T00:00:00Z\"}]",
+              "_postman_previewlanguage" : "json"
+            },
+            {
+              "name" : "All archived projects",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "[{\"id\":7,\"name\":\"Gemini\",\"description\":null,\"status\":\"archived\",\"ownerId\":\"00000000-0000-0000-0000-000000000001\",\"createdAt\":\"2025-06-01T00:00:00Z\"}]",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        },
+        {
+          "name" : "Create project",
+          "request" : {
+            "method" : "POST",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/projects",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "projects"
+              ]
+            },
+            "body" : {
+              "mode" : "raw",
+              "raw" : "{\"name\":\"Apollo\",\"description\":\"Mission control\",\"status\":\"active\"}",
+              "options" : {
+                "raw" : {
+                  "language" : "json"
+                }
+              }
+            },
+            "auth" : {
+              "type" : "oauth2",
+              "oauth2" : [
+                {
+                  "key" : "accessToken",
+                  "value" : "{{oauth2Token}}",
+                  "type" : "string"
+                },
+                {
+                  "key" : "addTokenTo",
+                  "value" : "header",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Create a new project"
+          },
+          "response" : [
+            {
+              "name" : "Project created",
+              "status" : "Created",
+              "code" : 201,
+              "header" : [
+              ],
+              "body" : "{\"id\":42,\"name\":\"Apollo\",\"description\":\"Mission control\",\"status\":\"active\",\"ownerId\":\"00000000-0000-0000-0000-000000000001\",\"createdAt\":\"2026-01-01T00:00:00Z\"}",
+              "_postman_previewlanguage" : "json"
+            },
+            {
+              "name" : "Validation failed",
+              "status" : "Bad Request",
+              "code" : 400,
+              "header" : [
+              ],
+              "body" : "{\"code\":\"validation\",\"message\":\"One or more fields are invalid\",\"details\":[\"name: must not be blank\"]}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        },
+        {
+          "name" : "Patch project",
+          "request" : {
+            "method" : "PATCH",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/projects/:projectId",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "projects",
+                ":projectId"
+              ],
+              "variable" : [
+                {
+                  "key" : "projectId",
+                  "value" : "42",
+                  "description" : "The project ID"
+                }
+              ]
+            },
+            "body" : {
+              "mode" : "raw",
+              "raw" : "{\"name\":null,\"description\":\"Updated desc\",\"status\":null}",
+              "options" : {
+                "raw" : {
+                  "language" : "json"
+                }
+              }
+            },
+            "auth" : {
+              "type" : "oauth2",
+              "oauth2" : [
+                {
+                  "key" : "accessToken",
+                  "value" : "{{oauth2Token}}",
+                  "type" : "string"
+                },
+                {
+                  "key" : "addTokenTo",
+                  "value" : "header",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Partially update a project"
+          },
+          "response" : [
+            {
+              "name" : "Project updated",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "{\"id\":42,\"name\":\"Apollo\",\"description\":\"Updated desc\",\"status\":\"active\",\"ownerId\":\"00000000-0000-0000-0000-000000000001\",\"createdAt\":\"2026-01-01T00:00:00Z\"}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name" : "System",
+      "item" : [
+        {
+          "name" : "Liveness probe",
+          "request" : {
+            "method" : "GET",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/health",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "health"
+              ]
+            },
+            "description" : "Return service liveness — no authentication required"
+          },
+          "response" : [
+            {
+              "name" : "Service is alive",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "{\"status\":\"ok\",\"uptimeSeconds\":12345}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name" : "Tasks",
+      "item" : [
+        {
+          "name" : "List tasks",
+          "request" : {
+            "method" : "GET",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/projects/:projectId/tasks",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "projects",
+                ":projectId",
+                "tasks"
+              ],
+              "variable" : [
+                {
+                  "key" : "projectId",
+                  "value" : "42",
+                  "description" : "The project ID"
+                }
+              ]
+            },
+            "auth" : {
+              "type" : "oauth2",
+              "oauth2" : [
+                {
+                  "key" : "accessToken",
+                  "value" : "{{oauth2Token}}",
+                  "type" : "string"
+                },
+                {
+                  "key" : "addTokenTo",
+                  "value" : "header",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "List all tasks in a project"
+          },
+          "response" : [
+            {
+              "name" : "All tasks in the project",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "[{\"id\":101,\"title\":\"Wire up telemetry\",\"description\":\"Prometheus + Grafana\",\"done\":false,\"priority\":\"high\"},{\"id\":102,\"title\":\"Write docs\",\"description\":null,\"done\":true,\"priority\":\"low\"}]",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        },
+        {
+          "name" : "Create task",
+          "request" : {
+            "method" : "POST",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/projects/:projectId/tasks",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "projects",
+                ":projectId",
+                "tasks"
+              ],
+              "variable" : [
+                {
+                  "key" : "projectId",
+                  "value" : "42",
+                  "description" : "The project ID"
+                }
+              ]
+            },
+            "body" : {
+              "mode" : "raw",
+              "raw" : "{\"title\":\"New task\",\"description\":null,\"priority\":\"medium\"}",
+              "options" : {
+                "raw" : {
+                  "language" : "json"
+                }
+              }
+            },
+            "auth" : {
+              "type" : "oauth2",
+              "oauth2" : [
+                {
+                  "key" : "accessToken",
+                  "value" : "{{oauth2Token}}",
+                  "type" : "string"
+                },
+                {
+                  "key" : "addTokenTo",
+                  "value" : "header",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Create a task in a project"
+          },
+          "response" : [
+            {
+              "name" : "Task created",
+              "status" : "Created",
+              "code" : 201,
+              "header" : [
+                {
+                  "key" : "Location",
+                  "value" : "/projects/42/tasks/101"
+                }
+              ],
+              "body" : "{\"id\":101,\"title\":\"Wire up telemetry\",\"description\":\"Prometheus + Grafana\",\"done\":false,\"priority\":\"high\"}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name" : "Users",
+      "item" : [
+        {
+          "name" : "List users",
+          "request" : {
+            "method" : "GET",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/users?limit=20&page=1&role=admin",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "users"
+              ],
+              "query" : [
+                {
+                  "key" : "limit",
+                  "value" : "20",
+                  "description" : "Items per page (max 100)"
+                },
+                {
+                  "key" : "page",
+                  "value" : "1",
+                  "description" : "Page number (1-indexed)"
+                },
+                {
+                  "key" : "role",
+                  "value" : "admin",
+                  "description" : "Filter by role"
+                }
+              ]
+            },
+            "auth" : {
+              "type" : "bearer",
+              "bearer" : [
+                {
+                  "key" : "token",
+                  "value" : "{{bearerAuthToken}}",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "List users with pagination and optional role filter"
+          },
+          "response" : [
+            {
+              "name" : "First page of users",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+                {
+                  "key" : "X-Rate-Limit-Remaining",
+                  "value" : "59"
+                }
+              ],
+              "body" : "{\"users\":[{\"id\":\"00000000-0000-0000-0000-000000000001\",\"email\":\"alice@example.com\",\"name\":\"Alice\",\"role\":\"admin\"},{\"id\":\"00000000-0000-0000-0000-000000000002\",\"email\":\"bob@example.com\",\"name\":\"Bob\",\"role\":\"member\"}],\"total\":2,\"page\":1,\"limit\":20}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        },
+        {
+          "name" : "Delete user",
+          "request" : {
+            "method" : "DELETE",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/users/:userId",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "users",
+                ":userId"
+              ],
+              "variable" : [
+                {
+                  "key" : "userId",
+                  "value" : "00000000-0000-0000-0000-000000000002",
+                  "description" : "The user's UUID"
+                }
+              ]
+            },
+            "auth" : {
+              "type" : "bearer",
+              "bearer" : [
+                {
+                  "key" : "token",
+                  "value" : "{{bearerAuthToken}}",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Delete a user"
+          },
+          "response" : [
+            {
+              "name" : "User deleted",
+              "status" : "No Content",
+              "code" : 204,
+              "header" : [
+              ],
+              "body" : "",
+              "_postman_previewlanguage" : "text"
+            }
+          ]
+        },
+        {
+          "name" : "Get user",
+          "request" : {
+            "method" : "GET",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/users/:userId",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "users",
+                ":userId"
+              ],
+              "variable" : [
+                {
+                  "key" : "userId",
+                  "value" : "00000000-0000-0000-0000-000000000001",
+                  "description" : "The user's UUID"
+                }
+              ]
+            },
+            "auth" : {
+              "type" : "bearer",
+              "bearer" : [
+                {
+                  "key" : "token",
+                  "value" : "{{bearerAuthToken}}",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Fetch a single user by UUID"
+          },
+          "response" : [
+            {
+              "name" : "User found",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "{\"id\":\"00000000-0000-0000-0000-000000000001\",\"email\":\"alice@example.com\",\"name\":\"Alice\",\"role\":\"admin\"}",
+              "_postman_previewlanguage" : "json"
+            },
+            {
+              "name" : "User not found",
+              "status" : "Not Found",
+              "code" : 404,
+              "header" : [
+              ],
+              "body" : "{\"code\":\"not_found\",\"message\":\"No such user\",\"details\":null}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        },
+        {
+          "name" : "Update user",
+          "request" : {
+            "method" : "PUT",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/users/:userId",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "users",
+                ":userId"
+              ],
+              "variable" : [
+                {
+                  "key" : "userId",
+                  "value" : "00000000-0000-0000-0000-000000000001",
+                  "description" : "The user's UUID"
+                }
+              ]
+            },
+            "body" : {
+              "mode" : "raw",
+              "raw" : "{\"name\":\"Alice Updated\",\"role\":\"admin\"}",
+              "options" : {
+                "raw" : {
+                  "language" : "json"
+                }
+              }
+            },
+            "auth" : {
+              "type" : "bearer",
+              "bearer" : [
+                {
+                  "key" : "token",
+                  "value" : "{{bearerAuthToken}}",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Replace a user's profile (admin only)"
+          },
+          "response" : [
+            {
+              "name" : "User updated",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "{\"id\":\"00000000-0000-0000-0000-000000000001\",\"email\":\"alice@example.com\",\"name\":\"Alice Updated\",\"role\":\"admin\"}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        },
+        {
+          "name" : "Upload photo",
+          "request" : {
+            "method" : "POST",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/users/:userId/photo",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "users",
+                ":userId",
+                "photo"
+              ],
+              "variable" : [
+                {
+                  "key" : "userId",
+                  "value" : "00000000-0000-0000-0000-000000000001",
+                  "description" : "The user's UUID"
+                }
+              ]
+            },
+            "body" : {
+              "mode" : "raw",
+              "raw" : "--baklava-multipart-boundary\r\nContent-Type: image/png\r\nContent-Disposition: form-data; filename=\"photo.png\"; name=\"photo\"\r\n\r\nfake png bytes\r\n--baklava-multipart-boundary\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Disposition: form-data; name=\"caption\"\r\n\r\nprofile photo\r\n--baklava-multipart-boundary--",
+              "options" : {
+                "raw" : {
+                  "language" : "text"
+                }
+              }
+            },
+            "auth" : {
+              "type" : "bearer",
+              "bearer" : [
+                {
+                  "key" : "token",
+                  "value" : "{{bearerAuthToken}}",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Upload a profile photo alongside a caption as multipart/form-data"
+          },
+          "response" : [
+            {
+              "name" : "Photo uploaded",
+              "status" : "No Content",
+              "code" : 204,
+              "header" : [
+              ],
+              "body" : "",
+              "_postman_previewlanguage" : "text"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name" : "Webhooks",
+      "item" : [
+        {
+          "name" : "Deliver webhook",
+          "request" : {
+            "method" : "POST",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/webhooks",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "webhooks"
+              ]
+            },
+            "body" : {
+              "mode" : "raw",
+              "raw" : "{\"event\":\"order.created\",\"data\":\"{\\\"id\\\":1}\"}",
+              "options" : {
+                "raw" : {
+                  "language" : "json"
+                }
+              }
+            },
+            "auth" : {
+              "type" : "apikey",
+              "apikey" : [
+                {
+                  "key" : "key",
+                  "value" : "X-API-Key",
+                  "type" : "string"
+                },
+                {
+                  "key" : "value",
+                  "value" : "{{apiKeyValue}}",
+                  "type" : "string"
+                },
+                {
+                  "key" : "in",
+                  "value" : "header",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Accept a webhook payload"
+          },
+          "response" : [
+            {
+              "name" : "Webhook accepted",
+              "status" : "Accepted",
+              "code" : 202,
+              "header" : [
+              ],
+              "body" : "{\"received\":true}",
+              "_postman_previewlanguage" : "json"
+            },
+            {
+              "name" : "Legacy plain-text ack",
+              "status" : "Accepted",
+              "code" : 202,
+              "header" : [
+              ],
+              "body" : "ACK",
+              "_postman_previewlanguage" : "text"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable" : [
+    {
+      "key" : "baseUrl",
+      "value" : "",
+      "type" : "string"
+    },
+    {
+      "key" : "basicAuthUsername",
+      "value" : "",
+      "type" : "string"
+    },
+    {
+      "key" : "basicAuthPassword",
+      "value" : "",
+      "type" : "string"
+    },
+    {
+      "key" : "bearerAuthToken",
+      "value" : "",
+      "type" : "string"
+    },
+    {
+      "key" : "oauth2Token",
+      "value" : "",
+      "type" : "string"
+    },
+    {
+      "key" : "apiKeyValue",
+      "value" : "",
+      "type" : "string"
+    }
+  ]
+}

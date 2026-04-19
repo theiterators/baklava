@@ -52,6 +52,7 @@ lazy val baklava =
     simple,
     openapi,
     tsrest,
+    postman,
     pekkohttp,
     pekkohttproutes,
     http4s,
@@ -119,6 +120,17 @@ lazy val simple = project
     name := "baklava-simple"
   )
 
+lazy val postman = project
+  .in(file("postman"))
+  .dependsOn(core, scalatest % "test")
+  .settings(
+    name := "baklava-postman",
+    libraryDependencies ++= Seq(
+      "io.circe" %% "circe-core"   % circeV,
+      "io.circe" %% "circe-parser" % circeV
+    )
+  )
+
 lazy val tsrest = project
   .in(file("tsrest"))
   .dependsOn(core, scalatest % "test")
@@ -128,7 +140,7 @@ lazy val tsrest = project
 
 lazy val openapi = project
   .in(file("openapi"))
-  .dependsOn(core, pekkohttp % "test", http4s % "test", scalatest % "test", simple % "test", tsrest % "test")
+  .dependsOn(core, pekkohttp % "test", http4s % "test", scalatest % "test", simple % "test", tsrest % "test", postman % "test")
   .settings(
     name := "baklava-openapi",
     scalacOptions ++= {
