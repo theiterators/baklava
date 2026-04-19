@@ -66,6 +66,11 @@ object BaklavaRoutes {
     case GET -> Root / "swagger" =>
       val swaggerUiUrl = s"${withTrailingSlash(c.publicPathPrefix)}swagger-ui/$swaggerVersion/index.html"
       IO.fromEither(Uri.fromString(swaggerUiUrl)).flatMap(uri => SeeOther(Location(uri)))
+
+    case req @ GET -> "docs" /: rest =>
+      val relPath  = rest.segments.map(_.decoded()).mkString("/")
+      val filename = if (relPath.isEmpty) "index.html" else relPath
+      StaticFile.fromString(s"${c.fileSystemPath}/simple/$filename", Some(req)).getOrElseF(NotFound())
   }
 
   private def openApiFileContent(c: Config): String =
