@@ -21,7 +21,11 @@ export async function listUsers(client: BaklavaClient, params?: {
   });
   const text = await res.text();
   if (!res.ok) throw new BaklavaHttpError(res.status, text);
-  return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  }
+  return text as unknown as typeof __ret;
 }
 
 /** Delete user — Delete a user */
@@ -52,7 +56,11 @@ export async function getUser(client: BaklavaClient, params: {
   });
   const text = await res.text();
   if (!res.ok) throw new BaklavaHttpError(res.status, text);
-  return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  }
+  return text as unknown as typeof __ret;
 }
 
 /** Update user — Replace a user's profile (admin only) */
@@ -72,7 +80,11 @@ export async function updateUser(client: BaklavaClient, params: {
   });
   const text = await res.text();
   if (!res.ok) throw new BaklavaHttpError(res.status, text);
-  return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  }
+  return text as unknown as typeof __ret;
 }
 
 /** Upload photo — Upload a profile photo alongside a caption as multipart/form-data */

@@ -2,7 +2,7 @@ import { BaklavaClient, BaklavaHttpError } from "../client";
 import type { HealthResponse } from "./types";
 
 /** Liveness probe — Return service liveness — no authentication required */
-export async function health(_client: BaklavaClient): Promise<HealthResponse> {
+export async function health(client: BaklavaClient): Promise<HealthResponse> {
   const url = new URL(`${client.baseUrl}/health`);
   let __ret!: HealthResponse;
   const res = await client.fetch(url.toString(), {
@@ -13,5 +13,9 @@ export async function health(_client: BaklavaClient): Promise<HealthResponse> {
   });
   const text = await res.text();
   if (!res.ok) throw new BaklavaHttpError(res.status, text);
-  return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  }
+  return text as unknown as typeof __ret;
 }

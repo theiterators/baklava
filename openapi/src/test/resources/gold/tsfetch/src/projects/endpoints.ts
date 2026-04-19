@@ -17,7 +17,11 @@ export async function listProjects(client: BaklavaClient, params?: {
   });
   const text = await res.text();
   if (!res.ok) throw new BaklavaHttpError(res.status, text);
-  return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  }
+  return text as unknown as typeof __ret;
 }
 
 /** Create project — Create a new project */
@@ -36,7 +40,11 @@ export async function createProject(client: BaklavaClient, params: {
   });
   const text = await res.text();
   if (!res.ok) throw new BaklavaHttpError(res.status, text);
-  return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  }
+  return text as unknown as typeof __ret;
 }
 
 /** Patch project — Partially update a project */
@@ -56,5 +64,9 @@ export async function patchProject(client: BaklavaClient, params: {
   });
   const text = await res.text();
   if (!res.ok) throw new BaklavaHttpError(res.status, text);
-  return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  }
+  return text as unknown as typeof __ret;
 }
