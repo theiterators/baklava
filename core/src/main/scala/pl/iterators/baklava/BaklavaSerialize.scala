@@ -155,8 +155,17 @@ object BaklavaSchemaSerializable {
     * constructor based on `SchemaType`. Collection/object types have no generic `Encoder[T]` available here, so we fall back to a JSON
     * string (which is still technically valid JSON, just not a useful default). Users with structured defaults on custom types should
     * override by providing their own `BaklavaSchemaSerializable` instead of relying on this fallback — fixes issue #61.
+    *
+    * `optionSchema` sets `default = Some(None)` so that an Option[T] parameter renders the semantically correct `default: null`. We
+    * intercept `None` / `Some(x)` here so that value encoding uses the inner type (the `SchemaType` is inherited from the wrapped T).
     */
-  private def encodeDefault[T](schemaType: SchemaType)(value: T): Option[Json] = schemaType match {
+  private def encodeDefault[T](schemaType: SchemaType)(value: T): Option[Json] = value match {
+    case None        => Some(Json.Null)
+    case Some(inner) => encodeDefault(schemaType)(inner)
+    case _           => encodePrimitive(schemaType)(value)
+  }
+
+  private def encodePrimitive[T](schemaType: SchemaType)(value: T): Option[Json] = schemaType match {
     case SchemaType.NullType    => Some(Json.Null)
     case SchemaType.StringType  => Some(Json.fromString(value.toString))
     case SchemaType.BooleanType =>
