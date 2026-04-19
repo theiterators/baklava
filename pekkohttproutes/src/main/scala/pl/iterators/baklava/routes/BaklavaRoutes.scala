@@ -21,13 +21,11 @@ object BaklavaRoutes {
     implicit val internalConfig: BaklavaRoutes.Config = BaklavaRoutes.Config(config)
     if (internalConfig.enabled)
       authenticateBasic("docs", basicAuthOpt) { _ =>
-        /* TODO uncomment after introduce simple formatter
         pathPrefix("docs") {
           pathSingleSlash {
             getFromFile(s"${internalConfig.fileSystemPath}/simple/index.html")
           } ~ getFromDirectory(s"${internalConfig.fileSystemPath}/simple")
-        } ~ */
-        path("openapi") {
+        } ~ path("openapi") {
           complete(openApiFileContent)
         } ~ (path("swagger-ui" / swaggerVersion / "swagger-initializer.js") & get) {
           complete(swaggerInitializerContent)
