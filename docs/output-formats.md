@@ -5,7 +5,7 @@ title: Output Formats
 
 # Output Formats
 
-Baklava supports three output formats. You can use one or more simultaneously — each is an independent SBT dependency that produces its own output in `target/baklava/`.
+Baklava supports four output formats. You can use one or more simultaneously — each is an independent SBT dependency that produces its own output in `target/baklava/`.
 
 ## How It Works
 
@@ -13,9 +13,10 @@ Formatters are **automatically discovered** via reflection. Any formatter on the
 
 ```scala
 libraryDependencies ++= Seq(
-  "pl.iterators" %% "baklava-simple"  % "VERSION" % Test,  // adds Simple format
-  "pl.iterators" %% "baklava-openapi" % "VERSION" % Test,  // adds OpenAPI format
-  "pl.iterators" %% "baklava-tsrest"  % "VERSION" % Test   // adds TS-REST format
+  "pl.iterators" %% "baklava-simple"     % "VERSION" % Test,  // adds Simple format
+  "pl.iterators" %% "baklava-openapi"    % "VERSION" % Test,  // adds OpenAPI format
+  "pl.iterators" %% "baklava-tsrest"     % "VERSION" % Test,  // adds TS-REST format
+  "pl.iterators" %% "baklava-sttpclient" % "VERSION" % Test   // adds Scala sttp-client stubs
 )
 ```
 
@@ -171,3 +172,89 @@ import { contracts } from "@company/backend-contracts";
 // Full type safety and autocompletion for API calls
 const userContract = contracts.user;
 ```
+
+## Scala sttp-client Format
+
+**Dependency:** `"pl.iterators" %% "baklava-sttpclient" % "VERSION" % Test`
+**Configuration:** Optional — `sttp-client-package` key in `baklavaGenerateConfigs`
+**Output:** `target/baklava/sttpclient/`
+
+Generates a tree of Scala source files containing [sttp-client4](https://sttp.softwaremill.com) request builders for every documented endpoint. The generated code is framework-agnostic — each endpoint is a `def` that returns a `Request[Either[String, String]]` value. You send it with whatever sttp backend you like (sync, async, Future, fs2, ZIO, etc.) and bring your own JSON codec library.
+
+### Generated Files
+
+- `README.md` — usage overview
+- `src/main/scala/{package}/Types.scala` — case classes for every named object schema captured in the API
+- `src/main/scala/{package}/{Tag}Endpoints.scala` — one object per operation tag, with one `def` per endpoint. Untagged operations land in `DefaultEndpoints.scala`.
+
+Package name defaults to `baklavaclient` and can be overridden via the `sttp-client-package` config key.
+
+### Endpoint Shape
+
+Each generated `def` takes:
+- Path parameters as required positional parameters
+- Query parameters (required-typed or `Option[T] = None`)
+- Declared headers (same required/optional handling)
+- A `bodyJson: String` parameter when the operation has a request body — users supply pre-serialized JSON from their own codec library
+- Credential parameters per the first `SecurityScheme` (`{schemeName}Token` / `{schemeName}Username`+`{schemeName}Password` / `{schemeName}Value`)
+- A trailing `baseUri: sttp.model.Uri` parameter
+
+Example (generated for `GET /users/{userId}` with `bearerAuth`):
+
+```scala
+def getUser(
+    userId: String,
+    bearerAuthToken: String,
+    baseUri: Uri
+): Request[Either[String, String]] = {
+  basicRequest
+    .get(baseUri.addPath("users", s"$userId"))
+    .header("Authorization", s"Bearer ${bearerAuthToken}")
+}
+```
+
+### Schema → Scala Type Mapping
+
+| Baklava Schema | Scala |
+|---|---|
+| `String` | `String` |
+| `String` (uuid) | `java.util.UUID` |
+| `String` (enum) | `String` (user refines manually if desired) |
+| `Int` | `Int` |
+| `Long` (int64 format) | `Long` |
+| `Float`, `Double`, `BigDecimal` | `Float`, `Double`, `BigDecimal` |
+| `Boolean` | `Boolean` |
+| `Seq/List/Vector/Set/Array[T]` | `Seq[T]` |
+| Named case class | Case class (emitted in `Types.scala`) |
+| `Option[T]` | Field becomes `Option[T] = None` |
+
+### Configuration
+
+```scala
+baklavaGenerateConfigs := Map(
+  "sttp-client-package" -> "com.example.api.client"
+)
+```
+
+### Usage in a Scala Project
+
+Copy the generated tree into your project under a matching package, add `"com.softwaremill.sttp.client4" %% "core" % "4.x.y"` to your dependencies, then:
+
+```scala
+import sttp.client4.*
+import sttp.model.Uri
+import com.example.api.client.*
+
+val backend = DefaultSyncBackend()
+val base    = uri"https://api.example.com"
+
+val req = UsersEndpoints.listUsers(bearerAuthToken = "jwt...", baseUri = base)
+val res = req.send(backend)
+```
+
+### Caveats
+
+- Only the first `SecurityScheme`'s credentials become function parameters. Endpoints using multiple schemes need additional headers supplied manually.
+- Request bodies are always passed as `String` — the generator has no opinion on which JSON library you use. This keeps the module dependency-free but means you handle serialization at the call site.
+- Responses come back as `Either[String, String]`; deserialize yourself with the codec of your choice.
+- Enum values are emitted as plain `String`. If you want a sealed trait, refine the `Types.scala` manually after generation.

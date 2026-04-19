@@ -52,6 +52,7 @@ lazy val baklava =
     simple,
     openapi,
     tsrest,
+    sttpclient,
     pekkohttp,
     pekkohttproutes,
     http4s,
@@ -126,9 +127,16 @@ lazy val tsrest = project
     name := "baklava-tsrest"
   )
 
+lazy val sttpclient = project
+  .in(file("sttpclient"))
+  .dependsOn(core, scalatest % "test")
+  .settings(
+    name := "baklava-sttpclient"
+  )
+
 lazy val openapi = project
   .in(file("openapi"))
-  .dependsOn(core, pekkohttp % "test", http4s % "test", scalatest % "test", simple % "test", tsrest % "test")
+  .dependsOn(core, pekkohttp % "test", http4s % "test", scalatest % "test", simple % "test", tsrest % "test", sttpclient % "test")
   .settings(
     name := "baklava-openapi",
     scalacOptions ++= {
