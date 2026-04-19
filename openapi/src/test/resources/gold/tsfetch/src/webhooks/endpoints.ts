@@ -4,9 +4,9 @@ import type { WebhookAck, WebhookPayload } from "./types";
 /** Deliver webhook — Accept a webhook payload */
 export async function deliverWebhook(client: BaklavaClient, params: {
   body: WebhookPayload;
-}): Promise<WebhookAck> {
+}): Promise<WebhookAck | string> {
   const url = new URL(`${client.baseUrl}/webhooks`);
-  let __ret!: WebhookAck;
+  let __ret!: WebhookAck | string;
   const res = await client.fetch(url.toString(), {
     method: "POST",
     headers: {
@@ -18,5 +18,9 @@ export async function deliverWebhook(client: BaklavaClient, params: {
   });
   const text = await res.text();
   if (!res.ok) throw new BaklavaHttpError(res.status, text);
-  return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  }
+  return text as unknown as typeof __ret;
 }

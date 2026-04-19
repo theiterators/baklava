@@ -201,7 +201,7 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
 
     val returnType = tsReturnType(endpointCalls)
     val sigParams  =
-      if (paramFields.isEmpty) "_client: BaklavaClient"
+      if (paramFields.isEmpty) "client: BaklavaClient"
       else s"client: BaklavaClient, params${if (paramsArgOptional) "?" else ""}: $paramsType"
 
     val urlExpr = renderUrlExpression(req.symbolicPath, pathParams.map(_.name), queryParams.map(_.name))
@@ -244,7 +244,11 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
       else
         """  const text = await res.text();
           |  if (!res.ok) throw new BaklavaHttpError(res.status, text);
-          |  return (text ? JSON.parse(text) : undefined) as typeof __ret;""".stripMargin
+          |  const ct = res.headers.get("content-type") ?? "";
+          |  if (ct.includes("application/json")) {
+          |    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+          |  }
+          |  return text as unknown as typeof __ret;""".stripMargin
 
     val retDecl = if (returnType != "void") s"  let __ret!: $returnType;\n" else ""
 
@@ -302,9 +306,13 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
     byClassName.toMap
   }
 
-  /** Named classes directly referenced from a schema's immediate property types (doesn't descend into nested anonymous objects). */
+  /** Named classes reachable from a schema's immediate property types. Named classes terminate descent (so the interface body can emit a
+    * reference to them by name); anonymous object types get inlined, so we recurse through their properties to surface any named classes
+    * they transitively embed.
+    */
   private def directReferencesIn(schema: BaklavaSchemaSerializable): Set[String] = schema.`type` match {
     case SchemaType.ObjectType if isNamedInterface(schema) => Set(schema.className)
+    case SchemaType.ObjectType                             => schema.properties.values.flatMap(directReferencesIn).toSet
     case SchemaType.ArrayType                              => schema.items.toSet.flatMap(directReferencesIn)
     case _                                                 => Set.empty
   }
@@ -371,8 +379,12 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
   private def tsReturnType(endpointCalls: Seq[BaklavaSerializableCall]): String = {
     val successCalls = endpointCalls.filter(c => c.response.status.code >= 200 && c.response.status.code < 300)
     val picked       = if (successCalls.nonEmpty) successCalls else endpointCalls
-    val schemas      = picked.flatMap(_.response.bodySchema).filterNot(isEmptyBodyInstance).distinct
-    if (schemas.isEmpty) "void" else tsType(schemas.head)
+    val rendered     = picked.flatMap(_.response.bodySchema).filterNot(isEmptyBodyInstance).map(tsType).distinct
+    rendered match {
+      case Nil        => "void"
+      case one :: Nil => one
+      case many       => many.mkString(" | ")
+    }
   }
 
   private def isEmptyBodyInstance(schema: BaklavaSchemaSerializable): Boolean =
@@ -443,11 +455,27 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
     if (name.matches("[A-Za-z_][A-Za-z0-9_]*")) name
     else "[" + "\"" + name.replace("\\", "\\\\").replace("\"", "\\\"") + "\"]"
 
-  private def fileSafeTagName(tag: String): String =
+  /** Pre-computed tag → folder-name map. Collisions after case-folding and non-alnum collapsing get stable numeric suffixes. */
+  private val tagFolderName: Map[String, String] = {
+    val allTags = (calls.map(_.request.operationTags.headOption.getOrElse(DefaultTag)) :+ DefaultTag).distinct.sorted
+    val used    = scala.collection.mutable.Set.empty[String]
+    allTags.map { tag =>
+      val base      = rawTagName(tag)
+      var candidate = base
+      var n         = 2
+      while (used.contains(candidate)) { candidate = s"$base-$n"; n += 1 }
+      used += candidate
+      tag -> candidate
+    }.toMap
+  }
+
+  private def rawTagName(tag: String): String =
     tag.toLowerCase.replaceAll("[^a-z0-9]+", "-").stripPrefix("-").stripSuffix("-") match {
       case ""    => DefaultTag
       case clean => clean
     }
+
+  private def fileSafeTagName(tag: String): String = tagFolderName.getOrElse(tag, rawTagName(tag))
 
   private def write(path: String, content: String): Unit =
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
