@@ -81,7 +81,8 @@ trait BaklavaQueryParams {
   }
 
   implicit def setToQueryParam[T](implicit tsm: ToQueryParam[T]): ToQueryParam[Set[T]] = new ToQueryParam[Set[T]] {
-    override def apply(t: Set[T]): Seq[String] = t.toSeq.flatMap(tsm.apply)
+    // Set iteration order is undefined; sort the rendered string values so generated URLs are deterministic.
+    override def apply(t: Set[T]): Seq[String] = t.toSeq.flatMap(tsm.apply).sorted
   }
 
   implicit def arrayToQueryParam[T](implicit tsm: ToQueryParam[T]): ToQueryParam[Array[T]] = new ToQueryParam[Array[T]] {

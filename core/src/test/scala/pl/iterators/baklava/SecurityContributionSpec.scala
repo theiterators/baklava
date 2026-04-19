@@ -3,6 +3,7 @@ package pl.iterators.baklava
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.nio.charset.StandardCharsets
 import java.util.Base64
 
 class SecurityContributionSpec extends AnyFunSpec with Matchers {
@@ -20,7 +21,7 @@ class SecurityContributionSpec extends AnyFunSpec with Matchers {
 
     it("HttpBasic injects base64(id:secret) in the Authorization header") {
       val c       = securityContribution(AppliedSecurity(HttpBasic(), Map("id" -> "alice", "secret" -> "s3cr3t")))
-      val encoded = Base64.getEncoder.encodeToString("alice:s3cr3t".getBytes)
+      val encoded = Base64.getEncoder.encodeToString("alice:s3cr3t".getBytes(StandardCharsets.UTF_8))
       c.headers shouldBe Map("Authorization" -> s"Basic $encoded")
       c.cookie shouldBe None
       c.queryParameters shouldBe empty
@@ -93,9 +94,9 @@ class SecurityContributionSpec extends AnyFunSpec with Matchers {
       Map("Cookie" -> "foo=1; session=abc")
     }
 
-    it("matches the Cookie header case-insensitively") {
+    it("matches the Cookie header case-insensitively and collapses to a single canonical Cookie key") {
       appendCookie(Map("cookie" -> "foo=1"), "session" -> "abc") shouldBe
-      Map("cookie" -> "foo=1", "Cookie" -> "foo=1; session=abc")
+      Map("Cookie" -> "foo=1; session=abc")
     }
 
     it("preserves unrelated headers") {

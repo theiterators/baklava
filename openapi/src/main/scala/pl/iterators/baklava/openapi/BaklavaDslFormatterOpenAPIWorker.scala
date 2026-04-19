@@ -12,7 +12,8 @@ import scala.jdk.CollectionConverters.*
 object BaklavaDslFormatterOpenAPIWorker {
   def generateForCalls(openAPI: OpenAPI, calls: Seq[BaklavaSerializableCall]): Unit = {
     val securitySchemes = calls.flatMap(_.request.securitySchemes).distinctBy(_.name).map { scheme =>
-      scheme.name -> buildSecurityScheme(scheme.security.toSecurity, scheme.security.descriptionParsed)
+      val security = scheme.security.toSecurity
+      scheme.name -> buildSecurityScheme(security, security.descriptionParsed)
     }
 
     // Merge generated security schemes into any user-supplied components (e.g. from openapi-info).

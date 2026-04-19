@@ -222,7 +222,7 @@ case class BaklavaRequestContextSerializable(
     operationTags: Seq[String],
     securitySchemes: Seq[BaklavaSecuritySchemaSerializable],
     bodySchema: Option[BaklavaSchemaSerializable],
-    bodyString: String,
+    bodyString: String = "",
     headersSeq: Seq[BaklavaHeaderSerializable],
     pathParametersSeq: Seq[BaklavaPathParamSerializable],
     queryParametersSeq: Seq[BaklavaQueryParamSerializable],
@@ -326,7 +326,7 @@ case class BaklavaResponseContextSerializable(
     protocol: BaklavaHttpProtocol,
     status: StatusCode,
     headers: Seq[SttpHeader],
-    bodyString: String,
+    bodyString: String = "",
     requestContentType: Option[String],
     responseContentType: Option[String],
     bodySchema: Option[BaklavaSchemaSerializable]

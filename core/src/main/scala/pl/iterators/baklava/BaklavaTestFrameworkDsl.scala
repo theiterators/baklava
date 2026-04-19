@@ -2,6 +2,7 @@ package pl.iterators.baklava
 
 import sttp.model.{Header => SttpHeader, Method, StatusCode}
 
+import java.nio.charset.StandardCharsets
 import java.util.Base64
 import java.util.concurrent.atomic.AtomicReference
 import scala.reflect.ClassTag
@@ -769,7 +770,7 @@ object BaklavaTestFrameworkDsl {
   def securityContribution(security: AppliedSecurity): SecurityContribution = {
     def bearerAuth(token: String): Map[String, String]             = Map("Authorization" -> s"Bearer $token")
     def basicAuth(id: String, secret: String): Map[String, String] =
-      Map("Authorization" -> s"Basic ${Base64.getEncoder.encodeToString(s"$id:$secret".getBytes)}")
+      Map("Authorization" -> s"Basic ${Base64.getEncoder.encodeToString(s"$id:$secret".getBytes(StandardCharsets.UTF_8))}")
 
     security match {
       case AppliedSecurity(_: HttpBearer, p)     => SecurityContribution(bearerAuth(p("token")), None, Map.empty)
@@ -789,13 +790,14 @@ object BaklavaTestFrameworkDsl {
     }
   }
 
-  /** Case-insensitive Cookie-header lookup; concatenates to an existing cookie with `;` or creates a fresh `Cookie` header. */
+  /** Merge a new `name=value` segment into the map's Cookie header, replacing any existing cookie entry (regardless of its key casing) so
+    * the result contains exactly one canonical "Cookie" key.
+    */
   def appendCookie(headers: Map[String, String], cookie: (String, String)): Map[String, String] = {
     val (name, value) = cookie
-    headers.find(_._1.toLowerCase == "cookie") match {
-      case Some((_, existing)) => headers + ("Cookie" -> s"$existing; $name=$value")
-      case None                => headers + ("Cookie" -> s"$name=$value")
-    }
+    val existing      = headers.collectFirst { case (k, v) if k.equalsIgnoreCase("Cookie") => v }
+    val merged        = existing.fold(s"$name=$value")(e => s"$e; $name=$value")
+    headers.filterNot { case (k, _) => k.equalsIgnoreCase("Cookie") } + ("Cookie" -> merged)
   }
 }
 
