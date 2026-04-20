@@ -7,7 +7,8 @@ import scala.util.Using
 
 /** Emits a Scala source tree under `target/baklava/sttpclient/` that users drop into their own project. Output structure mirrors the
   * tsfetch generator: one sub-package per operation tag with its own `Endpoints.scala` and `Types.scala`, plus a `common` sub-package for
-  * types shared between two or more tags.
+  * types shared between two or more tags. Endpoint functions return `sttp.client4.Request[Either[String, String]]`; callers pick their own
+  * backend and JSON codec.
   */
 class BaklavaDslFormatterSttpClient extends BaklavaDslFormatter {
 

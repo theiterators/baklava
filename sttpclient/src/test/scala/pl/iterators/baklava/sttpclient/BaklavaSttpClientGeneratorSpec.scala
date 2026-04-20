@@ -111,6 +111,37 @@ class BaklavaSttpClientGeneratorSpec extends AnyFunSpec with Matchers {
       content should include("bearerAuthToken: String")
       content should include("""      .header("Authorization", s"Bearer ${bearerAuthToken}")""")
     }
+
+    it("uses valid identifiers for security credentials when the scheme name is a Scala reserved word") {
+      cleanSrc()
+      val scheme  = BaklavaSecuritySchemaSerializable("type", BaklavaSecuritySerializable(httpBearer = Some(HttpBearer())))
+      val base    = getCall("/me", tag = Some("Users"))
+      val call    = base.copy(request = base.request.copy(securitySchemes = Seq(scheme)))
+      val content = generateAndRead("src/main/scala/baklavaclient/users/Endpoints.scala", Seq(call))
+      content should include("typeToken: String")
+      content should not include "`type`Token"
+    }
+
+    it("honors the captured request content-type on the body .contentType call instead of hard-coding JSON") {
+      cleanSrc()
+      val body = namedObject("Upload", Map("name" -> Schema.stringSchema))
+      val base = getCall("/upload", tag = Some("Users"))
+      val call = base.copy(
+        request = base.request.copy(bodySchema = Some(body)),
+        response = base.response.copy(requestContentType = Some("multipart/form-data"))
+      )
+      val content = generateAndRead("src/main/scala/baklavaclient/users/Endpoints.scala", Seq(call))
+      content should include(""".contentType("multipart/form-data")""")
+      content should not include """.contentType("application/json")"""
+    }
+
+    it("falls back to .method(Method(...), uri) for HTTP verbs outside the well-known set") {
+      cleanSrc()
+      val base    = getCall("/resource", tag = Some("Users")).let(c => c.copy(request = c.request.copy(method = Some(Method("PROPFIND")))))
+      val content = generateAndRead("src/main/scala/baklavaclient/users/Endpoints.scala", Seq(base))
+      content should include("""sttp.model.Method("PROPFIND")""")
+      content should not include ".propfind("
+    }
   }
 
   private def namedObject(name: String, props: Map[String, PrimitiveSchema[?]]): BaklavaSchemaSerializable =
@@ -132,7 +163,7 @@ class BaklavaSttpClientGeneratorSpec extends AnyFunSpec with Matchers {
   }
 
   private def cleanSrc(): Unit = {
-    val dir = new File("target/baklava/sttpclient/src")
+    val dir = new File("target/baklava/sttpclient")
     if (dir.exists()) deleteRecursively(dir)
   }
 

@@ -69,6 +69,6 @@ object UsersEndpoints {
       .post(baseUri.addPath("users", s"$userId", "photo"))
       .header("Authorization", s"Bearer ${bearerAuthToken}")
       .body(bodyJson)
-      .contentType("application/json")
+      .contentType("multipart/form-data; boundary=baklava-multipart-boundary")
   }
 }

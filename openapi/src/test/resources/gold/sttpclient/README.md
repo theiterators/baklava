@@ -15,19 +15,22 @@ return `Request[Either[String, String]]` values that you `.send(backend)` with a
 ## Usage
 
 Copy the files into your project under a matching package, add
-`"com.softwaremill.sttp.client4" %% "core" % "4.x.y"` to your dependencies, then:
+`"com.softwaremill.sttp.client4" %% "core" % "4.x.y"` to your dependencies, then pick an endpoint
+from one of the generated `*Endpoints.scala` files and supply any required auth, path, query,
+header, or body parameters:
 
 ```scala
 import sttp.client4._
 import sttp.model.Uri
-import baklavaclient.users.UsersEndpoints
+// import baklavaclient.<tag>.<Tag>Endpoints
 
 val backend = DefaultSyncBackend()
 val base    = uri"https://api.example.com"
 
-val req = UsersEndpoints.listUsers(bearerAuthToken = "jwt", baseUri = base)
-val res = req.send(backend)
+// val req = <Tag>Endpoints.<operation>(baseUri = base /*, other params */)
+// val res = req.send(backend)
 ```
 
-Request bodies take a pre-serialized JSON string (`bodyJson: String`) — bring your own JSON
-codec (circe, jsoniter, upickle, etc.) to produce it.
+Request bodies take a pre-serialized string (`bodyJson: String`) — bring your own codec (circe,
+jsoniter, upickle, etc.) to produce it. The `Content-Type` on the generated request honors the
+content type captured by Baklava; for JSON-only APIs that resolves to `application/json`.

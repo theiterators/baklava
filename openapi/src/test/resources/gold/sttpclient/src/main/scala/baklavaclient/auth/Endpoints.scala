@@ -18,7 +18,7 @@ object AuthEndpoints {
       .post(baseUri.addPath("auth", "login"))
       .auth.basic(basicAuthUsername, basicAuthPassword)
       .body(bodyJson)
-      .contentType("application/json")
+      .contentType("application/x-www-form-urlencoded")
   }
 
   /** Who am I — Return the profile of the currently authenticated user */

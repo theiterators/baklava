@@ -115,14 +115,15 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
        |""".stripMargin
   }
 
-  // -- endpoint rendering (unchanged) -----------------------------------------
+  // -- endpoint rendering -----------------------------------------------------
 
   private def renderEndpoint(endpointCalls: Seq[BaklavaSerializableCall]): String = {
-    val head     = endpointCalls.head
-    val req      = head.request
-    val method   = req.method.map(_.method.toUpperCase).getOrElse("GET")
-    val fnName   = functionName(req)
-    val scaladoc = renderScaladoc(req)
+    val head          = endpointCalls.head
+    val req           = head.request
+    val method        = req.method.map(_.method.toUpperCase).getOrElse("GET")
+    val fnName        = functionName(req)
+    val scaladoc      = renderScaladoc(req)
+    val bodyMediaType = uniformBodyContentType(endpointCalls)
 
     val pathParams  = req.pathParametersSeq
     val queryParams = req.queryParametersSeq
@@ -162,12 +163,15 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
         else s"""      .header("$name", $id.map(_.toString))"""
       }
 
-    val methodCall = method.toLowerCase
-    val verbCall   = s""".$methodCall($pathExpr${queryAddLines.mkString("\n")})"""
-    val bodyCall   = bodySchema
-      .map(_ => """      .body(bodyJson)
-                  |      .contentType("application/json")""".stripMargin)
-      .getOrElse("")
+    val uriChain = s"$pathExpr${queryAddLines.mkString("\n")}"
+    val verbCall = renderVerbCall(method, uriChain)
+    val bodyCall = bodySchema match {
+      case None    => ""
+      case Some(_) =>
+        val ct = bodyMediaType.getOrElse("application/json")
+        s"""      .body(bodyJson)
+           |      .contentType("$ct")""".stripMargin
+    }
 
     s"""  $scaladoc
        |  def $fnName(
@@ -178,6 +182,21 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
        |${headerLines.mkString("\n")}
        |$bodyCall
        |  }""".stripMargin.replaceAll("\n+\\s*\n", "\n")
+  }
+
+  /** If every captured call declared the same non-empty request content-type, return it. */
+  private def uniformBodyContentType(endpointCalls: Seq[BaklavaSerializableCall]): Option[String] = {
+    val distinct = endpointCalls.flatMap(_.response.requestContentType).distinct
+    if (distinct.size == 1) distinct.headOption else None
+  }
+
+  /** Well-known verbs get the convenience method (`.get(uri)`); anything else falls back to `.method(Method("X"), uri)` so non-standard
+    * HTTP methods still compile.
+    */
+  private def renderVerbCall(method: String, uriChain: String): String = {
+    val upper = method.toUpperCase
+    if (BaklavaSttpClientGenerator.KnownMethods.contains(upper)) s".${upper.toLowerCase}($uriChain)"
+    else s""".method(sttp.model.Method("$upper"), $uriChain)"""
   }
 
   private def renderPathExpression(symbolicPath: String, pathParamNames: Seq[String]): String = {
@@ -192,38 +211,45 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
 
   private def securityCredentialParams(schemes: Seq[BaklavaSecuritySchemaSerializable]): Seq[String] =
     schemes.headOption.toSeq.flatMap { s =>
-      val sec = s.security
+      val sec          = s.security
+      val tokenName    = scalaSafeIdent(s.name + "Token")
+      val usernameName = scalaSafeIdent(s.name + "Username")
+      val passwordName = scalaSafeIdent(s.name + "Password")
+      val valueName    = scalaSafeIdent(s.name + "Value")
       if (sec.httpBearer.isDefined || sec.oAuth2InBearer.isDefined || sec.openIdConnectInBearer.isDefined)
-        Seq(s"${scalaSafeIdent(s.name)}Token: String")
+        Seq(s"$tokenName: String")
       else if (sec.httpBasic.isDefined)
-        Seq(s"${scalaSafeIdent(s.name)}Username: String", s"${scalaSafeIdent(s.name)}Password: String")
+        Seq(s"$usernameName: String", s"$passwordName: String")
       else if (sec.apiKeyInHeader.isDefined || sec.apiKeyInQuery.isDefined || sec.apiKeyInCookie.isDefined)
-        Seq(s"${scalaSafeIdent(s.name)}Value: String")
+        Seq(s"$valueName: String")
       else Seq.empty
     }
 
   private def securityHeaderLines(schemes: Seq[BaklavaSecuritySchemaSerializable]): Seq[String] =
     schemes.headOption.toSeq.flatMap { s =>
-      val sec  = s.security
-      val name = scalaSafeIdent(s.name)
+      val sec          = s.security
+      val tokenName    = scalaSafeIdent(s.name + "Token")
+      val usernameName = scalaSafeIdent(s.name + "Username")
+      val passwordName = scalaSafeIdent(s.name + "Password")
+      val valueName    = scalaSafeIdent(s.name + "Value")
       if (sec.httpBearer.isDefined || sec.oAuth2InBearer.isDefined || sec.openIdConnectInBearer.isDefined)
-        Seq(s"""      .header("Authorization", s"Bearer $${${name}Token}")""")
+        Seq(s"""      .header("Authorization", s"Bearer $${$tokenName}")""")
       else if (sec.httpBasic.isDefined)
-        Seq(s"""      .auth.basic(${name}Username, ${name}Password)""")
+        Seq(s"""      .auth.basic($usernameName, $passwordName)""")
       else if (sec.apiKeyInHeader.isDefined) {
         val k = sec.apiKeyInHeader.get.name
-        Seq(s"""      .header("$k", ${name}Value)""")
+        Seq(s"""      .header("$k", $valueName)""")
       } else if (sec.apiKeyInCookie.isDefined) {
         val k = sec.apiKeyInCookie.get.name
-        Seq(s"""      .cookie("$k", ${name}Value)""")
+        Seq(s"""      .cookie("$k", $valueName)""")
       } else Seq.empty
     }
 
   private def securityQueryLines(schemes: Seq[BaklavaSecuritySchemaSerializable]): Seq[String] =
     schemes.headOption.toSeq.flatMap { s =>
-      val sec  = s.security
-      val name = scalaSafeIdent(s.name)
-      sec.apiKeyInQuery.toSeq.map(k => s"""        .addParam("${k.name}", ${name}Value)""")
+      val sec       = s.security
+      val valueName = scalaSafeIdent(s.name + "Value")
+      sec.apiKeyInQuery.toSeq.map(k => s"""        .addParam("${k.name}", $valueName)""")
     }
 
   private def renderScaladoc(req: BaklavaRequestContextSerializable): String = {
@@ -399,7 +425,8 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
   private def capitalize(s: String): String =
     if (s.isEmpty) s else s"${s.charAt(0).toUpper}${s.substring(1)}"
 
-  def renderReadme: String =
+  def renderReadme: String = {
+    val pkgPath = basePackage.replace('.', '/')
     s"""# Baklava-generated sttp-client
        |
        |This directory contains a Scala source tree emitted from your Baklava test cases. It uses
@@ -409,34 +436,44 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
        |
        |## Layout
        |
-       |- `src/main/scala/$basePackage/common/Types.scala` — case classes shared by 2+ tags (omitted if empty)
-       |- `src/main/scala/$basePackage/{tag}/Types.scala` — tag-local case classes (omitted if empty)
-       |- `src/main/scala/$basePackage/{tag}/Endpoints.scala` — one `{Tag}Endpoints` object with a
+       |- `src/main/scala/$pkgPath/common/Types.scala` — case classes shared by 2+ tags (omitted if empty)
+       |- `src/main/scala/$pkgPath/{tag}/Types.scala` — tag-local case classes (omitted if empty)
+       |- `src/main/scala/$pkgPath/{tag}/Endpoints.scala` — one `{Tag}Endpoints` object with a
        |  `def` per endpoint
        |
        |## Usage
        |
        |Copy the files into your project under a matching package, add
-       |`"com.softwaremill.sttp.client4" %% "core" % "4.x.y"` to your dependencies, then:
+       |`"com.softwaremill.sttp.client4" %% "core" % "4.x.y"` to your dependencies, then pick an endpoint
+       |from one of the generated `*Endpoints.scala` files and supply any required auth, path, query,
+       |header, or body parameters:
        |
        |```scala
        |import sttp.client4._
        |import sttp.model.Uri
-       |import $basePackage.users.UsersEndpoints
+       |// import $basePackage.<tag>.<Tag>Endpoints
        |
        |val backend = DefaultSyncBackend()
        |val base    = uri"https://api.example.com"
        |
-       |val req = UsersEndpoints.listUsers(bearerAuthToken = "jwt", baseUri = base)
-       |val res = req.send(backend)
+       |// val req = <Tag>Endpoints.<operation>(baseUri = base /*, other params */)
+       |// val res = req.send(backend)
        |```
        |
-       |Request bodies take a pre-serialized JSON string (`bodyJson: String`) — bring your own JSON
-       |codec (circe, jsoniter, upickle, etc.) to produce it.
+       |Request bodies take a pre-serialized string (`bodyJson: String`) — bring your own codec (circe,
+       |jsoniter, upickle, etc.) to produce it. The `Content-Type` on the generated request honors the
+       |content type captured by Baklava; for JSON-only APIs that resolves to `application/json`.
        |""".stripMargin
+  }
 }
 
 private[sttpclient] object BaklavaSttpClientGenerator {
+
+  /** HTTP methods exposed as convenience builders on sttp-client4 `basicRequest`. Any verb outside this set goes through
+    * `.method(Method(...), uri)` so unusual methods (PROPFIND, PURGE, custom extensions) still compile.
+    */
+  val KnownMethods: Set[String] = Set("GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS")
+
   val ReservedIdents: Set[String] = Set(
     "abstract",
     "case",
