@@ -10,7 +10,6 @@ export async function deliverWebhook(client: BaklavaClient, params: {
   const res = await client.fetch(url.toString(), {
     method: "POST",
     headers: {
-    ...client.authHeaders(),
     "Content-Type": "application/json",
     ...(client.apiKeys?.["X-API-Key"] ? { "X-API-Key": client.apiKeys["X-API-Key"] } : {}),
     },
