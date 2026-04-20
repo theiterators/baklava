@@ -5,7 +5,7 @@ title: Output Formats
 
 # Output Formats
 
-Baklava supports three output formats. You can use one or more simultaneously — each is an independent SBT dependency that produces its own output in `target/baklava/`.
+Baklava supports four output formats. You can use one or more simultaneously — each is an independent SBT dependency that produces its own output in `target/baklava/`.
 
 ## How It Works
 
@@ -15,7 +15,8 @@ Formatters are **automatically discovered** via reflection. Any formatter on the
 libraryDependencies ++= Seq(
   "pl.iterators" %% "baklava-simple"  % "VERSION" % Test,  // adds Simple format
   "pl.iterators" %% "baklava-openapi" % "VERSION" % Test,  // adds OpenAPI format
-  "pl.iterators" %% "baklava-tsrest"  % "VERSION" % Test   // adds TS-REST format
+  "pl.iterators" %% "baklava-tsrest"  % "VERSION" % Test,  // adds TS-REST format
+  "pl.iterators" %% "baklava-tsfetch" % "VERSION" % Test   // adds TypeScript fetch client
 )
 ```
 
@@ -171,3 +172,93 @@ import { contracts } from "@company/backend-contracts";
 // Full type safety and autocompletion for API calls
 const userContract = contracts.user;
 ```
+
+## TypeScript Fetch Client Format
+
+**Dependency:** `"pl.iterators" %% "baklava-tsfetch" % "VERSION" % Test`
+**Configuration:** Optional — `ts-fetch-package-json` key in `baklavaGenerateConfigs`
+**Output:** `target/baklava/tsfetch/`
+
+Generates a plain-TypeScript client library that uses the browser/Node `fetch` API — no ts-rest, zod, or other runtime dependencies. Every declared endpoint becomes a typed `async function` that accepts a `BaklavaClient` plus path/query/header/body parameters and returns a typed `Promise<T>` for the 2xx response body. Non-2xx responses throw `BaklavaHttpError`.
+
+### Generated Files
+
+- `package.json` / `tsconfig.json` — minimal npm package with a single `typescript` dev dep
+- `src/client.ts` — `BaklavaClient` class with `baseUrl`, pluggable `fetch`, optional bearer/basic/API-key credentials; plus `BaklavaHttpError` for failed responses
+- `src/common/types.ts` — interfaces for types used by two or more tags
+- `src/{tag}/types.ts` — interfaces for types used only within that tag
+- `src/{tag}/endpoints.ts` — one `async function` per endpoint in that tag. Untagged operations go into `src/default/endpoints.ts`.
+- `src/index.ts` — re-exports every tag's endpoints. Per-tag types are re-exported under a namespace (`Users`, `Projects`, …) to avoid collisions; shared types appear under `Common`.
+
+### Type Distribution
+
+Each named schema is routed based on which tags' endpoints reference it:
+
+- Used by **one tag** → `src/{tag}/types.ts`
+- Used by **two or more tags** → `src/common/types.ts`
+
+Endpoint files import types from the appropriate location (`./types`, `../common/types`, or `../{other-tag}/types`). Interface references inside other interfaces follow the same rule, so the output never duplicates a type.
+
+### Schema Type Mapping
+
+| Baklava Schema | TypeScript |
+|---|---|
+| `String` | `string` |
+| `String` (enum) | `"val1" \| "val2"` |
+| `Int`, `Long`, `Double`, `Float`, `BigDecimal` | `number` |
+| `Boolean` | `boolean` |
+| `Null` | `null` |
+| `Seq[T]`, `List[T]`, `Vector[T]`, `Set[T]`, `Array[T]` | `InnerType[]` |
+| Case class with properties | Named `interface` (re-exported per-tag as `Users.ClassName` / shared as `Common.ClassName`) |
+| `Option[T]` | Field becomes optional (`field?: T`) |
+
+### Configuration
+
+Override the default `package.json` contents (name, version, dependencies, etc.) by supplying your own:
+
+```scala
+baklavaGenerateConfigs := Map(
+  "ts-fetch-package-json" ->
+    """
+      |{
+      |  "name": "@company/api-client",
+      |  "version": "1.0.0",
+      |  "type": "module",
+      |  "main": "dist/index.js",
+      |  "types": "dist/index.d.ts",
+      |  "scripts": { "build": "tsc" },
+      |  "devDependencies": { "typescript": "^5.4.0" }
+      |}
+      |""".stripMargin
+)
+```
+
+Unset, a minimal default `package.json` is emitted.
+
+### Usage in Frontend
+
+After generation, build and import:
+
+```bash
+cd target/baklava/tsfetch
+pnpm install && pnpm run build
+```
+
+```typescript
+import { BaklavaClient, listUsers, createUser, Users, Common } from "@company/api-client";
+
+const client = new BaklavaClient({
+  baseUrl: "https://api.example.com",
+  bearerToken: "jwt-token-here"
+});
+
+const page: Users.PaginatedUsers = await listUsers(client);
+const newUser: Common.User = await createUser(client, { body: { name: "Alice" } });
+```
+
+### Caveats
+
+- `BaklavaClient.authHeaders()` only materializes `Authorization` for bearer/basic/OAuth/OpenID Connect schemes. API-key-in-header schemes are injected per-endpoint based on `client.apiKeys`; API-key-in-query schemes go through `url.searchParams`; API-key-in-cookie schemes emit a `Cookie` header (which browsers may override for cross-origin requests).
+- When an endpoint declares multiple 2xx responses with different body schemas, the return type is a `A | B` union of all distinct schemas. You can narrow at the call site with `typeof` / `in` checks.
+- Responses are decoded as JSON only when the response `Content-Type` contains `application/json`. Any other content type falls through to the raw text (cast to the declared return type), so plain-text 2xx responses don't crash the parser.
+- Request bodies are `JSON.stringify`d when the captured `requestContentType` is JSON (or unspecified). For captures with a non-JSON `requestContentType`, the body is passed through as `BodyInit` and the generator emits the captured `Content-Type` header — supply `FormData`, `Blob`, `URLSearchParams`, or a `string` at the call site.
