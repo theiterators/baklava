@@ -12,9 +12,9 @@ export async function login(client: BaklavaClient, params: {
     method: "POST",
     headers: {
     ...client.authHeaders(),
-    "Content-Type": "application/json",
+    "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: JSON.stringify(params.body),
+    body: params.body as unknown as BodyInit,
   });
   const text = await res.text();
   if (!res.ok) throw new BaklavaHttpError(res.status, text);

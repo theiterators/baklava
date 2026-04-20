@@ -105,6 +105,93 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
       clientTs should include("this.bearerToken")
     }
 
+    it("zero-param endpoints receive `client` (not `_client`) so the generated body compiles") {
+      val ts = generateAndRead("src/users/endpoints.ts", Seq(getCall("/noop", tag = Some("Users"))))
+      ts should include("(client: BaklavaClient)")
+      ts should not include "_client: BaklavaClient"
+    }
+
+    it("renders non-identifier header/query/path names with bracket access (not dot)") {
+      val hdr  = BaklavaHeaderSerializable("X-Trace-Id", None, BaklavaSchemaSerializable(Schema.stringSchema))
+      val q    = BaklavaQueryParamSerializable("page.size", None, BaklavaSchemaSerializable(Schema.stringSchema))
+      val base = getCall("/search/{query.id}", tag = Some("Users"), pathParams = Seq("query.id"))
+      val call = base.copy(request = base.request.copy(headersSeq = Seq(hdr), queryParametersSeq = Seq(q)))
+
+      val ts = generateAndRead("src/users/endpoints.ts", Seq(call))
+      ts should include("""params["X-Trace-Id"]""")
+      ts should include("""params?.["page.size"]""")
+      ts should include("""params["query.id"]""")
+      ts should not include "params.X-Trace-Id"
+      ts should not include "params.[\""
+    }
+
+    it("omits `...client.authHeaders()` when the endpoint has no bearer/basic/oauth scheme") {
+      val ts = generateAndRead("src/users/endpoints.ts", Seq(getCall("/public", tag = Some("Users"))))
+      ts should not include "client.authHeaders()"
+    }
+
+    it("wires apiKeyInQuery into url.searchParams and apiKeyInCookie into a Cookie header") {
+      val qKeyScheme = BaklavaSecuritySchemaSerializable(
+        "tokenParam",
+        BaklavaSecuritySerializable(apiKeyInQuery = Some(ApiKeyInQuery("token")))
+      )
+      val cKeyScheme = BaklavaSecuritySchemaSerializable(
+        "sessionCookie",
+        BaklavaSecuritySerializable(apiKeyInCookie = Some(ApiKeyInCookie("sid")))
+      )
+      val base = getCall("/secure", tag = Some("Users"))
+      val call = base.copy(request = base.request.copy(securitySchemes = Seq(qKeyScheme, cKeyScheme)))
+
+      val ts = generateAndRead("src/users/endpoints.ts", Seq(call))
+      ts should include("""url.searchParams.set("token", client.apiKeys["token"])""")
+      ts should include("""Cookie": `sid=""" + "$" + """{client.apiKeys["sid"]}`""")
+    }
+
+    it("wraps union-type array items in parentheses") {
+      val enumSchema = BaklavaSchemaSerializable(
+        className = "status",
+        `type` = SchemaType.StringType,
+        format = None,
+        properties = Map.empty,
+        items = None,
+        `enum` = Some(Set("a", "b")),
+        required = true,
+        additionalProperties = false,
+        default = None,
+        description = None
+      )
+      val arrSchema = BaklavaSchemaSerializable(
+        className = "StatusList",
+        `type` = SchemaType.ArrayType,
+        format = None,
+        properties = Map.empty,
+        items = Some(enumSchema),
+        `enum` = None,
+        required = true,
+        additionalProperties = false,
+        default = None,
+        description = None
+      )
+      val base = getCall("/list", tag = Some("Users"))
+      val call = base.copy(response = base.response.copy(bodySchema = Some(arrSchema)))
+      val ts   = generateAndRead("src/users/endpoints.ts", Seq(call))
+      ts should include("""("a" | "b")[]""")
+    }
+
+    it("skips JSON.stringify when the captured request content-type is not application/json") {
+      val hdr  = BaklavaHeaderSerializable("X-Trace-Id", None, BaklavaSchemaSerializable(Schema.stringSchema))
+      val body = namedObject("Upload", Map("name" -> Schema.stringSchema))
+      val base = getCall("/upload", tag = Some("Users"))
+      val call = base.copy(
+        request = base.request.copy(bodySchema = Some(body), headersSeq = Seq(hdr)),
+        response = base.response.copy(requestContentType = Some("multipart/form-data"))
+      )
+      val ts = generateAndRead("src/users/endpoints.ts", Seq(call))
+      ts should include("body: params.body as unknown as BodyInit")
+      ts should include(""""Content-Type": "multipart/form-data"""")
+      ts should not include "JSON.stringify(params.body)"
+    }
+
     it("index.ts re-exports client, each tag's endpoints, and common/local type namespaces") {
       val errSchema  = namedObject("ErrorResponse", Map("message" -> Schema.stringSchema))
       val userSchema = namedObject("User", Map("id" -> Schema.intSchema))

@@ -12,7 +12,7 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
 
   private val DefaultTag = "default"
 
-  /** className → rendered TS interface body. Deduplicated; first occurrence wins. */
+  /** className → rendered TS interface body. First occurrence wins; later schemas with the same `className` are ignored. */
   private val interfaceBody: Map[String, String] = collectInterfaces(calls)
 
   /** className → directly-referenced other named classes (not recursive). */
@@ -40,6 +40,23 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
          |  apiKeys?: Record<string, string>;
          |}
          |
+         |function resolveFetch(configured?: typeof fetch): typeof fetch {
+         |  if (configured) return configured;
+         |  const g = globalThis.fetch;
+         |  if (g) return g.bind(globalThis) as typeof fetch;
+         |  throw new Error(
+         |    "BaklavaClient: no fetch implementation available. " +
+         |    "Pass `fetch` in BaklavaClientConfig (e.g. node-fetch or undici) on Node < 18."
+         |  );
+         |}
+         |
+         |function b64Encode(raw: string): string {
+         |  const g = globalThis as { btoa?: (s: string) => string; Buffer?: { from(s: string, enc: string): { toString(enc: string): string } } };
+         |  if (g.btoa) return g.btoa(raw);
+         |  if (g.Buffer) return g.Buffer.from(raw, "utf-8").toString("base64");
+         |  throw new Error("BaklavaClient: no base64 encoder available (btoa/Buffer).");
+         |}
+         |
          |export class BaklavaClient {
          |  readonly baseUrl: string;
          |  readonly fetch: typeof fetch;
@@ -49,7 +66,7 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
          |
          |  constructor(config: BaklavaClientConfig) {
          |    this.baseUrl     = config.baseUrl.replace(/\\/+$$/, "");
-         |    this.fetch       = config.fetch ?? (globalThis.fetch?.bind(globalThis) as typeof fetch);
+         |    this.fetch       = resolveFetch(config.fetch);
          |    this.bearerToken = config.bearerToken;
          |    this.basic       = config.basic;
          |    this.apiKeys     = config.apiKeys;
@@ -58,7 +75,7 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
          |  authHeaders(): Record<string, string> {
          |    const h: Record<string, string> = {};
          |    if (this.bearerToken) h["Authorization"] = `Bearer $${this.bearerToken}`;
-         |    else if (this.basic)  h["Authorization"] = `Basic $${btoa(`$${this.basic.username}:$${this.basic.password}`)}`;
+         |    else if (this.basic)  h["Authorization"] = `Basic $${b64Encode(`$${this.basic.username}:$${this.basic.password}`)}`;
          |    return h;
          |  }
          |}
@@ -204,30 +221,50 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
       if (paramFields.isEmpty) "client: BaklavaClient"
       else s"client: BaklavaClient, params${if (paramsArgOptional) "?" else ""}: $paramsType"
 
-    val urlExpr = renderUrlExpression(req.symbolicPath, pathParams.map(_.name), queryParams.map(_.name))
+    val urlExpr = renderUrlExpression(req, pathParams.map(_.name), queryParams.map(_.name))
+
+    val bodyContentType = uniformBodyContentType(endpointCalls)
+    val hasBody         = bodySchema.exists(!isEmptyBodyInstance(_))
+    val isJsonBody      = hasBody && bodyContentType.forall(_.toLowerCase.contains("application/json"))
+
+    val needsAuthHeaders = req.securitySchemes.exists { s =>
+      val sec = s.security
+      sec.httpBearer.isDefined || sec.httpBasic.isDefined ||
+      sec.oAuth2InBearer.isDefined || sec.openIdConnectInBearer.isDefined
+    }
 
     val headerLines = {
       val parts = new scala.collection.mutable.ListBuffer[String]
-      parts += "    ...client.authHeaders(),"
+      if (needsAuthHeaders) parts += "    ...client.authHeaders(),"
       declaredHeaders.foreach { h =>
         val key  = h.name
         val cond =
-          if (h.schema.required) s"""    "$key": String(params.${tsRawIdent(h.name)}),"""
-          else s"""    ...(params?.${tsRawIdent(h.name)} !== undefined ? { "$key": String(params.${tsRawIdent(h.name)}) } : {}),"""
+          if (h.schema.required) s"""    "$key": String(${tsAccessor("params", h.name, optional = false)}),"""
+          else
+            s"""    ...(${tsAccessor("params", h.name, optional = true)} !== undefined ? { "$key": String(${tsAccessor(
+                "params",
+                h.name,
+                optional = false
+              )}) } : {}),"""
         parts += cond
       }
-      if (bodySchema.exists(!isEmptyBodyInstance(_))) parts += """    "Content-Type": "application/json","""
+      if (isJsonBody) parts += """    "Content-Type": "application/json","""
+      else bodyContentType.foreach(ct => parts += s"""    "Content-Type": "$ct",""")
       req.securitySchemes.foreach { scheme =>
         scheme.security.apiKeyInHeader.foreach { k =>
           parts += s"""    ...(client.apiKeys?.["${k.name}"] ? { "${k.name}": client.apiKeys["${k.name}"] } : {}),"""
+        }
+        scheme.security.apiKeyInCookie.foreach { k =>
+          parts += s"""    ...(client.apiKeys?.["${k.name}"] ? { "Cookie": `${k.name}=$${client.apiKeys["${k.name}"]}` } : {}),"""
         }
       }
       parts.toList
     }
 
     val bodyLine =
-      if (bodySchema.exists(!isEmptyBodyInstance(_))) Some("    body: JSON.stringify(params.body),")
-      else None
+      if (!hasBody) None
+      else if (isJsonBody) Some("    body: JSON.stringify(params.body),")
+      else Some("    body: params.body as unknown as BodyInit,")
 
     val fetchCall =
       s"""  const res = await client.fetch(url.toString(), {
@@ -365,15 +402,32 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
     if (parts.isEmpty) "" else s"/** ${parts.mkString(" — ")} */"
   }
 
-  private def renderUrlExpression(symbolicPath: String, pathParamNames: Seq[String], queryParamNames: Seq[String]): String = {
-    val filled = pathParamNames.foldLeft(symbolicPath) { (acc, name) =>
-      acc.replace(s"{$name}", s"$${encodeURIComponent(String(params.${tsRawIdent(name)}))}")
+  private def renderUrlExpression(
+      req: BaklavaRequestContextSerializable,
+      pathParamNames: Seq[String],
+      queryParamNames: Seq[String]
+  ): String = {
+    val filled = pathParamNames.foldLeft(req.symbolicPath) { (acc, name) =>
+      acc.replace(s"{$name}", s"$${encodeURIComponent(String(${tsAccessor("params", name, optional = false)}))}")
     }
     val urlLine    = s"""  const url = new URL(`$${client.baseUrl}$filled`);"""
     val queryLines = queryParamNames.map { name =>
-      s"""  if (params?.${tsRawIdent(name)} !== undefined) url.searchParams.set("$name", String(params.${tsRawIdent(name)}));"""
+      s"""  if (${tsAccessor("params", name, optional = true)} !== undefined) url.searchParams.set("$name", String(${tsAccessor(
+          "params",
+          name,
+          optional = false
+        )}));"""
     }
-    (urlLine +: queryLines).mkString("\n")
+    val apiKeyQueryLines = req.securitySchemes.flatMap(_.security.apiKeyInQuery.toSeq).map { k =>
+      s"""  if (client.apiKeys?.["${k.name}"]) url.searchParams.set("${k.name}", client.apiKeys["${k.name}"]);"""
+    }
+    (urlLine +: (queryLines ++ apiKeyQueryLines)).mkString("\n")
+  }
+
+  /** If every captured call on this endpoint declared the same non-empty request content-type, return it. */
+  private def uniformBodyContentType(endpointCalls: Seq[BaklavaSerializableCall]): Option[String] = {
+    val distinct = endpointCalls.flatMap(_.response.requestContentType).distinct
+    if (distinct.size == 1) distinct.headOption else None
   }
 
   private def tsReturnType(endpointCalls: Seq[BaklavaSerializableCall]): String = {
@@ -416,7 +470,7 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
       else "string"
     case SchemaType.ArrayType =>
       val inner = schema.items.map(tsType).getOrElse("unknown")
-      s"$inner[]"
+      if (inner.contains(" | ") || inner.contains(" & ")) s"($inner)[]" else s"$inner[]"
     case SchemaType.ObjectType =>
       if (isNamedInterface(schema)) tsSafeIdent(schema.className)
       else if (schema.properties.isEmpty) "Record<string, unknown>"
@@ -451,9 +505,17 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
     if (name.matches("[A-Za-z_][A-Za-z0-9_]*")) name
     else "\"" + name.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
-  private def tsRawIdent(name: String): String =
-    if (name.matches("[A-Za-z_][A-Za-z0-9_]*")) name
-    else "[" + "\"" + name.replace("\\", "\\\\").replace("\"", "\\\"") + "\"]"
+  /** Emit `base.foo`/`base?.foo` for identifier-safe names, `base["X-Foo"]`/`base?.["X-Foo"]` otherwise. */
+  private def tsAccessor(base: String, name: String, optional: Boolean): String = {
+    val isIdent = name.matches("[A-Za-z_][A-Za-z0-9_]*")
+    val escaped = name.replace("\\", "\\\\").replace("\"", "\\\"")
+    (optional, isIdent) match {
+      case (false, true)  => s"$base.$name"
+      case (false, false) => s"""$base["$escaped"]"""
+      case (true, true)   => s"$base?.$name"
+      case (true, false)  => s"""$base?.["$escaped"]"""
+    }
+  }
 
   /** Pre-computed tag → folder-name map. Collisions after case-folding and non-alnum collapsing get stable numeric suffixes. */
   private val tagFolderName: Map[String, String] = {

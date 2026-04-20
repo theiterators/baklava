@@ -7,6 +7,23 @@ export interface BaklavaClientConfig {
   apiKeys?: Record<string, string>;
 }
 
+function resolveFetch(configured?: typeof fetch): typeof fetch {
+  if (configured) return configured;
+  const g = globalThis.fetch;
+  if (g) return g.bind(globalThis) as typeof fetch;
+  throw new Error(
+    "BaklavaClient: no fetch implementation available. " +
+    "Pass `fetch` in BaklavaClientConfig (e.g. node-fetch or undici) on Node < 18."
+  );
+}
+
+function b64Encode(raw: string): string {
+  const g = globalThis as { btoa?: (s: string) => string; Buffer?: { from(s: string, enc: string): { toString(enc: string): string } } };
+  if (g.btoa) return g.btoa(raw);
+  if (g.Buffer) return g.Buffer.from(raw, "utf-8").toString("base64");
+  throw new Error("BaklavaClient: no base64 encoder available (btoa/Buffer).");
+}
+
 export class BaklavaClient {
   readonly baseUrl: string;
   readonly fetch: typeof fetch;
@@ -16,7 +33,7 @@ export class BaklavaClient {
 
   constructor(config: BaklavaClientConfig) {
     this.baseUrl     = config.baseUrl.replace(/\/+$/, "");
-    this.fetch       = config.fetch ?? (globalThis.fetch?.bind(globalThis) as typeof fetch);
+    this.fetch       = resolveFetch(config.fetch);
     this.bearerToken = config.bearerToken;
     this.basic       = config.basic;
     this.apiKeys     = config.apiKeys;
@@ -25,7 +42,7 @@ export class BaklavaClient {
   authHeaders(): Record<string, string> {
     const h: Record<string, string> = {};
     if (this.bearerToken) h["Authorization"] = `Bearer ${this.bearerToken}`;
-    else if (this.basic)  h["Authorization"] = `Basic ${btoa(`${this.basic.username}:${this.basic.password}`)}`;
+    else if (this.basic)  h["Authorization"] = `Basic ${b64Encode(`${this.basic.username}:${this.basic.password}`)}`;
     return h;
   }
 }

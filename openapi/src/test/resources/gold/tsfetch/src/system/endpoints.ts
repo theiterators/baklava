@@ -8,7 +8,6 @@ export async function health(client: BaklavaClient): Promise<HealthResponse> {
   const res = await client.fetch(url.toString(), {
     method: "GET",
     headers: {
-    ...client.authHeaders(),
     },
   });
   const text = await res.text();

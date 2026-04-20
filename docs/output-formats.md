@@ -209,7 +209,7 @@ Endpoint files import types from the appropriate location (`./types`, `../common
 | `Boolean` | `boolean` |
 | `Null` | `null` |
 | `Seq[T]`, `List[T]`, `Vector[T]`, `Set[T]`, `Array[T]` | `InnerType[]` |
-| Case class with properties | Named `interface` (re-exported as `T.ClassName`) |
+| Case class with properties | Named `interface` (re-exported per-tag as `Users.ClassName` / shared as `Common.ClassName`) |
 | `Option[T]` | Field becomes optional (`field?: T`) |
 
 ### Configuration
@@ -258,6 +258,7 @@ const newUser: Common.User = await createUser(client, { body: { name: "Alice" } 
 
 ### Caveats
 
-- Only the first `SecurityScheme`'s matching credential is wired into `authHeaders()` automatically. Endpoints using API-key-in-query or API-key-in-cookie schemes need to be set manually (via `client.apiKeys` or by passing an extra header parameter).
-- The return type is derived from the first 2xx response's schema. When a single endpoint has multiple 2xx variants with different schemas, only the first wins — matching the OpenAPI generator's existing first-schema-wins policy.
-- Non-object response bodies are returned as-is (e.g. plain strings or numbers). The generator calls `JSON.parse` unconditionally, which is safe for JSON-encoded primitives but will fail on raw text response bodies — users serving plain text should parse the response themselves via a custom `fetch` wrapper.
+- `BaklavaClient.authHeaders()` only materializes `Authorization` for bearer/basic/OAuth/OpenID Connect schemes. API-key-in-header schemes are injected per-endpoint based on `client.apiKeys`; API-key-in-query schemes go through `url.searchParams`; API-key-in-cookie schemes emit a `Cookie` header (which browsers may override for cross-origin requests).
+- When an endpoint declares multiple 2xx responses with different body schemas, the return type is a `A | B` union of all distinct schemas. You can narrow at the call site with `typeof` / `in` checks.
+- Responses are decoded as JSON only when the response `Content-Type` contains `application/json`. Any other content type falls through to the raw text (cast to the declared return type), so plain-text 2xx responses don't crash the parser.
+- Request bodies are `JSON.stringify`d when the captured `requestContentType` is JSON (or unspecified). For captures with a non-JSON `requestContentType`, the body is passed through as `BodyInit` and the generator emits the captured `Content-Type` header — supply `FormData`, `Blob`, `URLSearchParams`, or a `string` at the call site.

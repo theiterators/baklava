@@ -97,9 +97,9 @@ export async function uploadPhoto(client: BaklavaClient, params: {
     method: "POST",
     headers: {
     ...client.authHeaders(),
-    "Content-Type": "application/json",
+    "Content-Type": "multipart/form-data; boundary=baklava-multipart-boundary",
     },
-    body: JSON.stringify(params.body),
+    body: params.body as unknown as BodyInit,
   });
   if (!res.ok) throw new BaklavaHttpError(res.status, await res.text());
 }
