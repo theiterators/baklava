@@ -1,5 +1,6 @@
 package pl.iterators.baklava.postman
 
+import io.circe.{Json, Printer}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
@@ -137,6 +138,51 @@ class BaklavaPostmanCollectionSpec extends AnyFunSpec with Matchers {
       )
     }
 
+    it("omits collection variables for security schemes without a Postman auth equivalent (mutualTls)") {
+      val mtls = BaklavaSecuritySchemaSerializable("mtls", BaklavaSecuritySerializable(mutualTls = Some(MutualTls())))
+      val call = simpleGetCall().copy(request = simpleGetCall().request.copy(securitySchemes = Seq(mtls)))
+      val json = BaklavaPostmanCollection.build("API", Seq(call))
+
+      val vars = json.hcursor.downField("variable").values.get.map(_.hcursor.downField("key").as[String].toOption.get).toSeq
+      vars should contain("baseUrl")
+      vars should not contain "mtlsToken"
+      vars should not contain "mtlsValue"
+
+      val auth = json.hcursor.downField("item").downArray.downField("request").downField("auth")
+      auth.as[Json].toOption shouldBe Some(Json.Null)
+    }
+
+    it("produces a document that satisfies the Postman v2.1 structural invariants after printing") {
+      val bearer = BaklavaSecuritySchemaSerializable("bearerAuth", BaklavaSecuritySerializable(httpBearer = Some(HttpBearer())))
+      val apiKey = BaklavaSecuritySchemaSerializable(
+        "apiKey",
+        BaklavaSecuritySerializable(apiKeyInQuery = Some(ApiKeyInQuery("token")))
+      )
+
+      val calls = Seq(
+        taggedCall("Users", "GET", "/users"),
+        callWithPath("/users/{userId}", Seq("userId" -> "42")).copy(
+          request = callWithPath("/users/{userId}", Seq("userId" -> "42")).request.copy(
+            operationTags = Seq("Users"),
+            securitySchemes = Seq(bearer)
+          )
+        ),
+        simpleGetCall().copy(
+          request = simpleGetCall().request.copy(
+            bodyString = """{"name":"alice"}""",
+            securitySchemes = Seq(apiKey)
+          ),
+          response = simpleGetCall().response.copy(requestContentType = Some("application/json"))
+        )
+      )
+
+      val json    = BaklavaPostmanCollection.build("API", calls)
+      val printed = Printer.spaces2.copy(dropNullValues = true).print(json)
+      val parsed  = io.circe.parser.parse(printed).toOption.get
+
+      assertPostmanStructure(parsed)
+    }
+
     it("emits one `response` example per captured call at the endpoint") {
       val a = simpleGetCall().copy(
         request = simpleGetCall().request.copy(responseDescription = Some("First example")),
@@ -162,6 +208,68 @@ class BaklavaPostmanCollectionSpec extends AnyFunSpec with Matchers {
       names should contain allOf ("First example", "Not found")
     }
   }
+
+  /** Minimal Postman v2.1 schema conformance: what the actual Postman importer requires. Catches regressions that break import without
+    * pulling in a full JSON-schema validator.
+    */
+  private def assertPostmanStructure(doc: Json): Unit = {
+    val info = doc.hcursor.downField("info")
+    info.downField("name").as[String].toOption shouldBe defined
+    info.downField("schema").as[String].toOption.get should include("collection")
+
+    val items = doc.hcursor.downField("item").values.getOrElse(fail("top-level `item` must be an array"))
+    items.foreach(assertItem)
+
+    assertNoNulls(doc, path = "")
+
+    doc.hcursor
+      .downField("variable")
+      .values
+      .foreach(_.foreach { v =>
+        v.hcursor.downField("key").as[String].toOption shouldBe defined
+        v.hcursor.downField("value").as[String].toOption shouldBe defined
+      })
+  }
+
+  private def assertItem(item: Json): Unit = {
+    item.hcursor.downField("name").as[String].toOption shouldBe defined
+
+    val hasRequest = item.hcursor.downField("request").succeeded
+    val hasItem    = item.hcursor.downField("item").succeeded
+    assert(hasRequest ^ hasItem, s"each item must be a folder (item[]) XOR an endpoint (request): ${item.noSpaces}")
+
+    if (hasItem) {
+      item.hcursor.downField("item").values.get.foreach(assertItem)
+    } else {
+      val req = item.hcursor.downField("request")
+      req.downField("method").as[String].toOption.get should not be empty
+
+      val url  = req.downField("url")
+      val host = url.downField("host").values.get
+      host should not be empty
+      host.foreach(_.isString shouldBe true)
+
+      url.downField("path").values.get.foreach(_.isString shouldBe true)
+
+      item.hcursor
+        .downField("response")
+        .values
+        .foreach(_.foreach { r =>
+          r.hcursor.downField("name").as[String].toOption shouldBe defined
+          r.hcursor.downField("code").as[Int].toOption shouldBe defined
+        })
+    }
+  }
+
+  private def assertNoNulls(j: Json, path: String): Unit =
+    j.fold(
+      jsonNull = fail(s"null leaf at $path — Postman v2.1 rejects nulls; the printer should have stripped it via dropNullValues"),
+      jsonBoolean = _ => (),
+      jsonNumber = _ => (),
+      jsonString = _ => (),
+      jsonArray = _.zipWithIndex.foreach { case (v, i) => assertNoNulls(v, s"$path[$i]") },
+      jsonObject = _.toIterable.foreach { case (k, v) => assertNoNulls(v, s"$path.$k") }
+    )
 
   // Test-data helpers below — kept terse since they're purely mechanical construction of the
   // serializable types and don't carry their own invariants worth commenting.

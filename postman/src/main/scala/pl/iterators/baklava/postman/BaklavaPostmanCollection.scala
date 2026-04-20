@@ -281,8 +281,8 @@ private[postman] object BaklavaPostmanCollection {
     case _   => s"HTTP $code"
   }
 
-  /** Collection-level variables: `{{baseUrl}}` plus one placeholder per declared security credential. Users fill these in once after
-    * importing the collection; per-request `auth` blocks reference them.
+  /** Collection-level variables: `{{baseUrl}}` plus one placeholder per declared security credential that maps to a Postman auth type.
+    * Schemes without a Postman equivalent (e.g. `mutualTls`) don't produce a variable — `requestAuth` wouldn't reference it anyway.
     */
   private def collectionVariables(calls: Seq[BaklavaSerializableCall]): Seq[Json] = {
     val schemeVars = calls
@@ -290,12 +290,14 @@ private[postman] object BaklavaPostmanCollection {
       .distinctBy(_.name)
       .flatMap { scheme =>
         val s = scheme.security
-        if (s.httpBasic.isDefined)
-          Seq(s"${scheme.name}Username", s"${scheme.name}Password")
-        else if (s.apiKeyInHeader.isDefined || s.apiKeyInQuery.isDefined || s.apiKeyInCookie.isDefined)
-          Seq(s"${scheme.name}Value")
-        else
-          Seq(s"${scheme.name}Token")
+        if (s.httpBearer.isDefined) Seq(s"${scheme.name}Token")
+        else if (s.httpBasic.isDefined) Seq(s"${scheme.name}Username", s"${scheme.name}Password")
+        else if (s.apiKeyInHeader.isDefined || s.apiKeyInQuery.isDefined || s.apiKeyInCookie.isDefined) Seq(s"${scheme.name}Value")
+        else if (
+          s.oAuth2InBearer.isDefined || s.oAuth2InCookie.isDefined ||
+          s.openIdConnectInBearer.isDefined || s.openIdConnectInCookie.isDefined
+        ) Seq(s"${scheme.name}Token")
+        else Seq.empty
       }
 
     val vars = Seq("baseUrl") ++ schemeVars
