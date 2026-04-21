@@ -10,9 +10,9 @@ object TasksEndpoints {
 
   /** List tasks — List all tasks in a project */
   def listTasks(
-      projectId: Long,
+      baseUri: Uri,
       oauth2Token: String,
-      baseUri: Uri
+      projectId: Long
   ): Request[Either[ResponseException[String], Seq[Task]]] = {
     basicRequest
       .get(baseUri.addPath("projects", s"$projectId", "tasks"))
@@ -22,10 +22,10 @@ object TasksEndpoints {
 
   /** Create task — Create a task in a project */
   def createTask(
-      projectId: Long,
-      body: CreateTaskRequest,
+      baseUri: Uri,
       oauth2Token: String,
-      baseUri: Uri
+      projectId: Long,
+      body: CreateTaskRequest
   ): Request[Either[ResponseException[String], Task]] = {
     basicRequest
       .post(baseUri.addPath("projects", s"$projectId", "tasks"))

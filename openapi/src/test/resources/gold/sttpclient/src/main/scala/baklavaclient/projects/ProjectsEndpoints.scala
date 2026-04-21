@@ -11,9 +11,9 @@ object ProjectsEndpoints {
 
   /** List projects — List projects, optionally filtered by status */
   def listProjects(
-      status: Option[String] = None,
+      baseUri: Uri,
       oauth2Token: String,
-      baseUri: Uri
+      status: Option[String] = None
   ): Request[Either[ResponseException[String], Seq[Project]]] = {
     basicRequest
       .get(baseUri.addPath("projects")        .addParam("status", status.map(_.toString)))
@@ -23,9 +23,9 @@ object ProjectsEndpoints {
 
   /** Create project — Create a new project */
   def createProject(
-      body: CreateProjectRequest,
+      baseUri: Uri,
       oauth2Token: String,
-      baseUri: Uri
+      body: CreateProjectRequest
   ): Request[Either[ResponseException[String], Project]] = {
     basicRequest
       .post(baseUri.addPath("projects"))
@@ -37,10 +37,10 @@ object ProjectsEndpoints {
 
   /** Patch project — Partially update a project */
   def patchProject(
-      projectId: Long,
-      body: PatchProjectRequest,
+      baseUri: Uri,
       oauth2Token: String,
-      baseUri: Uri
+      projectId: Long,
+      body: PatchProjectRequest
   ): Request[Either[ResponseException[String], Project]] = {
     basicRequest
       .patch(baseUri.addPath("projects", s"$projectId"))

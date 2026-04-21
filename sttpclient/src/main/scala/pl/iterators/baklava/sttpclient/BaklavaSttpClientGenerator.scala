@@ -177,7 +177,9 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     }
     val authParams = securityCredentialParams(req.securitySchemes)
 
-    val allParams = pathParamDefs ++ queryParamDefs ++ headerParamDefs ++ bodyParamDef ++ authParams ++ Seq("baseUri: Uri")
+    // Connection-level params (`baseUri`, security credentials) come first; they're invariant across calls and typically set once per
+    // session. Per-call params (path / query / headers / body) follow.
+    val allParams = Seq("baseUri: Uri") ++ authParams ++ pathParamDefs ++ queryParamDefs ++ headerParamDefs ++ bodyParamDef
     val paramList = allParams.mkString(",\n      ")
 
     val pathExpr      = renderPathExpression(req.symbolicPath, pathParams.map(_.name))

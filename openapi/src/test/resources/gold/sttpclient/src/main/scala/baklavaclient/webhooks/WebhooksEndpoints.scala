@@ -10,9 +10,9 @@ object WebhooksEndpoints {
 
   /** Deliver webhook — Accept a webhook payload */
   def deliverWebhook(
-      body: WebhookPayload,
+      baseUri: Uri,
       apiKeyValue: String,
-      baseUri: Uri
+      body: WebhookPayload
   ): Request[Either[ResponseException[String], WebhookAck]] = {
     basicRequest
       .post(baseUri.addPath("webhooks"))

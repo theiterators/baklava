@@ -11,10 +11,10 @@ object AuthEndpoints {
 
   /** Login — Exchange HTTP Basic credentials for a JWT token */
   def login(
-      bodyJson: String,
+      baseUri: Uri,
       basicAuthUsername: String,
       basicAuthPassword: String,
-      baseUri: Uri
+      bodyJson: String
   ): Request[Either[ResponseException[String], LoginResponse]] = {
     basicRequest
       .post(baseUri.addPath("auth", "login"))
@@ -26,8 +26,8 @@ object AuthEndpoints {
 
   /** Who am I — Return the profile of the currently authenticated user */
   def me(
-      bearerAuthToken: String,
-      baseUri: Uri
+      baseUri: Uri,
+      bearerAuthToken: String
   ): Request[Either[ResponseException[String], User]] = {
     basicRequest
       .get(baseUri.addPath("me"))

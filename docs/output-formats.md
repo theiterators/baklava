@@ -275,13 +275,15 @@ Each generated `def` takes:
 - Credential parameters per the first `SecurityScheme` (`{schemeName}Token` / `{schemeName}Username`+`{schemeName}Password` / `{schemeName}Value`). Scheme names that collide with Scala reserved words (e.g. `type`) are sanitized so the final identifier always compiles.
 - A trailing `baseUri: sttp.model.Uri` parameter
 
+Connection-level params (`baseUri`, security credentials) come first in the signature so call-sites can read "for this base + auth, do X". Per-call params (path / query / headers / body) follow.
+
 Example (typed, generated for `POST /users` returning `User`):
 
 ```scala
 def createUser(
-    body: CreateUserRequest,
+    baseUri: Uri,
     bearerAuthToken: String,
-    baseUri: Uri
+    body: CreateUserRequest
 ): Request[Either[ResponseException[String], User]] = {
   basicRequest
     .post(baseUri.addPath("users"))
@@ -296,10 +298,10 @@ Example (raw fallback, generated for `POST /users/{userId}/photo` with `multipar
 
 ```scala
 def uploadPhoto(
-    userId: java.util.UUID,
-    bodyJson: String,
+    baseUri: Uri,
     bearerAuthToken: String,
-    baseUri: Uri
+    userId: java.util.UUID,
+    bodyJson: String
 ): Request[Either[String, String]] = {
   basicRequest
     .post(baseUri.addPath("users", s"$userId", "photo"))

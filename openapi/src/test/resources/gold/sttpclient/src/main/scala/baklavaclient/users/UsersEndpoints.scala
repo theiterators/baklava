@@ -12,11 +12,11 @@ object UsersEndpoints {
 
   /** List users — List users with pagination and optional role filter */
   def listUsers(
+      baseUri: Uri,
+      bearerAuthToken: String,
       page: Option[Int] = None,
       limit: Option[Int] = None,
-      role: Option[String] = None,
-      bearerAuthToken: String,
-      baseUri: Uri
+      role: Option[String] = None
   ): Request[Either[ResponseException[String], PaginatedUsers]] = {
     basicRequest
       .get(baseUri.addPath("users")        .addParam("page", page.map(_.toString))
@@ -28,9 +28,9 @@ object UsersEndpoints {
 
   /** Delete user — Delete a user */
   def deleteUser(
-      userId: java.util.UUID,
+      baseUri: Uri,
       bearerAuthToken: String,
-      baseUri: Uri
+      userId: java.util.UUID
   ): Request[Either[String, String]] = {
     basicRequest
       .delete(baseUri.addPath("users", s"$userId"))
@@ -39,9 +39,9 @@ object UsersEndpoints {
 
   /** Get user — Fetch a single user by UUID */
   def getUser(
-      userId: java.util.UUID,
+      baseUri: Uri,
       bearerAuthToken: String,
-      baseUri: Uri
+      userId: java.util.UUID
   ): Request[Either[ResponseException[String], User]] = {
     basicRequest
       .get(baseUri.addPath("users", s"$userId"))
@@ -51,10 +51,10 @@ object UsersEndpoints {
 
   /** Update user — Replace a user's profile (admin only) */
   def updateUser(
-      userId: java.util.UUID,
-      body: UpdateUserRequest,
+      baseUri: Uri,
       bearerAuthToken: String,
-      baseUri: Uri
+      userId: java.util.UUID,
+      body: UpdateUserRequest
   ): Request[Either[ResponseException[String], User]] = {
     basicRequest
       .put(baseUri.addPath("users", s"$userId"))
@@ -66,10 +66,10 @@ object UsersEndpoints {
 
   /** Upload photo — Upload a profile photo alongside a caption as multipart/form-data */
   def uploadPhoto(
-      userId: java.util.UUID,
-      bodyJson: String,
+      baseUri: Uri,
       bearerAuthToken: String,
-      baseUri: Uri
+      userId: java.util.UUID,
+      bodyJson: String
   ): Request[Either[String, String]] = {
     basicRequest
       .post(baseUri.addPath("users", s"$userId", "photo"))
