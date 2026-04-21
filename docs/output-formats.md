@@ -235,25 +235,35 @@ After importing, set the `baseUrl` collection variable (e.g., `https://api.examp
 **Configuration:** Optional — `sttp-client-package` key in `baklavaGenerateConfigs`
 **Output:** `target/baklava/sttpclient/`
 
-Generates a tree of Scala source files containing [sttp-client4](https://sttp.softwaremill.com) request builders for every documented endpoint. The generated code is framework-agnostic — each endpoint is a `def` that returns a `Request[Either[String, String]]` value. You send it with whatever sttp backend you like (sync, async, Future, fs2, ZIO, etc.) and bring your own JSON codec library.
+Generates a tree of Scala source files containing [sttp-client4](https://sttp.softwaremill.com) request builders for every documented endpoint. Endpoints whose request/response bodies map to named case classes use [sttp-client4's circe integration](https://sttp.softwaremill.com/en/latest/json.html#circe) and return typed `Request[Either[ResponseException[String], T]]` values; endpoints with non-JSON or unnamed bodies fall back to `Request[Either[String, String]]`. Either way, you send with any sttp backend (sync, async, Future, fs2, ZIO, etc.).
 
 ### Generated Files
 
 - `README.md` — usage overview
-- `src/main/scala/{package}/common/Types.scala` — case classes shared by two or more tags (omitted if empty)
-- `src/main/scala/{package}/{tag}/Types.scala` — case classes used only within that tag (omitted if empty)
-- `src/main/scala/{package}/{tag}/Endpoints.scala` — one `{Tag}Endpoints` object with a `def` per endpoint. Untagged operations land in `default/Endpoints.scala`.
+- `src/main/scala/{package}/common/dtos.scala` — case classes shared by two or more tags (omitted if empty)
+- `src/main/scala/{package}/{tag}/dtos.scala` — case classes used only within that tag (omitted if empty)
+- `src/main/scala/{package}/{tag}/{Tag}Endpoints.scala` — one `{Tag}Endpoints` object with a `def` per endpoint. Untagged operations land in `default/DefaultEndpoints.scala`.
 
-Package name defaults to `baklavaclient` and can be overridden via the `sttp-client-package` config key. Each `Endpoints.scala` file emits `import` statements for the `common` sub-package and any cross-tag types it references, so method bodies can use short class names.
+Package name defaults to `baklavaclient` and can be overridden via the `sttp-client-package` config key. Each `{Tag}Endpoints.scala` file emits `import` statements for the `common` sub-package and any cross-tag types it references, so method bodies can use short class names.
 
 ### Type Distribution
 
 Each named schema is routed based on how many tags' endpoints reference it:
 
-- Used by **one tag** → `{tag}/Types.scala` in that tag's sub-package
-- Used by **two or more tags** → `common/Types.scala` under the `common` sub-package
+- Used by **one tag** → `{tag}/dtos.scala` in that tag's sub-package
+- Used by **two or more tags** → `common/dtos.scala` under the `common` sub-package
 
-`Endpoints.scala` files emit Scala `import` statements pointing at the right sub-package, so endpoint method bodies can use the short class name directly.
+`{Tag}Endpoints.scala` files emit Scala `import` statements pointing at the right sub-package, so endpoint method bodies can use the short class name directly.
+
+### Typed bodies and responses
+
+When a request body or 2xx response resolves to a named case class (or `Seq[NamedClass]`), the generated `def` uses it directly:
+
+- Request body becomes `body: SomeRequest` + `.body(body.asJson.noSpaces).contentType("application/json")`
+- Response becomes `Request[Either[ResponseException[String], SomeResponse]]` + `.response(asJson[SomeResponse])`
+- The file imports `sttp.client4.circe._` + `io.circe.generic.auto._` (and `io.circe.syntax._` if any endpoint has a typed body). Consumers need `sttp-client4-circe` and `circe-generic` on the classpath.
+
+When the body or response isn't a named case class (multipart/form captures, plain text, empty bodies), the endpoint keeps the raw `bodyJson: String` input and the `Either[String, String]` response so it stays usable without circe.
 
 ### Endpoint Shape
 
@@ -261,21 +271,41 @@ Each generated `def` takes:
 - Path parameters as required positional parameters
 - Query parameters (required-typed or `Option[T] = None`)
 - Declared headers (same required/optional handling)
-- A `bodyJson: String` parameter when the operation has a request body — users supply pre-serialized JSON (or other content-type payload) from their own codec library
+- Either `body: SomeRequest` (typed path) or `bodyJson: String` (raw path, including multipart/form)
 - Credential parameters per the first `SecurityScheme` (`{schemeName}Token` / `{schemeName}Username`+`{schemeName}Password` / `{schemeName}Value`). Scheme names that collide with Scala reserved words (e.g. `type`) are sanitized so the final identifier always compiles.
 - A trailing `baseUri: sttp.model.Uri` parameter
 
-Example (generated for `GET /users/{userId}` with `bearerAuth`):
+Example (typed, generated for `POST /users` returning `User`):
 
 ```scala
-def getUser(
+def createUser(
+    body: CreateUserRequest,
+    bearerAuthToken: String,
+    baseUri: Uri
+): Request[Either[ResponseException[String], User]] = {
+  basicRequest
+    .post(baseUri.addPath("users"))
+    .header("Authorization", s"Bearer ${bearerAuthToken}")
+    .body(body.asJson.noSpaces)
+    .contentType("application/json")
+    .response(asJson[User])
+}
+```
+
+Example (raw fallback, generated for `POST /users/{userId}/photo` with `multipart/form-data`):
+
+```scala
+def uploadPhoto(
     userId: java.util.UUID,
+    bodyJson: String,
     bearerAuthToken: String,
     baseUri: Uri
 ): Request[Either[String, String]] = {
   basicRequest
-    .get(baseUri.addPath("users", s"$userId"))
+    .post(baseUri.addPath("users", s"$userId", "photo"))
     .header("Authorization", s"Bearer ${bearerAuthToken}")
+    .body(bodyJson)
+    .contentType("multipart/form-data; boundary=...")
 }
 ```
 
@@ -313,7 +343,7 @@ Endpoints with a request body emit `.contentType(...)` honoring the content-type
 | `Float`, `Double`, `BigDecimal` | `Float`, `Double`, `BigDecimal` |
 | `Boolean` | `Boolean` |
 | `Seq/List/Vector/Set/Array[T]` | `Seq[T]` |
-| Named case class | Case class (emitted in the owning tag's `Types.scala` or `common/Types.scala`) |
+| Named case class | Case class (emitted in the owning tag's `dtos.scala` or `common/dtos.scala`) |
 | `Option[T]` | Field becomes `Option[T] = None` |
 
 ### Configuration
@@ -326,18 +356,34 @@ baklavaGenerateConfigs := Map(
 
 ### Usage in a Scala Project
 
-Copy the generated tree into your project under a matching package, add `"com.softwaremill.sttp.client4" %% "core" % "4.x.y"` to your dependencies, then pick an endpoint from one of the generated `*Endpoints.scala` files and supply its required auth, path, query, header, or body parameters:
+Copy the generated tree into your project under a matching package, add sttp-client4 + the circe integration + circe-generic (for codec auto-derivation) to your dependencies:
+
+```scala
+libraryDependencies ++= Seq(
+  "com.softwaremill.sttp.client4" %% "core"          % "4.x.y",
+  "com.softwaremill.sttp.client4" %% "circe"         % "4.x.y",
+  "io.circe"                      %% "circe-generic" % "0.14.x"
+)
+```
+
+Then pick an endpoint from one of the generated `*Endpoints.scala` files and supply its required auth, path, query, header, or body parameters:
 
 ```scala
 import sttp.client4._
 import sttp.model.Uri
 import com.example.api.client.users.UsersEndpoints
+import com.example.api.client.common.User
 
 val backend = DefaultSyncBackend()
 val base    = uri"https://api.example.com"
 
 val req = UsersEndpoints.listUsers(bearerAuthToken = "jwt...", baseUri = base)
-val res = req.send(backend)
+val res = req.send(backend) // Either[ResponseException[String], PaginatedUsers]
+res.body match {
+  case Right(page)                                                 => println(page.users)
+  case Left(ResponseException.DeserializationException(raw, err))  => println(s"bad JSON: $err")
+  case Left(ResponseException.UnexpectedStatusCode(raw))           => println(s"HTTP error: $raw")
+}
 ```
 
 The generated code imports `sttp.client4._` (compatible with Scala 2.13 and 3.3+).
@@ -345,6 +391,6 @@ The generated code imports `sttp.client4._` (compatible with Scala 2.13 and 3.3+
 ### Caveats
 
 - Only the first `SecurityScheme`'s credentials become function parameters. Endpoints using multiple schemes need additional headers supplied manually.
-- Request bodies are always passed as `String` — the generator has no opinion on which codec library you use. This keeps the module dependency-free but means you handle serialization at the call site.
-- Responses come back as `Either[String, String]`; deserialize yourself with the codec of your choice.
-- Enum values are emitted as plain `String`. If you want a sealed trait, refine `Types.scala` manually after generation.
+- Typed bodies/responses require `sttp-client4-circe` + a circe `Encoder`/`Decoder` in scope. The generator emits `import io.circe.generic.auto._` to auto-derive; replace with semi-auto or hand-written codecs if you need override control.
+- The raw fallback path (non-JSON captured Content-Type, unnamed body schema) takes `bodyJson: String` — the generator has no opinion on which codec library you use there.
+- Enum values are emitted as plain `String`. If you want a sealed trait, refine `dtos.scala` manually after generation.

@@ -1,6 +1,9 @@
 package baklavaclient.projects
 
 import sttp.client4._
+import sttp.client4.circe._
+import io.circe.generic.auto._
+import io.circe.syntax._
 import sttp.model.Uri
 import baklavaclient.common.ErrorResponse
 
@@ -11,36 +14,39 @@ object ProjectsEndpoints {
       status: Option[String] = None,
       oauth2Token: String,
       baseUri: Uri
-  ): Request[Either[String, String]] = {
+  ): Request[Either[ResponseException[String], Seq[Project]]] = {
     basicRequest
       .get(baseUri.addPath("projects")        .addParam("status", status.map(_.toString)))
       .header("Authorization", s"Bearer ${oauth2Token}")
+      .response(asJson[Seq[Project]])
   }
 
   /** Create project — Create a new project */
   def createProject(
-      bodyJson: String,
+      body: CreateProjectRequest,
       oauth2Token: String,
       baseUri: Uri
-  ): Request[Either[String, String]] = {
+  ): Request[Either[ResponseException[String], Project]] = {
     basicRequest
       .post(baseUri.addPath("projects"))
       .header("Authorization", s"Bearer ${oauth2Token}")
-      .body(bodyJson)
+      .body(body.asJson.noSpaces)
       .contentType("application/json")
+      .response(asJson[Project])
   }
 
   /** Patch project — Partially update a project */
   def patchProject(
       projectId: Long,
-      bodyJson: String,
+      body: PatchProjectRequest,
       oauth2Token: String,
       baseUri: Uri
-  ): Request[Either[String, String]] = {
+  ): Request[Either[ResponseException[String], Project]] = {
     basicRequest
       .patch(baseUri.addPath("projects", s"$projectId"))
       .header("Authorization", s"Bearer ${oauth2Token}")
-      .body(bodyJson)
+      .body(body.asJson.noSpaces)
       .contentType("application/json")
+      .response(asJson[Project])
   }
 }

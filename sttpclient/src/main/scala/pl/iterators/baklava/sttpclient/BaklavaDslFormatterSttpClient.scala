@@ -23,7 +23,7 @@ class BaklavaDslFormatterSttpClient extends BaklavaDslFormatter {
 
     // Common types (optional).
     gen.renderSharedTypes.foreach { content =>
-      writeFile(s"$basePath/common/Types.scala", content)
+      writeFile(s"$basePath/common/dtos.scala", content)
     }
     // Per-tag subfolders.
     gen.renderTagFiles.foreach { case (relPath, content) =>

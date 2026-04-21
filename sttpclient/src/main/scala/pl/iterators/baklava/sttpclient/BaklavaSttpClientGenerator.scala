@@ -37,18 +37,24 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     }
   }
 
-  /** Per-tag files. Returns `(relPath, content)` pairs, where `relPath` is relative to the base-package source directory. */
+  /** Per-tag files. Returns `(relPath, content)` pairs, where `relPath` is relative to the base-package source directory. File names:
+    * `{tag}/dtos.scala` holds tag-local case classes, `{tag}/{Tag}Endpoints.scala` holds the `{Tag}Endpoints` object.
+    */
   def renderTagFiles: Seq[(String, String)] = {
     val byTag = calls.groupBy(c => c.request.operationTags.headOption.getOrElse(DefaultTag))
     byTag.toSeq.sortBy(_._1).flatMap { case (tag, tagCalls) =>
-      val safeTag   = scalaSafeIdent(tag.toLowerCase)
-      val typesFile = renderTagTypes(tag)
-      val endsFile  = renderTagEndpoints(tag, tagCalls)
+      val safeTag      = scalaSafeIdent(tag.toLowerCase)
+      val endpointsObj = endpointsObjectName(tag)
+      val typesFile    = renderTagTypes(tag)
+      val endsFile     = renderTagEndpoints(tag, tagCalls)
 
-      val typesEntry = typesFile.map(c => s"$safeTag/Types.scala" -> c).toSeq
-      typesEntry :+ (s"$safeTag/Endpoints.scala" -> endsFile)
+      val typesEntry = typesFile.map(c => s"$safeTag/dtos.scala" -> c).toSeq
+      typesEntry :+ (s"$safeTag/$endpointsObj.scala" -> endsFile)
     }
   }
+
+  private def endpointsObjectName(tag: String): String =
+    scalaSafeIdent(capitalize(tag)) + "Endpoints"
 
   /** Tag's `Types.scala`, or `None` if that tag owns no classes. */
   private def renderTagTypes(tag: String): Option[String] = {
@@ -77,21 +83,37 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     }
   }
 
-  /** Tag's `Endpoints.scala`. */
+  /** Tag's `{Tag}Endpoints.scala`. */
   private def renderTagEndpoints(tag: String, tagCalls: Seq[BaklavaSerializableCall]): String = {
     val safeTag    = scalaSafeIdent(tag.toLowerCase)
-    val objectName = scalaSafeIdent(capitalize(tag)) + "Endpoints"
+    val objectName = endpointsObjectName(tag)
 
-    val endpoints = tagCalls
+    val endpointGroups = tagCalls
       .groupBy(c => (c.request.method.map(_.method.toUpperCase).getOrElse("GET"), c.request.symbolicPath))
       .toSeq
       .sortBy { case ((m, p), _) => (p, m) }
-      .map { case (_, endpointCalls) => renderEndpoint(endpointCalls) }
+
+    val endpoints = endpointGroups.map { case (_, endpointCalls) => renderEndpoint(endpointCalls) }
+
+    val needsCirce = endpointGroups.exists { case (_, ec) => endpointUsesCirce(ec) }
 
     val referenced = tagCalls.flatMap(referencedClassesInCall).distinct
 
+    val needsTypedReq = endpointGroups.exists { case (_, ec) =>
+      val cap  = uniformBodyContentType(ec).forall(_.toLowerCase.contains("json"))
+      val body = ec.headOption.flatMap(_.request.bodySchema).filterNot(isEmptyBodyInstance)
+      cap && body.exists(isTypedBodySchema)
+    }
+
     val importLines = new scala.collection.mutable.ListBuffer[String]
     importLines += "import sttp.client4._"
+    if (needsCirce) {
+      importLines += "import sttp.client4.circe._"
+      // Auto-derive circe codecs for every case class reachable from this file. Pulls in `io.circe.generic` at the use site —
+      // users who want fine-grained control can replace this with hand-written or semi-auto codecs on the DTO companions.
+      importLines += "import io.circe.generic.auto._"
+      if (needsTypedReq) importLines += "import io.circe.syntax._"
+    }
     importLines += "import sttp.model.Uri"
 
     val sharedRefs = referenced.filter(sharedClasses.contains).sorted
@@ -130,6 +152,12 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     val declaredHs  = req.headersSeq.filterNot(h => isSpecialHeader(h.name))
     val bodySchema  = req.bodySchema.filterNot(isEmptyBodyInstance)
 
+    // Typed circe bodies are JSON-only; if the capture declared a non-JSON content-type (multipart, form-urlencoded, …), fall back
+    // to the raw `bodyJson: String` path so `.contentType(...)` gets emitted and the user can pass the already-encoded payload.
+    val captureIsJsonish = bodyMediaType.forall(_.toLowerCase.contains("json"))
+    val typedReqSchema   = if (captureIsJsonish) bodySchema.filter(isTypedBodySchema) else None
+    val typedRespSchema  = uniformTypedResponseSchema(endpointCalls)
+
     val pathParamDefs  = pathParams.map(p => s"${scalaSafeIdent(p.name)}: ${scalaType(p.schema)}")
     val queryParamDefs = queryParams.map { p =>
       val t = scalaType(p.schema)
@@ -141,8 +169,13 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
       if (h.schema.required) s"${scalaSafeIdent(h.name)}: $t"
       else s"${scalaSafeIdent(h.name)}: Option[$t] = None"
     }
-    val bodyParamDef = bodySchema.toSeq.map(_ => "bodyJson: String")
-    val authParams   = securityCredentialParams(req.securitySchemes)
+    val bodyParamDef = bodySchema.toSeq.map { s =>
+      typedReqSchema match {
+        case Some(_) => s"body: ${scalaType(s)}"
+        case None    => "bodyJson: String"
+      }
+    }
+    val authParams = securityCredentialParams(req.securitySchemes)
 
     val allParams = pathParamDefs ++ queryParamDefs ++ headerParamDefs ++ bodyParamDef ++ authParams ++ Seq("baseUri: Uri")
     val paramList = allParams.mkString(",\n      ")
@@ -168,20 +201,67 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     val bodyCall = bodySchema match {
       case None    => ""
       case Some(_) =>
-        val ct = bodyMediaType.getOrElse("application/json")
-        s"""      .body(bodyJson)
-           |      .contentType("$ct")""".stripMargin
+        typedReqSchema match {
+          // sttp-client4 has no polymorphic `.body[T: BodySerializer]`, so encode via circe to a String and set Content-Type
+          // explicitly. Requires `io.circe.syntax._` (for `.asJson`) and an in-scope `Encoder[T]` (via `generic.auto._`).
+          case Some(_) =>
+            """      .body(body.asJson.noSpaces)
+              |      .contentType("application/json")""".stripMargin
+          case None =>
+            val ct = bodyMediaType.getOrElse("application/json")
+            s"""      .body(bodyJson)
+               |      .contentType("$ct")""".stripMargin
+        }
+    }
+
+    val (returnType, responseCall) = typedRespSchema match {
+      case Some(s) =>
+        val t = scalaType(s)
+        (s"Request[Either[ResponseException[String], $t]]", s"      .response(asJson[$t])")
+      case None => ("Request[Either[String, String]]", "")
     }
 
     s"""  $scaladoc
        |  def $fnName(
        |      $paramList
-       |  ): Request[Either[String, String]] = {
+       |  ): $returnType = {
        |    basicRequest
        |      $verbCall
        |${headerLines.mkString("\n")}
        |$bodyCall
+       |$responseCall
        |  }""".stripMargin.replaceAll("\n+\\s*\n", "\n")
+  }
+
+  /** Does any call in this endpoint group lead to circe-typed request or response code? Kept in sync with `renderEndpoint`. */
+  private def endpointUsesCirce(ec: Seq[BaklavaSerializableCall]): Boolean = {
+    val bodyMediaType    = uniformBodyContentType(ec)
+    val captureIsJsonish = bodyMediaType.forall(_.toLowerCase.contains("json"))
+    val bodySchema       = ec.headOption.flatMap(_.request.bodySchema).filterNot(isEmptyBodyInstance)
+    val typedReq         = captureIsJsonish && bodySchema.exists(isTypedBodySchema)
+    typedReq || uniformTypedResponseSchema(ec).isDefined
+  }
+
+  /** A schema is "typed" (i.e. `asJson[T]`-able) when it resolves to a named case class or a collection of one. Primitive/form/empty
+    * schemas stay untyped so endpoints with non-JSON bodies keep working.
+    */
+  private def isTypedBodySchema(schema: BaklavaSchemaSerializable): Boolean = schema.`type` match {
+    case SchemaType.ObjectType if isNamedCaseClass(schema) => true
+    case SchemaType.ArrayType                              => schema.items.exists(isTypedBodySchema)
+    case _                                                 => false
+  }
+
+  /** If every 2xx response across an endpoint's captures has a typed body schema AND they all agree on the rendered Scala type, return the
+    * common schema; otherwise fall back to the untyped `Either[String, String]` response.
+    */
+  private def uniformTypedResponseSchema(endpointCalls: Seq[BaklavaSerializableCall]): Option[BaklavaSchemaSerializable] = {
+    val successSchemas = endpointCalls
+      .filter(c => c.response.status.code >= 200 && c.response.status.code < 300)
+      .flatMap(_.response.bodySchema)
+      .filterNot(isEmptyBodyInstance)
+      .filter(isTypedBodySchema)
+    val rendered = successSchemas.map(scalaType).distinct
+    if (successSchemas.nonEmpty && rendered.size == 1) successSchemas.headOption else None
   }
 
   /** If every captured call declared the same non-empty request content-type, return it. */
@@ -431,38 +511,56 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
        |
        |This directory contains a Scala source tree emitted from your Baklava test cases. It uses
        |[sttp-client4](https://sttp.softwaremill.com) and is framework-agnostic — generated functions
-       |return `Request[Either[String, String]]` values that you `.send(backend)` with any sttp backend
+       |return `sttp.client4.Request[R]` values that you `.send(backend)` with any sttp backend
        |(sync, async, fs2, Future, etc.).
        |
        |## Layout
        |
-       |- `src/main/scala/$pkgPath/common/Types.scala` — case classes shared by 2+ tags (omitted if empty)
-       |- `src/main/scala/$pkgPath/{tag}/Types.scala` — tag-local case classes (omitted if empty)
-       |- `src/main/scala/$pkgPath/{tag}/Endpoints.scala` — one `{Tag}Endpoints` object with a
+       |- `src/main/scala/$pkgPath/common/dtos.scala` — case classes shared by 2+ tags (omitted if empty)
+       |- `src/main/scala/$pkgPath/{tag}/dtos.scala` — tag-local case classes (omitted if empty)
+       |- `src/main/scala/$pkgPath/{tag}/{Tag}Endpoints.scala` — one `{Tag}Endpoints` object with a
        |  `def` per endpoint
+       |
+       |## Typed bodies and responses (circe)
+       |
+       |Whenever a request body or 2xx response maps to a named case class (or `Seq`/`List` of one),
+       |the generated `def` takes that type directly (`body: MyRequest`) and returns
+       |`Request[Either[ResponseException[String], MyResponse]]`. The file imports
+       |`sttp.client4.circe._` and uses `asJson[T]` / circe's implicit `BodySerializer[T]` — you need
+       |to provide circe `Encoder`/`Decoder` instances in scope (e.g. via
+       |`io.circe.generic.auto._`).
+       |
+       |Endpoints whose body/response isn't a named schema (multipart, plain-text, empty) keep the
+       |raw `bodyJson: String` input and the `Either[String, String]` response, so you can still
+       |use them without circe.
+       |
+       |## Dependencies
+       |
+       |```scala
+       |libraryDependencies ++= Seq(
+       |  "com.softwaremill.sttp.client4" %% "core"  % "4.x.y",
+       |  "com.softwaremill.sttp.client4" %% "circe" % "4.x.y",
+       |  "io.circe"                      %% "circe-core"    % "0.14.x",
+       |  "io.circe"                      %% "circe-generic" % "0.14.x"  // for `generic.auto._`
+       |)
+       |```
        |
        |## Usage
        |
-       |Copy the files into your project under a matching package, add
-       |`"com.softwaremill.sttp.client4" %% "core" % "4.x.y"` to your dependencies, then pick an endpoint
-       |from one of the generated `*Endpoints.scala` files and supply any required auth, path, query,
-       |header, or body parameters:
-       |
        |```scala
        |import sttp.client4._
+       |import sttp.client4.circe._
        |import sttp.model.Uri
+       |import io.circe.generic.auto._
        |// import $basePackage.<tag>.<Tag>Endpoints
+       |// import $basePackage.<tag>.dtos._
        |
        |val backend = DefaultSyncBackend()
        |val base    = uri"https://api.example.com"
        |
-       |// val req = <Tag>Endpoints.<operation>(baseUri = base /*, other params */)
-       |// val res = req.send(backend)
+       |// val req = <Tag>Endpoints.<operation>(baseUri = base /*, typed body + params */)
+       |// val res = req.send(backend)  // Either[ResponseException[String], T]
        |```
-       |
-       |Request bodies take a pre-serialized string (`bodyJson: String`) — bring your own codec (circe,
-       |jsoniter, upickle, etc.) to produce it. The `Content-Type` on the generated request honors the
-       |content type captured by Baklava; for JSON-only APIs that resolves to `application/json`.
        |""".stripMargin
   }
 }
