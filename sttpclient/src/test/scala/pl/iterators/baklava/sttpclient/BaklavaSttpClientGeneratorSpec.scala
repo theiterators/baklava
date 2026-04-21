@@ -162,7 +162,12 @@ class BaklavaSttpClientGeneratorSpec extends AnyFunSpec with Matchers {
       val base     = getCall("/users", tag = Some("Users")).let(c => c.copy(request = c.request.copy(method = Some(Method("POST")))))
       val call     = base.copy(
         request = base.request.copy(bodySchema = Some(userReq)),
-        response = base.response.copy(status = StatusCode(201), bodySchema = Some(userResp))
+        response = base.response.copy(
+          status = StatusCode(201),
+          bodySchema = Some(userResp),
+          requestContentType = Some("application/json"),
+          responseContentType = Some("application/json")
+        )
       )
 
       val content = generateAndRead("src/main/scala/baklavaclient/users/UsersEndpoints.scala", Seq(call))

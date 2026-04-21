@@ -17,9 +17,9 @@ return `sttp.client4.Request[R]` values that you `.send(backend)` with any sttp 
 Whenever a request body or 2xx response maps to a named case class (or `Seq`/`List` of one),
 the generated `def` takes that type directly (`body: MyRequest`) and returns
 `Request[Either[ResponseException[String], MyResponse]]`. The file imports
-`sttp.client4.circe._` and uses `asJson[T]` / circe's implicit `BodySerializer[T]` — you need
-to provide circe `Encoder`/`Decoder` instances in scope (e.g. via
-`io.circe.generic.auto._`).
+`sttp.client4.circe._`, encodes typed request bodies explicitly via `body.asJson.noSpaces`,
+and decodes typed responses with `asJson[T]` — you need circe `Encoder`/`Decoder` instances
+in scope (e.g. via `io.circe.generic.auto._`).
 
 Endpoints whose body/response isn't a named schema (multipart, plain-text, empty) keep the
 raw `bodyJson: String` input and the `Either[String, String]` response, so you can still

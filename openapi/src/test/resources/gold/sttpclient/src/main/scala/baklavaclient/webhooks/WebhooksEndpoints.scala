@@ -13,12 +13,11 @@ object WebhooksEndpoints {
       baseUri: Uri,
       apiKeyValue: String,
       body: WebhookPayload
-  ): Request[Either[ResponseException[String], WebhookAck]] = {
+  ): Request[Either[String, String]] = {
     basicRequest
       .post(baseUri.addPath("webhooks"))
       .header("X-API-Key", apiKeyValue)
       .body(body.asJson.noSpaces)
       .contentType("application/json")
-      .response(asJson[WebhookAck])
   }
 }

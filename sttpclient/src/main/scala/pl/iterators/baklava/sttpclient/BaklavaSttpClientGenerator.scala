@@ -59,7 +59,7 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
   private def endpointsObjectName(tag: String): String =
     scalaSafeIdent(capitalize(tag)) + "Endpoints"
 
-  /** Tag's `Types.scala`, or `None` if that tag owns no classes. */
+  /** Tag's `dtos.scala`, or `None` if that tag owns no classes. */
   private def renderTagTypes(tag: String): Option[String] = {
     val tagClasses = primaryTag.collect { case (name, t) if t == tag => name }.toSeq.sorted
     if (tagClasses.isEmpty) None
@@ -210,8 +210,11 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
           // sttp-client4 has no polymorphic `.body[T: BodySerializer]`, so encode via circe to a String and set Content-Type
           // explicitly. Requires `io.circe.syntax._` (for `.asJson`) and an in-scope `Encoder[T]` (via `generic.auto._`).
           case Some(_) =>
-            """      .body(body.asJson.noSpaces)
-              |      .contentType("application/json")""".stripMargin
+            // Reuse the captured content-type (e.g. `application/vnd.api+json; charset=utf-8`) when present; fall back to
+            // `application/json` when the capture didn't carry one.
+            val ct = bodyMediaType.getOrElse("application/json")
+            s"""      .body(body.asJson.noSpaces)
+               |      .contentType("$ct")""".stripMargin
           case None =>
             val ct = bodyMediaType.getOrElse("application/json")
             s"""      .body(bodyJson)
@@ -256,23 +259,33 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     case _                                                 => false
   }
 
-  /** If every 2xx response across an endpoint's captures has a typed body schema AND they all agree on the rendered Scala type, return the
-    * common schema; otherwise fall back to the untyped `Either[String, String]` response.
+  /** If *every* 2xx capture on this endpoint has a typed, non-empty body schema, all render to the same Scala type, AND all declare a
+    * JSON-ish `responseContentType`, return the common schema. Otherwise fall back to the untyped `Either[String, String]` response so
+    * endpoints with mixed/non-JSON 2xx responses don't emit `asJson[T]` that would fail to parse at runtime.
     */
   private def uniformTypedResponseSchema(endpointCalls: Seq[BaklavaSerializableCall]): Option[BaklavaSchemaSerializable] = {
-    val successSchemas = endpointCalls
-      .filter(c => c.response.status.code >= 200 && c.response.status.code < 300)
-      .flatMap(_.response.bodySchema)
-      .filterNot(isEmptyBodyInstance)
-      .filter(isTypedBodySchema)
-    val rendered = successSchemas.map(scalaType).distinct
-    if (successSchemas.nonEmpty && rendered.size == 1) successSchemas.headOption else None
+    val successCalls = endpointCalls.filter(c => c.response.status.code >= 200 && c.response.status.code < 300)
+    if (successCalls.isEmpty) None
+    else {
+      val typedSchemas    = successCalls.flatMap(_.response.bodySchema.filterNot(isEmptyBodyInstance).filter(isTypedBodySchema))
+      val rendered        = typedSchemas.map(scalaType).distinct
+      val allTyped        = typedSchemas.size == successCalls.size
+      val allJsonResponse = successCalls.forall(_.response.responseContentType.exists(_.toLowerCase.contains("json")))
+      if (allTyped && rendered.size == 1 && allJsonResponse) typedSchemas.headOption else None
+    }
   }
 
-  /** If every captured call declared the same non-empty request content-type, return it. */
+  /** If *every* captured call declared a non-empty `requestContentType` and they all agree on the value, return it. Keeps the generator
+    * honest when only some captures carried a content-type (previously `flatMap` silently dropped the missing ones, producing a false "all
+    * agree" signal).
+    */
   private def uniformBodyContentType(endpointCalls: Seq[BaklavaSerializableCall]): Option[String] = {
-    val distinct = endpointCalls.flatMap(_.response.requestContentType).distinct
-    if (distinct.size == 1) distinct.headOption else None
+    val allDeclared = endpointCalls.forall(_.response.requestContentType.exists(_.nonEmpty))
+    if (!allDeclared) None
+    else {
+      val distinct = endpointCalls.flatMap(_.response.requestContentType).distinct
+      if (distinct.size == 1) distinct.headOption else None
+    }
   }
 
   /** Well-known verbs get the convenience method (`.get(uri)`); anything else falls back to `.method(Method("X"), uri)` so non-standard
@@ -539,9 +552,9 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
        |Whenever a request body or 2xx response maps to a named case class (or `Seq`/`List` of one),
        |the generated `def` takes that type directly (`body: MyRequest`) and returns
        |`Request[Either[ResponseException[String], MyResponse]]`. The file imports
-       |`sttp.client4.circe._` and uses `asJson[T]` / circe's implicit `BodySerializer[T]` — you need
-       |to provide circe `Encoder`/`Decoder` instances in scope (e.g. via
-       |`io.circe.generic.auto._`).
+       |`sttp.client4.circe._`, encodes typed request bodies explicitly via `body.asJson.noSpaces`,
+       |and decodes typed responses with `asJson[T]` — you need circe `Encoder`/`Decoder` instances
+       |in scope (e.g. via `io.circe.generic.auto._`).
        |
        |Endpoints whose body/response isn't a named schema (multipart, plain-text, empty) keep the
        |raw `bodyJson: String` input and the `Either[String, String]` response, so you can still
