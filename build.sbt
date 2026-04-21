@@ -148,7 +148,16 @@ lazy val sttpclient = project
 
 lazy val openapi = project
   .in(file("openapi"))
-  .dependsOn(core, pekkohttp % "test", http4s % "test", scalatest % "test", simple % "test", tsrest % "test", postman % "test", sttpclient % "test")
+  .dependsOn(
+    core,
+    pekkohttp  % "test",
+    http4s     % "test",
+    scalatest  % "test",
+    simple     % "test",
+    tsrest     % "test",
+    postman    % "test",
+    sttpclient % "test"
+  )
   .settings(
     name := "baklava-openapi",
     scalacOptions ++= {
