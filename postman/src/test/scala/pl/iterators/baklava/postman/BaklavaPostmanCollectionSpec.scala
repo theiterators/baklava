@@ -213,7 +213,7 @@ class BaklavaPostmanCollectionSpec extends AnyFunSpec with Matchers {
       method shouldBe Some("GET")
     }
 
-    it("does not emit a Postman oauth2 auth block for `*InCookie` schemes") {
+    it("maps `*InCookie` OAuth/OIDC schemes to a Postman `apikey` block with `in: cookie` and two collection variables") {
       val flows  = OAuthFlows()
       val cookie = BaklavaSecuritySchemaSerializable(
         "sessionOAuth",
@@ -223,11 +223,40 @@ class BaklavaPostmanCollectionSpec extends AnyFunSpec with Matchers {
       val json = BaklavaPostmanCollection.build("API", Seq(call))
 
       val auth = json.hcursor.downField("item").downArray.downField("request").downField("auth")
-      auth.as[Json].toOption shouldBe Some(Json.Null)
+      auth.downField("type").as[String].toOption shouldBe Some("apikey")
+
+      val entries = auth.downField("apikey").values.get.toList.map { e =>
+        (e.hcursor.downField("key").as[String].toOption.get, e.hcursor.downField("value").as[String].toOption.get)
+      }
+      entries should contain allOf (
+        "key"   -> "{{sessionOAuthCookieName}}",
+        "value" -> "{{sessionOAuthToken}}",
+        "in"    -> "cookie"
+      )
 
       val vars = json.hcursor.downField("variable").values.get.map(_.hcursor.downField("key").as[String].toOption.get).toSeq
-      vars should contain("baseUrl")
-      vars should not contain "sessionOAuthToken"
+      vars should contain allOf ("baseUrl", "sessionOAuthCookieName", "sessionOAuthToken")
+    }
+
+    it("emits collection variables in a stable order regardless of input call order") {
+      val bearer = BaklavaSecuritySchemaSerializable("bearerAuth", BaklavaSecuritySerializable(httpBearer = Some(HttpBearer())))
+      val basic  = BaklavaSecuritySchemaSerializable("basicAuth", BaklavaSecuritySerializable(httpBasic = Some(HttpBasic())))
+      val apiKey = BaklavaSecuritySchemaSerializable(
+        "apiKeyScheme",
+        BaklavaSecuritySerializable(apiKeyInHeader = Some(ApiKeyInHeader("X-API-Key")))
+      )
+
+      def keysOf(order: Seq[BaklavaSecuritySchemaSerializable]): Seq[String] =
+        BaklavaPostmanCollection
+          .build("API", Seq(simpleGetCall().copy(request = simpleGetCall().request.copy(securitySchemes = order))))
+          .hcursor
+          .downField("variable")
+          .values
+          .get
+          .map(_.hcursor.downField("key").as[String].toOption.get)
+          .toSeq
+
+      keysOf(Seq(bearer, basic, apiKey)) shouldBe keysOf(Seq(apiKey, bearer, basic))
     }
 
     it("omits collection variables for security schemes without a Postman auth equivalent (mutualTls)") {

@@ -243,9 +243,25 @@ private[postman] object BaklavaPostmanCollection {
                 Json.obj("key" -> Json.fromString("addTokenTo"), "value" -> Json.fromString("header"), "type" -> Json.fromString("string"))
               )
             )
-          // `*InCookie` OAuth/OIDC schemes carry the token on the Cookie header; the cookie name isn't part of the scheme definition,
-          // so we can't rebuild the auth block. The captured request's Cookie header survives into `headerArray`, which is enough for the
-          // imported request to authenticate — no Postman `auth` block emitted.
+          // `*InCookie` OAuth/OIDC: Baklava's scheme definition doesn't carry the cookie name (it's captured at runtime via AppliedSecurity),
+          // so users fill in two collection variables at import time — `{scheme}CookieName` and `{scheme}Token`. Emitted as Postman's native
+          // `apikey`-with-`in: cookie` auth type.
+          else if (s.oAuth2InCookie.isDefined || s.openIdConnectInCookie.isDefined)
+            Some(
+              "apikey" -> Json.arr(
+                Json.obj(
+                  "key"   -> Json.fromString("key"),
+                  "value" -> Json.fromString(s"{{${scheme.name}CookieName}}"),
+                  "type"  -> Json.fromString("string")
+                ),
+                Json.obj(
+                  "key"   -> Json.fromString("value"),
+                  "value" -> Json.fromString(s"{{${scheme.name}Token}}"),
+                  "type"  -> Json.fromString("string")
+                ),
+                Json.obj("key" -> Json.fromString("in"), "value" -> Json.fromString("cookie"), "type" -> Json.fromString("string"))
+              )
+            )
           else None
 
         auth match {
@@ -304,18 +320,21 @@ private[postman] object BaklavaPostmanCollection {
   }
 
   /** Collection-level variables: `{{baseUrl}}` plus one placeholder per declared security credential that maps to a Postman auth type.
-    * Schemes without a Postman equivalent (e.g. `mutualTls`) don't produce a variable — `requestAuth` wouldn't reference it anyway.
+    * Schemes are sorted by name for deterministic output regardless of input call order; credential-order within a scheme is preserved
+    * (e.g. `Username` before `Password`). Schemes without a Postman equivalent (e.g. `mutualTls`) don't produce a variable.
     */
   private def collectionVariables(calls: Seq[BaklavaSerializableCall]): Seq[Json] = {
     val schemeVars = calls
       .flatMap(_.request.securitySchemes)
       .distinctBy(_.name)
+      .sortBy(_.name)
       .flatMap { scheme =>
         val s = scheme.security
         if (s.httpBearer.isDefined) Seq(s"${scheme.name}Token")
         else if (s.httpBasic.isDefined) Seq(s"${scheme.name}Username", s"${scheme.name}Password")
         else if (s.apiKeyInHeader.isDefined || s.apiKeyInQuery.isDefined || s.apiKeyInCookie.isDefined) Seq(s"${scheme.name}Value")
         else if (s.oAuth2InBearer.isDefined || s.openIdConnectInBearer.isDefined) Seq(s"${scheme.name}Token")
+        else if (s.oAuth2InCookie.isDefined || s.openIdConnectInCookie.isDefined) Seq(s"${scheme.name}CookieName", s"${scheme.name}Token")
         else Seq.empty
       }
 

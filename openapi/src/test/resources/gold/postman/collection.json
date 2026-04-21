@@ -818,6 +818,11 @@
       "type" : "string"
     },
     {
+      "key" : "apiKeyValue",
+      "value" : "",
+      "type" : "string"
+    },
+    {
       "key" : "basicAuthUsername",
       "value" : "",
       "type" : "string"
@@ -834,11 +839,6 @@
     },
     {
       "key" : "oauth2Token",
-      "value" : "",
-      "type" : "string"
-    },
-    {
-      "key" : "apiKeyValue",
       "value" : "",
       "type" : "string"
     }
