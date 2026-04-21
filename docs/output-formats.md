@@ -5,7 +5,7 @@ title: Output Formats
 
 # Output Formats
 
-Baklava supports three output formats. You can use one or more simultaneously — each is an independent SBT dependency that produces its own output in `target/baklava/`.
+Baklava supports four output formats. You can use one or more simultaneously — each is an independent SBT dependency that produces its own output in `target/baklava/`.
 
 ## How It Works
 
@@ -15,7 +15,8 @@ Formatters are **automatically discovered** via reflection. Any formatter on the
 libraryDependencies ++= Seq(
   "pl.iterators" %% "baklava-simple"  % "VERSION" % Test,  // adds Simple format
   "pl.iterators" %% "baklava-openapi" % "VERSION" % Test,  // adds OpenAPI format
-  "pl.iterators" %% "baklava-tsrest"  % "VERSION" % Test   // adds TS-REST format
+  "pl.iterators" %% "baklava-tsrest"  % "VERSION" % Test,  // adds TS-REST format
+  "pl.iterators" %% "baklava-postman" % "VERSION" % Test   // adds Postman Collection format
 )
 ```
 
@@ -171,3 +172,58 @@ import { contracts } from "@company/backend-contracts";
 // Full type safety and autocompletion for API calls
 const userContract = contracts.user;
 ```
+
+## Postman Collection Format
+
+**Dependency:** `"pl.iterators" %% "baklava-postman" % "VERSION" % Test`
+**Configuration:** Optional — `postman.collectionName` key in `baklavaGenerateConfigs`
+**Output:** `target/baklava/postman/collection.json`
+
+Generates a [Postman Collection v2.1](https://schema.getpostman.com/json/collection/v2.1.0/collection.json) JSON document. The file imports cleanly into Postman (desktop, web, and CLI) and Insomnia (via its Postman v2 import path).
+
+### What Gets Generated
+
+- **Folders** grouped by the operation's first `tag`. Untagged operations appear at the collection root.
+- **Requests** with method, URL, headers, body, and authentication block per endpoint.
+- **OpenAPI-style path placeholders** (`/users/{userId}`) rewritten as Postman's `:userId` syntax, with captured example values promoted to per-request `variable[]` entries.
+- **Query and header parameters** from the DSL with captured example values.
+- **Request bodies** rendered as `mode: raw` with language (`json`, `xml`, `javascript`, `html`, or `text`) inferred from the captured `Content-Type`.
+- **Response examples** — each test case becomes a saved response example under its endpoint, labelled with the `responseDescription` or `<status> response`.
+- **Security schemes** translated to Postman's native `auth` block:
+  - `HttpBearer` → Bearer Token
+  - `HttpBasic` → Basic Auth
+  - `ApiKeyInHeader` / `ApiKeyInQuery` / `ApiKeyInCookie` → API Key (with matching `in` location)
+  - `OAuth2InBearer` / `OpenIdConnectInBearer` → OAuth 2.0 (token in header)
+  - `OAuth2InCookie` / `OpenIdConnectInCookie` → API Key with `in: cookie` (Baklava doesn't capture the cookie name at scheme-definition time, so the user fills it in after import)
+  - `MutualTls` → no `auth` block (no Postman equivalent; client-cert setup is external to the collection)
+- **Collection-level variables** with empty placeholder values — `{{baseUrl}}` plus one per security scheme's credentials:
+  - Bearer → `{scheme}Token`
+  - Basic → `{scheme}Username` + `{scheme}Password`
+  - API key (any `in`) → `{scheme}Value`
+  - OAuth / OpenID Connect in bearer → `{scheme}Token`
+  - OAuth / OpenID Connect in cookie → `{scheme}CookieName` + `{scheme}Token`
+
+### Configuration
+
+```scala
+baklavaGenerateConfigs := Map(
+  "postman.collectionName" -> "My API"
+)
+```
+
+Defaults to `"Baklava-generated API"` when unset.
+
+### Usage
+
+After generating:
+
+1. **Postman** — File menu → Import → pick `target/baklava/postman/collection.json`.
+2. **Insomnia** — Application menu → Import → choose the file, select "Postman v2" when prompted.
+
+After importing, set the `baseUrl` collection variable (e.g., `https://api.example.com`) plus any security-credential variables. Each request then sends against your live server with correct paths, headers, bodies, and auth.
+
+### Caveats
+
+- Postman permits only one `auth` block per request, so when an endpoint declares multiple `SecurityScheme`s, only the first maps to the native auth block. Users can switch alternatives manually in the Postman UI after import.
+- Body serialization uses the raw captured string from the test. If your DSL passes a Scala case class whose JSON encoding has nested escaped strings, those will appear as-is in the request body (as they would on the wire).
+- The generator does not emit Postman test scripts or pre-request scripts — it only reproduces the request/response shape. Response examples are attached for visual inspection, not for assertions.
