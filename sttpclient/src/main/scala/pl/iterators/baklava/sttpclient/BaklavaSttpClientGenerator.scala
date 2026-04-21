@@ -366,17 +366,23 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
   private def functionName(req: BaklavaRequestContextSerializable): String =
     req.operationId.map(scalaSafeIdent).getOrElse {
       val method = req.method.map(_.method.toLowerCase).getOrElse("call")
-      method + pascalFromPath(req.symbolicPath)
+      scalaSafeIdent(method + pascalFromPath(req.symbolicPath))
     }
 
+  /** Pascal-case a path like `/user-profile/{id}` to `UserProfileById`. Each segment is split on non-alphanumeric-underscore runs so
+    * hyphens/dots don't leak into the generated identifier (e.g. `/v1/user-profile` → `V1UserProfile`).
+    */
   private def pascalFromPath(p: String): String =
     p.split("/")
       .filter(_.nonEmpty)
       .map {
-        case seg if seg.startsWith("{") && seg.endsWith("}") => "By" + capitalize(seg.substring(1, seg.length - 1))
-        case seg                                             => capitalize(seg)
+        case seg if seg.startsWith("{") && seg.endsWith("}") => "By" + pascalizeSegment(seg.substring(1, seg.length - 1))
+        case seg                                             => pascalizeSegment(seg)
       }
       .mkString
+
+  private def pascalizeSegment(seg: String): String =
+    seg.split("[^A-Za-z0-9_]+").filter(_.nonEmpty).map(capitalize).mkString
 
   // -- schema analysis --------------------------------------------------------
 
@@ -549,16 +555,22 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
        |
        |## Typed bodies and responses (circe)
        |
-       |Whenever a request body or 2xx response maps to a named case class (or `Seq`/`List` of one),
-       |the generated `def` takes that type directly (`body: MyRequest`) and returns
-       |`Request[Either[ResponseException[String], MyResponse]]`. The file imports
-       |`sttp.client4.circe._`, encodes typed request bodies explicitly via `body.asJson.noSpaces`,
-       |and decodes typed responses with `asJson[T]` — you need circe `Encoder`/`Decoder` instances
-       |in scope (e.g. via `io.circe.generic.auto._`).
+       |Request-body and response typing are decided independently:
        |
-       |Endpoints whose body/response isn't a named schema (multipart, plain-text, empty) keep the
-       |raw `bodyJson: String` input and the `Either[String, String]` response, so you can still
-       |use them without circe.
+       | - When a request body maps to a named case class (or `Seq`/`List` of one), the `def`
+       |   takes `body: MyRequest` directly and serializes it via `body.asJson.noSpaces`.
+       | - When a 2xx response maps to a named case class and all successful captures
+       |   declare a JSON-ish Content-Type, the `def` returns
+       |   `Request[Either[ResponseException[String], MyResponse]]` and uses `asJson[T]`.
+       |
+       |Either signal (typed body, typed response, or both) adds
+       |`import sttp.client4.circe._` + `import io.circe.generic.auto._`; a typed body additionally
+       |adds `import io.circe.syntax._`. You need circe `Encoder`/`Decoder` instances in scope
+       |(e.g. via `io.circe.generic.auto._`).
+       |
+       |Endpoints whose body isn't a named schema (multipart, plain-text, empty) keep the
+       |raw `bodyJson: String` input. Endpoints whose 2xx response isn't a named JSON schema keep
+       |the raw `Either[String, String]` response, so you can still use them without circe.
        |
        |## Dependencies
        |

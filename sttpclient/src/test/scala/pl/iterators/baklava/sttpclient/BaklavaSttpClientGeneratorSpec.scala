@@ -36,6 +36,32 @@ class BaklavaSttpClientGeneratorSpec extends AnyFunSpec with Matchers {
       content should include("package baklavaclient.users")
     }
 
+    it("sanitizes fallback def names derived from paths when operationId is missing") {
+      cleanSrc()
+      val hyphenatedContent = generateAndRead(
+        "src/main/scala/baklavaclient/users/UsersEndpoints.scala",
+        Seq(getCall("/user-profile", tag = Some("Users"), operationId = None))
+      )
+      hyphenatedContent should include("def getUserProfile(")
+      hyphenatedContent should not include "def getUser-profile("
+
+      cleanSrc()
+      val versionedContent = generateAndRead(
+        "src/main/scala/baklavaclient/users/UsersEndpoints.scala",
+        Seq(getCall("/v1/users", tag = Some("Users"), operationId = None))
+      )
+      versionedContent should include("def getV1Users(")
+      versionedContent should not include "def getV1/users("
+
+      cleanSrc()
+      val dottedContent = generateAndRead(
+        "src/main/scala/baklavaclient/users/UsersEndpoints.scala",
+        Seq(getCall("/api/users.json", tag = Some("Users"), operationId = None))
+      )
+      dottedContent should include("def getApiUsersJson(")
+      dottedContent should not include "def getApiUsers.json("
+    }
+
     it("rewrites {name} path segments as Scala string interpolation against sttp `addPath`") {
       cleanSrc()
       val content = generateAndRead(

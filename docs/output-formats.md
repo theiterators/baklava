@@ -235,7 +235,7 @@ After importing, set the `baseUrl` collection variable (e.g., `https://api.examp
 **Configuration:** Optional — `sttp-client-package` key in `baklavaGenerateConfigs`
 **Output:** `target/baklava/sttpclient/`
 
-Generates a tree of Scala source files containing [sttp-client4](https://sttp.softwaremill.com) request builders for every documented endpoint. Endpoints whose request/response bodies map to named case classes use [sttp-client4's circe integration](https://sttp.softwaremill.com/en/latest/json.html#circe) and return typed `Request[Either[ResponseException[String], T]]` values; endpoints with non-JSON or unnamed bodies fall back to `Request[Either[String, String]]`. Either way, you send with any sttp backend (sync, async, Future, fs2, ZIO, etc.).
+Generates a tree of Scala source files containing [sttp-client4](https://sttp.softwaremill.com) request builders for every documented endpoint. Named JSON request and response bodies use [sttp-client4's circe integration](https://sttp.softwaremill.com/en/latest/json.html#circe) where applicable. The typed `Request[Either[ResponseException[String], T]]` shape is only emitted when the endpoint has a decodable typed 2xx JSON response; endpoints without a typed response — including ones that only have a typed request body — fall back to `Request[Either[String, String]]`. Either way, you send with any sttp backend (sync, async, Future, fs2, ZIO, etc.).
 
 ### Generated Files
 
@@ -257,13 +257,23 @@ Each named schema is routed based on how many tags' endpoints reference it:
 
 ### Typed bodies and responses
 
-When a request body or 2xx response resolves to a named case class (or `Seq[NamedClass]`), the generated `def` uses it directly:
+Request-body typing and response typing are decided independently.
 
-- Request body becomes `body: SomeRequest` + `.body(body.asJson.noSpaces).contentType("application/json")`
-- Response becomes `Request[Either[ResponseException[String], SomeResponse]]` + `.response(asJson[SomeResponse])`
-- The file imports `sttp.client4.circe._` + `io.circe.generic.auto._` (and `io.circe.syntax._` if any endpoint has a typed body). Consumers need `sttp-client4-circe` and `circe-generic` on the classpath.
+**Typed request body** — when a request body resolves to a named case class (or `Seq[NamedClass]`) and all captures on the endpoint agree on a JSON-ish Content-Type:
 
-When the body or response isn't a named case class (multipart/form captures, plain text, empty bodies), the endpoint keeps the raw `bodyJson: String` input and the `Either[String, String]` response so it stays usable without circe.
+- Signature becomes `body: SomeRequest`
+- Serialization: `.body(body.asJson.noSpaces).contentType("<captured Content-Type>")` (reuses the captured value, e.g. `application/vnd.api+json; charset=utf-8`; falls back to `application/json` when none was captured)
+- File imports `sttp.client4.circe._` + `io.circe.generic.auto._` + `io.circe.syntax._`
+
+**Typed response** — when every 2xx capture has the same named case class (or `Seq[NamedClass]`) and declares a JSON-ish `responseContentType`:
+
+- Return becomes `Request[Either[ResponseException[String], SomeResponse]]`
+- Decoding: `.response(asJson[SomeResponse])`
+- File imports `sttp.client4.circe._` + `io.circe.generic.auto._`
+
+**Raw fallback** — when the body isn't a named case class (multipart/form, plain text, empty), the endpoint keeps the raw `bodyJson: String` input. When the response isn't a named JSON schema (or 2xx responses are mixed JSON and non-JSON), the endpoint keeps the raw `Either[String, String]` response. An endpoint can mix a typed body with a raw response (or vice versa) — each side is gated on its own.
+
+Consumers need `sttp-client4-circe` and `circe-generic` on the classpath when any endpoint hits the typed paths above.
 
 ### Endpoint Shape
 
