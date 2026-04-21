@@ -193,11 +193,15 @@ Generates a [Postman Collection v2.1](https://schema.getpostman.com/json/collect
   - `HttpBearer` → Bearer Token
   - `HttpBasic` → Basic Auth
   - `ApiKeyInHeader` / `ApiKeyInQuery` / `ApiKeyInCookie` → API Key (with matching `in` location)
-  - `OAuth2*` / `OpenIdConnect*` → OAuth 2.0 (token in header)
+  - `OAuth2InBearer` / `OpenIdConnectInBearer` → OAuth 2.0 (token in header)
+  - `OAuth2InCookie` / `OpenIdConnectInCookie` → API Key with `in: cookie` (Baklava doesn't capture the cookie name at scheme-definition time, so the user fills it in after import)
+  - `MutualTls` → no `auth` block (no Postman equivalent; client-cert setup is external to the collection)
 - **Collection-level variables** with empty placeholder values — `{{baseUrl}}` plus one per security scheme's credentials:
-  - Bearer / OAuth / OpenID Connect → `{scheme}Token`
+  - Bearer → `{scheme}Token`
   - Basic → `{scheme}Username` + `{scheme}Password`
-  - API key → `{scheme}Value`
+  - API key (any `in`) → `{scheme}Value`
+  - OAuth / OpenID Connect in bearer → `{scheme}Token`
+  - OAuth / OpenID Connect in cookie → `{scheme}CookieName` + `{scheme}Token`
 
 ### Configuration
 
