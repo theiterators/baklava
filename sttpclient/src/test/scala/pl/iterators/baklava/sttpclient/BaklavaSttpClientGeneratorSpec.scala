@@ -139,6 +139,22 @@ class BaklavaSttpClientGeneratorSpec extends AnyFunSpec with Matchers {
       content should not include """.contentType("application/json")"""
     }
 
+    it("wires `*InCookie` OAuth/OIDC schemes via .cookie(cookieName, token) with two credential parameters") {
+      cleanSrc()
+      val flows  = OAuthFlows()
+      val scheme = BaklavaSecuritySchemaSerializable(
+        "sessionOAuth",
+        BaklavaSecuritySerializable(oAuth2InCookie = Some(OAuth2InCookie(flows)))
+      )
+      val base    = getCall("/me", tag = Some("Users"))
+      val call    = base.copy(request = base.request.copy(securitySchemes = Seq(scheme)))
+      val content =
+        generateAndRead("src/main/scala/baklavaclient/users/UsersEndpoints.scala", Seq(call))
+      content should include("sessionOAuthCookieName: String")
+      content should include("sessionOAuthToken: String")
+      content should include(".cookie(sessionOAuthCookieName, sessionOAuthToken)")
+    }
+
     it("emits a typed `body: T` parameter + circe `asJson[T]` response when request/response schemas are named case classes") {
       cleanSrc()
       val userReq  = namedObject("CreateUserRequest", Map("name" -> Schema.stringSchema))

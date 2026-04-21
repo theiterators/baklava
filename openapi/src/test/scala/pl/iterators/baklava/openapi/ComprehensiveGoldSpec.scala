@@ -53,7 +53,7 @@ import scala.jdk.CollectionConverters.*
 
 /** Gold test for the five Baklava generators (OpenAPI, ts-rest, simple HTML, Postman Collection, sttp-client).
   *
-  * Builds a comprehensive but realistic API and drives it end-to-end through the Baklava DSL, then generates all four output formats from
+  * Builds a comprehensive but realistic API and drives it end-to-end through the Baklava DSL, then generates all five output formats from
   * the captured calls and compares byte-for-byte against checked-in golden files under `openapi/src/test/resources/gold/`.
   *
   * Run with `BAKLAVA_REGEN_GOLD=1` to overwrite the golden files when the generator output legitimately changes (review the diff before

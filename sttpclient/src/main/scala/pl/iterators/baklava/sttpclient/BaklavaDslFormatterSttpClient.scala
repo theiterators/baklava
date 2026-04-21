@@ -6,9 +6,10 @@ import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Using
 
 /** Emits a Scala source tree under `target/baklava/sttpclient/` that users drop into their own project. Output structure mirrors the
-  * tsfetch generator: one sub-package per operation tag with its own `Endpoints.scala` and `Types.scala`, plus a `common` sub-package for
-  * types shared between two or more tags. Endpoint functions return `sttp.client4.Request[Either[String, String]]`; callers pick their own
-  * backend and JSON codec.
+  * tsfetch generator: one sub-package per operation tag with its own `{Tag}Endpoints.scala` (endpoint object) and `dtos.scala` (case
+  * classes), plus a `common` sub-package for DTOs shared between two or more tags. Endpoints with named case-class bodies return typed
+  * `sttp.client4.Request[Either[sttp.client4.ResponseException[String], T]]` values using `sttp.client4.circe._`; non-JSON and unnamed
+  * bodies fall back to the raw `Request[Either[String, String]]` shape. Callers pick their own backend.
   */
 class BaklavaDslFormatterSttpClient extends BaklavaDslFormatter {
 

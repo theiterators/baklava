@@ -267,15 +267,16 @@ When the body or response isn't a named case class (multipart/form captures, pla
 
 ### Endpoint Shape
 
-Each generated `def` takes:
-- Path parameters as required positional parameters
-- Query parameters (required-typed or `Option[T] = None`)
-- Declared headers (same required/optional handling)
-- Either `body: SomeRequest` (typed path) or `bodyJson: String` (raw path, including multipart/form)
-- Credential parameters per the first `SecurityScheme` (`{schemeName}Token` / `{schemeName}Username`+`{schemeName}Password` / `{schemeName}Value`). Scheme names that collide with Scala reserved words (e.g. `type`) are sanitized so the final identifier always compiles.
-- A trailing `baseUri: sttp.model.Uri` parameter
+Connection-level params come first (`baseUri`, then security credentials), then per-call params follow. The full order of each generated `def` is:
 
-Connection-level params (`baseUri`, security credentials) come first in the signature so call-sites can read "for this base + auth, do X". Per-call params (path / query / headers / body) follow.
+1. `baseUri: sttp.model.Uri`
+2. Credential parameters per the first `SecurityScheme` (`{schemeName}Token` / `{schemeName}Username`+`{schemeName}Password` / `{schemeName}Value`). Scheme names that collide with Scala reserved words (e.g. `type`) are sanitized so the final identifier always compiles.
+3. Path parameters as required positional parameters
+4. Query parameters (required-typed or `Option[T] = None`)
+5. Declared headers (same required/optional handling)
+6. Either `body: SomeRequest` (typed path) or `bodyJson: String` (raw path, including multipart/form)
+
+Putting connection-level params first lets call-sites read "for this base + auth, do X" and enables partial application for scope-local aliases.
 
 Example (typed, generated for `POST /users` returning `User`):
 
@@ -325,7 +326,8 @@ Well-known verbs (`GET`/`POST`/`PUT`/`DELETE`/`PATCH`/`HEAD`/`OPTIONS`) use the 
 | `ApiKeyInCookie`               | `{scheme}Value: String`                         | `.cookie("<key>", value)`                                          |
 | `ApiKeyInQuery`                | `{scheme}Value: String`                         | `.addParam("<key>", value)` on the URI chain                       |
 | `OAuth2InBearer`/`OpenIdConnectInBearer` | `{scheme}Token: String`               | `.header("Authorization", s"Bearer ${...Token}")`                  |
-| `OAuth2InCookie`/`OpenIdConnectInCookie` / `MutualTls` | —                           | Not yet wired — supply the credential manually at call site        |
+| `OAuth2InCookie`/`OpenIdConnectInCookie` | `{scheme}CookieName`, `{scheme}Token: String` | `.cookie({scheme}CookieName, {scheme}Token)` (cookie name isn't part of the scheme) |
+| `MutualTls`                    | —                                               | Not wired — client-cert setup is external to the generated code    |
 
 Only the first `SecurityScheme` maps to generated parameters. Endpoints using multiple schemes need additional headers supplied manually.
 

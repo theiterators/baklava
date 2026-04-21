@@ -2,9 +2,12 @@ package pl.iterators.baklava.sttpclient
 
 import pl.iterators.baklava.*
 
-/** Translates captured `BaklavaSerializableCall`s to a Scala source tree: one sub-package per operation tag with an `Endpoints.scala` and
-  * a `Types.scala`, plus a `common` sub-package with case classes used by two or more tags. Endpoints return sttp-client4 `Request` values
-  * — no opinion on effect type, no opinion on JSON library.
+/** Translates captured `BaklavaSerializableCall`s to a Scala source tree: one sub-package per operation tag with a `{Tag}Endpoints.scala`
+  * (object definitions) and a `dtos.scala` (case classes), plus a `common/dtos.scala` for case classes used by two or more tags.
+  *
+  * Endpoints whose request/response bodies resolve to a named case class use sttp-client4's circe integration and return
+  * `Request[Either[ResponseException[String], T]]` values; endpoints with non-JSON or unnamed bodies fall back to the raw
+  * `Request[Either[String, String]]` shape. Either way the generator has no opinion on effect type — pick your own sttp backend.
   */
 private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls: Seq[BaklavaSerializableCall]) {
 
@@ -19,15 +22,15 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
   /** className → tags whose endpoints reference it (transitively). */
   private val usageByTag: Map[String, Set[String]] = collectUsageByTag(calls)
 
-  /** Classes used by two or more tags → `common/Types.scala`. */
+  /** Classes used by two or more tags → `common/dtos.scala`. */
   private val sharedClasses: Set[String] =
     usageByTag.collect { case (name, tags) if tags.size >= 2 => name }.toSet
 
-  /** Classes used by exactly one tag → that tag's `Types.scala`. */
+  /** Classes used by exactly one tag → that tag's `dtos.scala`. */
   private val primaryTag: Map[String, String] =
     usageByTag.collect { case (name, tags) if tags.size == 1 => name -> tags.head }.toMap
 
-  /** If any classes land in `common/Types.scala`, render it. Else `None`. */
+  /** If any classes land in `common/dtos.scala`, render it. Else `None`. */
   def renderSharedTypes: Option[String] = {
     val classes = sharedClasses.toSeq.sorted
     if (classes.isEmpty) None
@@ -293,27 +296,33 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
 
   private def securityCredentialParams(schemes: Seq[BaklavaSecuritySchemaSerializable]): Seq[String] =
     schemes.headOption.toSeq.flatMap { s =>
-      val sec          = s.security
-      val tokenName    = scalaSafeIdent(s.name + "Token")
-      val usernameName = scalaSafeIdent(s.name + "Username")
-      val passwordName = scalaSafeIdent(s.name + "Password")
-      val valueName    = scalaSafeIdent(s.name + "Value")
+      val sec            = s.security
+      val tokenName      = scalaSafeIdent(s.name + "Token")
+      val usernameName   = scalaSafeIdent(s.name + "Username")
+      val passwordName   = scalaSafeIdent(s.name + "Password")
+      val valueName      = scalaSafeIdent(s.name + "Value")
+      val cookieNameName = scalaSafeIdent(s.name + "CookieName")
       if (sec.httpBearer.isDefined || sec.oAuth2InBearer.isDefined || sec.openIdConnectInBearer.isDefined)
         Seq(s"$tokenName: String")
       else if (sec.httpBasic.isDefined)
         Seq(s"$usernameName: String", s"$passwordName: String")
       else if (sec.apiKeyInHeader.isDefined || sec.apiKeyInQuery.isDefined || sec.apiKeyInCookie.isDefined)
         Seq(s"$valueName: String")
+      // `*InCookie` OAuth/OIDC: the Baklava scheme definition doesn't carry the cookie name (supplied at runtime via AppliedSecurity), so
+      // the caller has to tell us both the cookie name and the token value at call time.
+      else if (sec.oAuth2InCookie.isDefined || sec.openIdConnectInCookie.isDefined)
+        Seq(s"$cookieNameName: String", s"$tokenName: String")
       else Seq.empty
     }
 
   private def securityHeaderLines(schemes: Seq[BaklavaSecuritySchemaSerializable]): Seq[String] =
     schemes.headOption.toSeq.flatMap { s =>
-      val sec          = s.security
-      val tokenName    = scalaSafeIdent(s.name + "Token")
-      val usernameName = scalaSafeIdent(s.name + "Username")
-      val passwordName = scalaSafeIdent(s.name + "Password")
-      val valueName    = scalaSafeIdent(s.name + "Value")
+      val sec            = s.security
+      val tokenName      = scalaSafeIdent(s.name + "Token")
+      val usernameName   = scalaSafeIdent(s.name + "Username")
+      val passwordName   = scalaSafeIdent(s.name + "Password")
+      val valueName      = scalaSafeIdent(s.name + "Value")
+      val cookieNameName = scalaSafeIdent(s.name + "CookieName")
       if (sec.httpBearer.isDefined || sec.oAuth2InBearer.isDefined || sec.openIdConnectInBearer.isDefined)
         Seq(s"""      .header("Authorization", s"Bearer $${$tokenName}")""")
       else if (sec.httpBasic.isDefined)
@@ -324,7 +333,9 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
       } else if (sec.apiKeyInCookie.isDefined) {
         val k = sec.apiKeyInCookie.get.name
         Seq(s"""      .cookie("$k", $valueName)""")
-      } else Seq.empty
+      } else if (sec.oAuth2InCookie.isDefined || sec.openIdConnectInCookie.isDefined)
+        Seq(s"""      .cookie($cookieNameName, $tokenName)""")
+      else Seq.empty
     }
 
   private def securityQueryLines(schemes: Seq[BaklavaSecuritySchemaSerializable]): Seq[String] =
