@@ -179,7 +179,7 @@ const userContract = contracts.user;
 **Configuration:** Optional — `postman.collectionName` key in `baklavaGenerateConfigs`
 **Output:** `target/baklava/postman/collection.json`
 
-Generates a [Postman Collection v2.1](https://schema.postman.com/collection/json/v2.1.0/draft-07/collection.json) JSON document. The file imports cleanly into Postman (desktop, web, and CLI), Insomnia (via its Postman import path), and Bruno (`bru import --format postman`).
+Generates a [Postman Collection v2.1](https://schema.getpostman.com/json/collection/v2.1.0/collection.json) JSON document. The file imports cleanly into Postman (desktop, web, and CLI) and Insomnia (via its Postman v2 import path).
 
 ### What Gets Generated
 
@@ -215,7 +215,6 @@ After generating:
 
 1. **Postman** — File menu → Import → pick `target/baklava/postman/collection.json`.
 2. **Insomnia** — Application menu → Import → choose the file, select "Postman v2" when prompted.
-3. **Bruno** — `bru import --format postman target/baklava/postman/collection.json`
 
 After importing, set the `baseUrl` collection variable (e.g., `https://api.example.com`) plus any security-credential variables. Each request then sends against your live server with correct paths, headers, bodies, and auth.
 

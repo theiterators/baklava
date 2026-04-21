@@ -3,6 +3,10 @@ package pl.iterators.baklava.postman
 import io.circe.Json
 import pl.iterators.baklava.*
 
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.util.Locale
+
 /** Pure conversion from the captured `BaklavaSerializableCall` list to a Postman Collection v2.1.0 JSON document. No I/O. */
 private[postman] object BaklavaPostmanCollection {
 
@@ -37,13 +41,22 @@ private[postman] object BaklavaPostmanCollection {
     (byTag, untagged)
   }
 
+  private val DefaultMethod = "GET"
+
   private def groupedEndpointItems(calls: Seq[BaklavaSerializableCall]): Seq[Json] = {
     calls
-      .groupBy(c => (c.request.method.map(_.method).getOrElse(""), c.request.symbolicPath))
+      .groupBy(c => (methodOf(c), c.request.symbolicPath))
       .toSeq
       .sortBy { case ((m, p), _) => (p, m) }
       .map { case (_, endpointCalls) => endpointItem(endpointCalls.sortBy(_.response.status.code)) }
   }
+
+  private def methodOf(c: BaklavaSerializableCall): String =
+    c.request.method.map(_.method.toUpperCase(Locale.ROOT)).getOrElse(DefaultMethod)
+
+  /** Lower-cases and drops RFC 7231 parameters (`; charset=utf-8`) so content-type matching isn't defeated by `Application/JSON`. */
+  private def normalizeContentType(raw: String): String =
+    raw.toLowerCase(Locale.ROOT).takeWhile(_ != ';').trim
 
   private def folderNode(name: String, items: Seq[Json]): Json =
     Json.obj(
@@ -54,7 +67,7 @@ private[postman] object BaklavaPostmanCollection {
   private def endpointItem(calls: Seq[BaklavaSerializableCall]): Json = {
     val primary    = calls.head
     val req        = primary.request
-    val methodName = req.method.map(_.method).getOrElse("GET").toUpperCase
+    val methodName = methodOf(primary)
 
     val displayName =
       req.operationSummary
@@ -102,7 +115,15 @@ private[postman] object BaklavaPostmanCollection {
     }
     val rawQuery =
       if (queryJson.isEmpty) ""
-      else "?" + call.request.queryParametersSeq.sortBy(_.name).map(q => s"${q.name}=${q.example.getOrElse("")}").mkString("&")
+      else
+        "?" + call.request.queryParametersSeq
+          .sortBy(_.name)
+          .map { q =>
+            val k = URLEncoder.encode(q.name, StandardCharsets.UTF_8.name())
+            val v = URLEncoder.encode(q.example.getOrElse(""), StandardCharsets.UTF_8.name())
+            s"$k=$v"
+          }
+          .mkString("&")
 
     val variables = call.request.pathParametersSeq.map { p =>
       Json.obj(
@@ -143,7 +164,7 @@ private[postman] object BaklavaPostmanCollection {
     val body = call.request.bodyString
     if (body.isEmpty) Json.Null
     else {
-      val language = call.response.requestContentType.getOrElse("") match {
+      val language = normalizeContentType(call.response.requestContentType.getOrElse("")) match {
         case ct if ct.contains("json")       => "json"
         case ct if ct.contains("xml")        => "xml"
         case ct if ct.contains("javascript") => "javascript"
@@ -211,9 +232,7 @@ private[postman] object BaklavaPostmanCollection {
                 Json.obj("key" -> Json.fromString("in"), "value" -> Json.fromString(in), "type" -> Json.fromString("string"))
               )
             )
-          } else if (
-            s.oAuth2InBearer.isDefined || s.oAuth2InCookie.isDefined || s.openIdConnectInBearer.isDefined || s.openIdConnectInCookie.isDefined
-          )
+          } else if (s.oAuth2InBearer.isDefined || s.openIdConnectInBearer.isDefined)
             Some(
               "oauth2" -> Json.arr(
                 Json.obj(
@@ -224,6 +243,9 @@ private[postman] object BaklavaPostmanCollection {
                 Json.obj("key" -> Json.fromString("addTokenTo"), "value" -> Json.fromString("header"), "type" -> Json.fromString("string"))
               )
             )
+          // `*InCookie` OAuth/OIDC schemes carry the token on the Cookie header; the cookie name isn't part of the scheme definition,
+          // so we can't rebuild the auth block. The captured request's Cookie header survives into `headerArray`, which is enough for the
+          // imported request to authenticate — no Postman `auth` block emitted.
           else None
 
         auth match {
@@ -248,7 +270,7 @@ private[postman] object BaklavaPostmanCollection {
       "header"                   -> Json.arr(responseHeaders: _*),
       "body"                     -> Json.fromString(call.response.bodyString),
       "_postman_previewlanguage" -> Json.fromString {
-        call.response.responseContentType.getOrElse("") match {
+        normalizeContentType(call.response.responseContentType.getOrElse("")) match {
           case ct if ct.contains("json") => "json"
           case ct if ct.contains("xml")  => "xml"
           case ct if ct.contains("html") => "html"
@@ -293,10 +315,7 @@ private[postman] object BaklavaPostmanCollection {
         if (s.httpBearer.isDefined) Seq(s"${scheme.name}Token")
         else if (s.httpBasic.isDefined) Seq(s"${scheme.name}Username", s"${scheme.name}Password")
         else if (s.apiKeyInHeader.isDefined || s.apiKeyInQuery.isDefined || s.apiKeyInCookie.isDefined) Seq(s"${scheme.name}Value")
-        else if (
-          s.oAuth2InBearer.isDefined || s.oAuth2InCookie.isDefined ||
-          s.openIdConnectInBearer.isDefined || s.openIdConnectInCookie.isDefined
-        ) Seq(s"${scheme.name}Token")
+        else if (s.oAuth2InBearer.isDefined || s.openIdConnectInBearer.isDefined) Seq(s"${scheme.name}Token")
         else Seq.empty
       }
 

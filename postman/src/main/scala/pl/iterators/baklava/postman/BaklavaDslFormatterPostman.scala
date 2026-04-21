@@ -6,8 +6,8 @@ import pl.iterators.baklava.*
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Using
 
-/** Generates a Postman Collection v2.1.0 JSON file from captured calls. The file imports cleanly into Postman, Insomnia (via its Postman
-  * import path), and Bruno (via its `bru-cli import postman`).
+/** Generates a Postman Collection v2.1.0 JSON file from captured calls. The file imports cleanly into Postman and Insomnia (via its
+  * Postman v2 import path).
   *
   * Collection-level variables are emitted for `{{baseUrl}}` and each declared security credential placeholder; users fill them in once
   * after import instead of per-request.

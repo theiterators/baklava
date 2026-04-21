@@ -138,6 +138,98 @@ class BaklavaPostmanCollectionSpec extends AnyFunSpec with Matchers {
       )
     }
 
+    it("URL-encodes query keys and values in the `raw` URL") {
+      val call = simpleGetCall().copy(
+        request = simpleGetCall().request.copy(
+          queryParametersSeq = Seq(
+            BaklavaQueryParamSerializable("q name", None, stringSchema, Some("hello world & friends"))
+          )
+        )
+      )
+      val raw = BaklavaPostmanCollection
+        .build("API", Seq(call))
+        .hcursor
+        .downField("item")
+        .downArray
+        .downField("request")
+        .downField("url")
+        .downField("raw")
+        .as[String]
+        .toOption
+        .get
+
+      raw should include("q+name=hello+world+%26+friends")
+      raw should not include " "
+    }
+
+    it("normalizes content-type (case + parameters) when inferring body language") {
+      val call = simpleGetCall().copy(
+        request = simpleGetCall().request.copy(bodyString = """{"x":1}"""),
+        response = simpleGetCall().response.copy(requestContentType = Some("Application/JSON; charset=utf-8"))
+      )
+      val lang = BaklavaPostmanCollection
+        .build("API", Seq(call))
+        .hcursor
+        .downField("item")
+        .downArray
+        .downField("request")
+        .downField("body")
+        .downField("options")
+        .downField("raw")
+        .downField("language")
+        .as[String]
+        .toOption
+      lang shouldBe Some("json")
+    }
+
+    it("normalizes response content-type when inferring `_postman_previewlanguage`") {
+      val call = simpleGetCall().copy(
+        response = simpleGetCall().response.copy(responseContentType = Some("Application/JSON; charset=utf-8"))
+      )
+      val lang = BaklavaPostmanCollection
+        .build("API", Seq(call))
+        .hcursor
+        .downField("item")
+        .downArray
+        .downField("response")
+        .downArray
+        .downField("_postman_previewlanguage")
+        .as[String]
+        .toOption
+      lang shouldBe Some("json")
+    }
+
+    it("uses the same default HTTP method when grouping and rendering") {
+      val methodless = simpleGetCall().copy(request = simpleGetCall().request.copy(method = None))
+      val method     = BaklavaPostmanCollection
+        .build("API", Seq(methodless))
+        .hcursor
+        .downField("item")
+        .downArray
+        .downField("request")
+        .downField("method")
+        .as[String]
+        .toOption
+      method shouldBe Some("GET")
+    }
+
+    it("does not emit a Postman oauth2 auth block for `*InCookie` schemes") {
+      val flows  = OAuthFlows()
+      val cookie = BaklavaSecuritySchemaSerializable(
+        "sessionOAuth",
+        BaklavaSecuritySerializable(oAuth2InCookie = Some(OAuth2InCookie(flows)))
+      )
+      val call = simpleGetCall().copy(request = simpleGetCall().request.copy(securitySchemes = Seq(cookie)))
+      val json = BaklavaPostmanCollection.build("API", Seq(call))
+
+      val auth = json.hcursor.downField("item").downArray.downField("request").downField("auth")
+      auth.as[Json].toOption shouldBe Some(Json.Null)
+
+      val vars = json.hcursor.downField("variable").values.get.map(_.hcursor.downField("key").as[String].toOption.get).toSeq
+      vars should contain("baseUrl")
+      vars should not contain "sessionOAuthToken"
+    }
+
     it("omits collection variables for security schemes without a Postman auth equivalent (mutualTls)") {
       val mtls = BaklavaSecuritySchemaSerializable("mtls", BaklavaSecuritySerializable(mutualTls = Some(MutualTls())))
       val call = simpleGetCall().copy(request = simpleGetCall().request.copy(securitySchemes = Seq(mtls)))
