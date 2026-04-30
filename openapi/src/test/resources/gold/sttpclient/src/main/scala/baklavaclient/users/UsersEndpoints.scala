@@ -13,7 +13,8 @@ object UsersEndpoints {
   /** List users — List users with pagination and optional role filter */
   def listUsers(
       baseUri: Uri,
-      bearerAuthToken: String,
+      bearerAuthToken: String
+  )(
       page: Option[Int] = None,
       limit: Option[Int] = None,
       role: Option[String] = None
@@ -29,7 +30,8 @@ object UsersEndpoints {
   /** Delete user — Delete a user */
   def deleteUser(
       baseUri: Uri,
-      bearerAuthToken: String,
+      bearerAuthToken: String
+  )(
       userId: java.util.UUID
   ): Request[Either[String, String]] = {
     basicRequest
@@ -40,7 +42,8 @@ object UsersEndpoints {
   /** Get user — Fetch a single user by UUID */
   def getUser(
       baseUri: Uri,
-      bearerAuthToken: String,
+      bearerAuthToken: String
+  )(
       userId: java.util.UUID
   ): Request[Either[ResponseException[String], User]] = {
     basicRequest
@@ -52,7 +55,8 @@ object UsersEndpoints {
   /** Update user — Replace a user's profile (admin only) */
   def updateUser(
       baseUri: Uri,
-      bearerAuthToken: String,
+      bearerAuthToken: String
+  )(
       userId: java.util.UUID,
       body: UpdateUserRequest
   ): Request[Either[ResponseException[String], User]] = {
@@ -67,7 +71,8 @@ object UsersEndpoints {
   /** Upload photo — Upload a profile photo alongside a caption as multipart/form-data */
   def uploadPhoto(
       baseUri: Uri,
-      bearerAuthToken: String,
+      bearerAuthToken: String
+  )(
       userId: java.util.UUID,
       bodyJson: String
   ): Request[Either[String, String]] = {

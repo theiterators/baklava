@@ -11,7 +11,8 @@ object TasksEndpoints {
   /** List tasks — List all tasks in a project */
   def listTasks(
       baseUri: Uri,
-      oauth2Token: String,
+      oauth2Token: String
+  )(
       projectId: Long
   ): Request[Either[ResponseException[String], Seq[Task]]] = {
     basicRequest
@@ -23,7 +24,8 @@ object TasksEndpoints {
   /** Create task — Create a task in a project */
   def createTask(
       baseUri: Uri,
-      oauth2Token: String,
+      oauth2Token: String
+  )(
       projectId: Long,
       body: CreateTaskRequest
   ): Request[Either[ResponseException[String], Task]] = {

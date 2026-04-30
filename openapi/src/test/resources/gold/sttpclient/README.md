@@ -55,6 +55,6 @@ import io.circe.generic.auto._
 val backend = DefaultSyncBackend()
 val base    = uri"https://api.example.com"
 
-// val req = <Tag>Endpoints.<operation>(baseUri = base /*, typed body + params */)
+// val req = <Tag>Endpoints.<operation>(base, /* auth credentials */)(/* path/query/headers/body */)
 // val res = req.send(backend)  // Either[ResponseException[String], T]
 ```

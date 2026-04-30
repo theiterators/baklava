@@ -12,7 +12,8 @@ object ProjectsEndpoints {
   /** List projects — List projects, optionally filtered by status */
   def listProjects(
       baseUri: Uri,
-      oauth2Token: String,
+      oauth2Token: String
+  )(
       status: Option[String] = None
   ): Request[Either[ResponseException[String], Seq[Project]]] = {
     basicRequest
@@ -24,7 +25,8 @@ object ProjectsEndpoints {
   /** Create project — Create a new project */
   def createProject(
       baseUri: Uri,
-      oauth2Token: String,
+      oauth2Token: String
+  )(
       body: CreateProjectRequest
   ): Request[Either[ResponseException[String], Project]] = {
     basicRequest
@@ -38,7 +40,8 @@ object ProjectsEndpoints {
   /** Patch project — Partially update a project */
   def patchProject(
       baseUri: Uri,
-      oauth2Token: String,
+      oauth2Token: String
+  )(
       projectId: Long,
       body: PatchProjectRequest
   ): Request[Either[ResponseException[String], Project]] = {

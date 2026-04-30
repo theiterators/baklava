@@ -277,23 +277,31 @@ Consumers need `sttp-client4-circe` and `circe-generic` on the classpath when an
 
 ### Endpoint Shape
 
-Connection-level params come first (`baseUri`, then security credentials), then per-call params follow. The full order of each generated `def` is:
+Each generated `def` is curried into two parameter lists. The first carries connection-level state that's typically set once per session; the second carries per-call inputs:
+
+**First parameter list (connection-level):**
 
 1. `baseUri: sttp.model.Uri`
-2. Credential parameters per the first `SecurityScheme` (`{schemeName}Token` / `{schemeName}Username`+`{schemeName}Password` / `{schemeName}Value`). Scheme names that collide with Scala reserved words (e.g. `type`) are sanitized so the final identifier always compiles.
+2. Credential parameters per the first `SecurityScheme` (`{schemeName}Token` / `{schemeName}Username`+`{schemeName}Password` / `{schemeName}Value` / `{schemeName}CookieName`+`{schemeName}Token`). Scheme names that collide with Scala reserved words (e.g. `type`) are sanitized so the final identifier always compiles.
+
+**Second parameter list (per-call):**
+
 3. Path parameters as required positional parameters
 4. Query parameters (required-typed or `Option[T] = None`)
 5. Declared headers (same required/optional handling)
 6. Either `body: SomeRequest` (typed path) or `bodyJson: String` (raw path, including multipart/form)
 
-Putting connection-level params first lets call-sites read "for this base + auth, do X" and enables partial application for scope-local aliases.
+If an endpoint has no per-call inputs, the generator collapses the signature to a single param list so callers don't have to write trailing `()`.
+
+The currying makes the connection vs. per-call separation visible at the call site and lets you partially apply the connection — `val getOnApi = getUser(base, token) _` gives you a function over per-call inputs you can pass around.
 
 Example (typed, generated for `POST /users` returning `User`):
 
 ```scala
 def createUser(
     baseUri: Uri,
-    bearerAuthToken: String,
+    bearerAuthToken: String
+)(
     body: CreateUserRequest
 ): Request[Either[ResponseException[String], User]] = {
   basicRequest
@@ -310,7 +318,8 @@ Example (raw fallback, generated for `POST /users/{userId}/photo` with `multipar
 ```scala
 def uploadPhoto(
     baseUri: Uri,
-    bearerAuthToken: String,
+    bearerAuthToken: String
+)(
     userId: java.util.UUID,
     bodyJson: String
 ): Request[Either[String, String]] = {
@@ -391,7 +400,7 @@ import com.example.api.client.common.User
 val backend = DefaultSyncBackend()
 val base    = uri"https://api.example.com"
 
-val req = UsersEndpoints.listUsers(bearerAuthToken = "jwt...", baseUri = base)
+val req = UsersEndpoints.listUsers(base, bearerAuthToken = "jwt...")(page = Some(1))
 val res = req.send(backend) // Either[ResponseException[String], PaginatedUsers]
 res.body match {
   case Right(page)                                                 => println(page.users)

@@ -13,7 +13,8 @@ object AuthEndpoints {
   def login(
       baseUri: Uri,
       basicAuthUsername: String,
-      basicAuthPassword: String,
+      basicAuthPassword: String
+  )(
       bodyJson: String
   ): Request[Either[ResponseException[String], LoginResponse]] = {
     basicRequest

@@ -180,10 +180,15 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     }
     val authParams = securityCredentialParams(req.securitySchemes)
 
-    // Connection-level params (`baseUri`, security credentials) come first; they're invariant across calls and typically set once per
-    // session. Per-call params (path / query / headers / body) follow.
-    val allParams = Seq("baseUri: Uri") ++ authParams ++ pathParamDefs ++ queryParamDefs ++ headerParamDefs ++ bodyParamDef
-    val paramList = allParams.mkString(",\n      ")
+    // Curried signature: connection-level params (`baseUri` + auth credentials) in the first list, per-call inputs in the second.
+    // Lets users partially apply the connection (`val getOnApi = getUser(base, token) _`) and visually separates session-level state
+    // from per-call inputs. When there are no per-call inputs, collapse to a single param list for ergonomics.
+    val firstList  = Seq("baseUri: Uri") ++ authParams
+    val secondList = pathParamDefs ++ queryParamDefs ++ headerParamDefs ++ bodyParamDef
+    val firstGroup = firstList.mkString(",\n      ")
+    val signature  =
+      if (secondList.isEmpty) s"(\n      $firstGroup\n  )"
+      else s"(\n      $firstGroup\n  )(\n      ${secondList.mkString(",\n      ")}\n  )"
 
     val pathExpr      = renderPathExpression(req.symbolicPath, pathParams.map(_.name))
     val queryAddLines = queryParams.map { p =>
@@ -230,9 +235,7 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     }
 
     s"""  $scaladoc
-       |  def $fnName(
-       |      $paramList
-       |  ): $returnType = {
+       |  def $fnName$signature: $returnType = {
        |    basicRequest
        |      $verbCall
        |${headerLines.mkString("\n")}
@@ -596,7 +599,7 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
        |val backend = DefaultSyncBackend()
        |val base    = uri"https://api.example.com"
        |
-       |// val req = <Tag>Endpoints.<operation>(baseUri = base /*, typed body + params */)
+       |// val req = <Tag>Endpoints.<operation>(base, /* auth credentials */)(/* path/query/headers/body */)
        |// val res = req.send(backend)  // Either[ResponseException[String], T]
        |```
        |""".stripMargin

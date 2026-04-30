@@ -11,7 +11,8 @@ object WebhooksEndpoints {
   /** Deliver webhook — Accept a webhook payload */
   def deliverWebhook(
       baseUri: Uri,
-      apiKeyValue: String,
+      apiKeyValue: String
+  )(
       body: WebhookPayload
   ): Request[Either[String, String]] = {
     basicRequest
