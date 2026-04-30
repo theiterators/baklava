@@ -216,6 +216,55 @@ class BaklavaSttpClientGeneratorSpec extends AnyFunSpec with Matchers {
       content should include("Request[Either[String, String]]")
     }
 
+    it("emits Map[String, io.circe.Json] for anonymous-object fields so circe can derive the parent codec") {
+      cleanSrc()
+      val anonObject = BaklavaSchemaSerializable(
+        className = "Anon",
+        `type` = SchemaType.ObjectType,
+        format = None,
+        properties = Map.empty,
+        items = None,
+        `enum` = None,
+        required = true,
+        additionalProperties = true,
+        default = None,
+        description = None
+      )
+      val parent = BaklavaSchemaSerializable(
+        className = "Envelope",
+        `type` = SchemaType.ObjectType,
+        format = None,
+        properties = Map("metadata" -> anonObject, "name" -> BaklavaSchemaSerializable(Schema.stringSchema)),
+        items = None,
+        `enum` = None,
+        required = true,
+        additionalProperties = false,
+        default = None,
+        description = None
+      )
+      val base = getCall("/envelopes", tag = Some("Envelopes"))
+      val call = base.copy(response = base.response.copy(bodySchema = Some(parent)))
+
+      new BaklavaDslFormatterSttpClient().create(Map.empty, Seq(call))
+      val dtos = new String(
+        Files.readAllBytes(new File("target/baklava/sttpclient/src/main/scala/baklavaclient/envelopes/dtos.scala").toPath)
+      )
+      dtos should include("metadata: Map[String, io.circe.Json]")
+      dtos should not include "Map[String, Any]"
+    }
+
+    it("escapes `*/` in operation summary/description so it can't terminate the generated scaladoc early") {
+      cleanSrc()
+      val poisonous = "Returns data (terminator: */"
+      val base      = getCall("/x", tag = Some("Users"))
+      val call      = base.copy(request = base.request.copy(operationSummary = Some(poisonous)))
+
+      val content = generateAndRead("src/main/scala/baklavaclient/users/UsersEndpoints.scala", Seq(call))
+      // The defused form survives; the raw form would close the scaladoc and leak the rest into source.
+      content should include("Returns data (terminator: * /")
+      content should not include "(terminator: */ */"
+    }
+
     it("falls back to .method(Method(...), uri) for HTTP verbs outside the well-known set") {
       cleanSrc()
       val base    = getCall("/resource", tag = Some("Users")).let(c => c.copy(request = c.request.copy(method = Some(Method("PROPFIND")))))

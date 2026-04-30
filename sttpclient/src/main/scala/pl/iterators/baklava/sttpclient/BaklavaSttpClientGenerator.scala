@@ -363,7 +363,12 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
 
   private def renderScaladoc(req: BaklavaRequestContextSerializable): String = {
     val parts = Seq(req.operationSummary, req.operationDescription).flatten.distinct
-    if (parts.isEmpty) "" else s"/** ${parts.mkString(" — ")} */"
+    if (parts.isEmpty) ""
+    else {
+      // Defuse any `*/` in user-supplied summary/description so it can't terminate the scaladoc block early.
+      val escaped = parts.map(_.replace("*/", "* /")).mkString(" — ")
+      s"/** $escaped */"
+    }
   }
 
   private def functionName(req: BaklavaRequestContextSerializable): String =
@@ -524,8 +529,10 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
       val inner = schema.items.map(scalaType).getOrElse("Any")
       s"Seq[$inner]"
     case SchemaType.ObjectType =>
+      // Anonymous / `additionalProperties` objects render as `Map[String, io.circe.Json]` rather than `Map[String, Any]`. circe has
+      // built-in codecs for `Json`, so a typed case class that contains such a field still derives cleanly via `generic.auto._`.
       if (isNamedCaseClass(schema)) scalaSafeIdent(schema.className)
-      else "Map[String, Any]"
+      else "Map[String, io.circe.Json]"
   }
 
   private def isSpecialHeader(name: String): Boolean =
