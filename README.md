@@ -23,7 +23,7 @@ Baklava is a Scala library that turns your HTTP routing tests into API documenta
 **1. Add the SBT plugin** to `project/plugins.sbt`:
 
 ```scala
-addSbtPlugin("pl.iterators" % "baklava-sbt-plugin" % "1.1.1")
+addSbtPlugin("pl.iterators" % "baklava-sbt-plugin" % "1.2.0")
 ```
 
 **2. Enable the plugin** in `build.sbt`:
@@ -37,18 +37,21 @@ enablePlugins(BaklavaSbtPlugin)
 ```scala
 libraryDependencies ++= Seq(
   // HTTP server — choose one
-  "pl.iterators" %% "baklava-pekko-http" % "1.1.1" % Test,
-  // "pl.iterators" %% "baklava-http4s" % "1.1.1" % Test,
+  "pl.iterators" %% "baklava-pekko-http" % "1.2.0" % Test,
+  // "pl.iterators" %% "baklava-http4s" % "1.2.0" % Test,
 
   // Test framework — choose one
-  "pl.iterators" %% "baklava-scalatest" % "1.1.1" % Test,
-  // "pl.iterators" %% "baklava-specs2" % "1.1.1" % Test,
-  // "pl.iterators" %% "baklava-munit" % "1.1.1" % Test,
+  "pl.iterators" %% "baklava-scalatest"  % "1.2.0" % Test,
+  // "pl.iterators" %% "baklava-specs2"  % "1.2.0" % Test,
+  // "pl.iterators" %% "baklava-munit"   % "1.2.0" % Test,
 
   // Output format — one or more
-  "pl.iterators" %% "baklava-openapi" % "1.1.1" % Test,
-  "pl.iterators" %% "baklava-simple"  % "1.1.1" % Test,
-  // "pl.iterators" %% "baklava-tsrest" % "1.1.1" % Test,
+  "pl.iterators" %% "baklava-openapi"    % "1.2.0" % Test,
+  "pl.iterators" %% "baklava-simple"     % "1.2.0" % Test,
+  // "pl.iterators" %% "baklava-tsrest"    % "1.2.0" % Test,
+  // "pl.iterators" %% "baklava-tsfetch"   % "1.2.0" % Test,
+  // "pl.iterators" %% "baklava-postman"   % "1.2.0" % Test,
+  // "pl.iterators" %% "baklava-sttpclient" % "1.2.0" % Test,
 )
 ```
 
