@@ -2,7 +2,6 @@ package pl.iterators.baklava.http4s.routes
 
 import cats.data.Kleisli
 import cats.effect.IO
-import com.typesafe.config.{Config => TypesafeConfig}
 import io.swagger.v3.core.util.Yaml
 import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.parser.OpenAPIV3Parser
@@ -30,22 +29,20 @@ object BaklavaRoutes {
   private def withTrailingSlash(prefix: String): String =
     if (prefix.endsWith("/")) prefix else prefix + "/"
 
-  def routes(config: TypesafeConfig): HttpRoutes[IO] = {
-    val internalConfig = Config(config)
-    if (!internalConfig.enabled) HttpRoutes.empty[IO]
+  def routes(config: BaklavaRoutesConfig = BaklavaRoutesConfig.fromEnv): HttpRoutes[IO] =
+    if (!config.enabled) HttpRoutes.empty[IO]
     else
-      (internalConfig.basicAuthUser, internalConfig.basicAuthPassword) match {
+      (config.basicAuthUser, config.basicAuthPassword) match {
         case (Some(user), Some(password)) =>
           val validate: BasicAuth.BasicAuthenticator[IO, Unit] = creds =>
             IO.pure(if (creds.username == user && creds.password == password) Some(()) else None)
-          val authed: AuthedRoutes[Unit, IO] = Kleisli(ar => coreRoutes(internalConfig).run(ar.req))
+          val authed: AuthedRoutes[Unit, IO] = Kleisli(ar => coreRoutes(config).run(ar.req))
           val middleware                     = BasicAuth[IO, Unit]("docs", validate)
           middleware(authed)
-        case _ => coreRoutes(internalConfig)
+        case _ => coreRoutes(config)
       }
-  }
 
-  private def coreRoutes(c: Config): HttpRoutes[IO] = HttpRoutes.of[IO] {
+  private def coreRoutes(c: BaklavaRoutesConfig): HttpRoutes[IO] = HttpRoutes.of[IO] {
     case GET -> Root / "openapi" =>
       IO.blocking(openApiFileContent(c))
         .flatMap(content => Ok(content).map(_.withContentType(`Content-Type`(MediaType.text.yaml))))
@@ -73,7 +70,7 @@ object BaklavaRoutes {
       StaticFile.fromString(s"${c.fileSystemPath}/simple/$filename", Some(req)).getOrElseF(NotFound())
   }
 
-  private def openApiFileContent(c: Config): String =
+  private def openApiFileContent(c: BaklavaRoutesConfig): String =
     Using.resource(Source.fromFile(s"${c.fileSystemPath}/openapi/openapi.yml")) { source =>
       val parser  = new OpenAPIV3Parser
       val openApi = parser.readContents(source.mkString, null, null).getOpenAPI
@@ -83,7 +80,7 @@ object BaklavaRoutes {
       Yaml.pretty(openApi)
     }
 
-  private def swaggerInitializerContent(c: Config): String = {
+  private def swaggerInitializerContent(c: BaklavaRoutesConfig): String = {
     val swaggerDocsUrl = s"${withTrailingSlash(c.publicPathPrefix)}openapi"
     s"""
        |window.onload = function() {
@@ -103,28 +100,4 @@ object BaklavaRoutes {
        |};
        |""".stripMargin
   }
-
-  private case class Config(
-      enabled: Boolean,
-      basicAuthUser: Option[String],
-      basicAuthPassword: Option[String],
-      fileSystemPath: String,
-      publicPathPrefix: String,
-      apiPublicPathPrefix: String
-  )
-
-  private object Config {
-    def apply(config: TypesafeConfig): Config = {
-      val c = config.getConfig("baklava-routes")
-      Config(
-        enabled = c.getBoolean("enabled"),
-        basicAuthUser = Try(c.getString("basic-auth-user")).toOption,
-        basicAuthPassword = Try(c.getString("basic-auth-password")).toOption,
-        fileSystemPath = c.getString("filesystem-path"),
-        publicPathPrefix = c.getString("public-path-prefix"),
-        apiPublicPathPrefix = c.getString("api-public-path-prefix")
-      )
-    }
-  }
-
 }

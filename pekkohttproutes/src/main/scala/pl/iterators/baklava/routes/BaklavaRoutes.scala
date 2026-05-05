@@ -30,30 +30,31 @@ object BaklavaRoutes {
   private val javascriptContentType: ContentType.NonBinary =
     MediaTypes.`application/javascript`.toContentType(HttpCharsets.`UTF-8`)
 
-  def routes(config: com.typesafe.config.Config): Route = {
-    implicit val internalConfig: BaklavaRoutes.Config = BaklavaRoutes.Config(config)
-    if (internalConfig.enabled)
-      authenticateBasic("docs", basicAuthOpt) { _ =>
+  def routes(config: BaklavaRoutesConfig = BaklavaRoutesConfig.fromEnv): Route =
+    if (config.enabled)
+      authenticateBasic("docs", basicAuthOpt(config)) { _ =>
         pathPrefix("docs") {
           pathSingleSlash {
-            getFromFile(s"${internalConfig.fileSystemPath}/simple/index.html")
-          } ~ getFromDirectory(s"${internalConfig.fileSystemPath}/simple")
+            getFromFile(s"${config.fileSystemPath}/simple/index.html")
+          } ~ getFromDirectory(s"${config.fileSystemPath}/simple")
         } ~ path("openapi") {
-          complete(HttpEntity(yamlContentType, openApiFileContent))
+          complete(HttpEntity(yamlContentType, openApiFileContent(config)))
         } ~ (path("swagger-ui" / swaggerVersion / "swagger-initializer.js") & get) {
-          complete(HttpEntity(javascriptContentType, swaggerInitializerContent))
+          complete(HttpEntity(javascriptContentType, swaggerInitializerContent(config)))
         } ~ pathPrefix("swagger-ui") {
           swaggerWebJar
         } ~ pathPrefix("swagger") {
-          get(complete(swaggerRedirectHttpResponse))
+          get(complete(swaggerRedirectHttpResponse(config)))
         }
       }
     else
       RouteDirectives.reject
-  }
 
-  private def basicAuthOpt(credentials: Credentials)(implicit internalConfig: BaklavaRoutes.Config): Option[String] =
-    (internalConfig.basicAuthUser, internalConfig.basicAuthPassword) match {
+  def routes(config: com.typesafe.config.Config): Route =
+    routes(BaklavaRoutesConfig.fromTypesafeConfig(config))
+
+  private def basicAuthOpt(config: BaklavaRoutesConfig)(credentials: Credentials): Option[String] =
+    (config.basicAuthUser, config.basicAuthPassword) match {
       case (Some(user), Some(password)) =>
         credentials match {
           case p @ Credentials.Provided(id) if id == user && p.verify(password) => Some(id)
@@ -62,18 +63,18 @@ object BaklavaRoutes {
       case _ => Some("")
     }
 
-  private def openApiFileContent(implicit internalConfig: BaklavaRoutes.Config): String =
-    Using.resource(Source.fromFile(s"${internalConfig.fileSystemPath}/openapi/openapi.yml")) { source =>
+  private def openApiFileContent(config: BaklavaRoutesConfig): String =
+    Using.resource(Source.fromFile(s"${config.fileSystemPath}/openapi/openapi.yml")) { source =>
       val parser  = new OpenAPIV3Parser
       val openApi = parser.readContents(source.mkString, null, null).getOpenAPI
       val server  = new Server()
-      server.setUrl(internalConfig.apiPublicPathPrefix)
+      server.setUrl(config.apiPublicPathPrefix)
       openApi.setServers(List(server).asJava)
       Yaml.pretty(openApi)
     }
 
-  private def swaggerInitializerContent(implicit internalConfig: BaklavaRoutes.Config): String = {
-    val swaggerDocsUrl = s"${internalConfig.publicPathPrefix}openapi"
+  private def swaggerInitializerContent(config: BaklavaRoutesConfig): String = {
+    val swaggerDocsUrl = s"${config.publicPathPrefix}openapi"
 
     s"""
        |window.onload = function() {
@@ -94,8 +95,8 @@ object BaklavaRoutes {
        |""".stripMargin
   }
 
-  private def swaggerRedirectHttpResponse(implicit internalConfig: BaklavaRoutes.Config) = {
-    val swaggerUiUrl = s"${internalConfig.publicPathPrefix}swagger-ui/${swaggerVersion}/index.html"
+  private def swaggerRedirectHttpResponse(config: BaklavaRoutesConfig): HttpResponse = {
+    val swaggerUiUrl = s"${config.publicPathPrefix}swagger-ui/${swaggerVersion}/index.html"
     HttpResponse(status = StatusCodes.SeeOther, headers = Location(swaggerUiUrl) :: Nil)
   }
 
@@ -110,27 +111,4 @@ object BaklavaRoutes {
           failWith(e)
       }
     }
-
-  private case class Config(
-      enabled: Boolean,
-      basicAuthUser: Option[String],
-      basicAuthPassword: Option[String],
-      fileSystemPath: String,
-      publicPathPrefix: String,
-      apiPublicPathPrefix: String
-  )
-
-  private object Config {
-    def apply(config: com.typesafe.config.Config): Config = {
-      val c = config.getConfig("baklava-routes")
-      Config(
-        enabled = c.getBoolean("enabled"),
-        basicAuthUser = Try(c.getString("basic-auth-user")).toOption,
-        basicAuthPassword = Try(c.getString("basic-auth-password")).toOption,
-        fileSystemPath = c.getString("filesystem-path"),
-        publicPathPrefix = c.getString("public-path-prefix"),
-        apiPublicPathPrefix = c.getString("api-public-path-prefix")
-      )
-    }
-  }
 }
