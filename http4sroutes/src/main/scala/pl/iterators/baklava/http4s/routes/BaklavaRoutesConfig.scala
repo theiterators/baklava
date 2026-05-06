@@ -10,15 +10,17 @@ final case class BaklavaRoutesConfig(
 )
 
 object BaklavaRoutesConfig {
-  def fromEnv: BaklavaRoutesConfig = {
+  def fromEnv: BaklavaRoutesConfig = fromEnv(sys.env)
+
+  def fromEnv(env: Map[String, String]): BaklavaRoutesConfig = {
     val default = BaklavaRoutesConfig()
     BaklavaRoutesConfig(
-      enabled = sys.env.get("BAKLAVA_ROUTES_ENABLED").map(_.toBoolean).getOrElse(default.enabled),
-      basicAuthUser = sys.env.get("BAKLAVA_ROUTES_BASIC_AUTH_USER").orElse(default.basicAuthUser),
-      basicAuthPassword = sys.env.get("BAKLAVA_ROUTES_BASIC_AUTH_PASSWORD").orElse(default.basicAuthPassword),
-      fileSystemPath = sys.env.getOrElse("BAKLAVA_ROUTES_FILESYSTEM_PATH", default.fileSystemPath),
-      publicPathPrefix = sys.env.getOrElse("BAKLAVA_ROUTES_PUBLIC_PATH_PREFIX", default.publicPathPrefix),
-      apiPublicPathPrefix = sys.env.getOrElse("BAKLAVA_ROUTES_API_PUBLIC_PATH_PREFIX", default.apiPublicPathPrefix)
+      enabled = env.get("BAKLAVA_ROUTES_ENABLED").map(_.toBoolean).getOrElse(default.enabled),
+      basicAuthUser = env.get("BAKLAVA_ROUTES_BASIC_AUTH_USER").orElse(default.basicAuthUser),
+      basicAuthPassword = env.get("BAKLAVA_ROUTES_BASIC_AUTH_PASSWORD").orElse(default.basicAuthPassword),
+      fileSystemPath = env.getOrElse("BAKLAVA_ROUTES_FILESYSTEM_PATH", default.fileSystemPath),
+      publicPathPrefix = env.getOrElse("BAKLAVA_ROUTES_PUBLIC_PATH_PREFIX", default.publicPathPrefix),
+      apiPublicPathPrefix = env.getOrElse("BAKLAVA_ROUTES_API_PUBLIC_PATH_PREFIX", default.apiPublicPathPrefix)
     )
   }
 }

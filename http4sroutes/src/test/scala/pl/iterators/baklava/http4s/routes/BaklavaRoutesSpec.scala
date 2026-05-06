@@ -94,12 +94,49 @@ class BaklavaRoutesSpec extends AnyFunSpec with Matchers {
     }
   }
 
-  describe("BaklavaRoutesConfig.fromEnv") {
-    it("uses defaults when no env vars are set") {
-      val cfg = BaklavaRoutesConfig.fromEnv
-      // Defaults match BaklavaRoutesConfig() unless the test environment exports BAKLAVA_ROUTES_*; all six fields
-      // shouldn't all match by accident, so a single sanity check is enough.
-      cfg.fileSystemPath should not be empty
+  describe("BaklavaRoutesConfig defaults") {
+    it("matches the documented defaults") {
+      val cfg = BaklavaRoutesConfig()
+      cfg.enabled shouldBe true
+      cfg.basicAuthUser shouldBe None
+      cfg.basicAuthPassword shouldBe None
+      cfg.fileSystemPath shouldBe "./target/baklava"
+      cfg.publicPathPrefix shouldBe "/"
+      cfg.apiPublicPathPrefix shouldBe "/v1"
+    }
+  }
+
+  describe("BaklavaRoutesConfig.fromEnv(env)") {
+    it("returns the documented defaults when the env map is empty") {
+      BaklavaRoutesConfig.fromEnv(Map.empty) shouldBe BaklavaRoutesConfig()
+    }
+
+    it("maps every BAKLAVA_ROUTES_* variable onto the matching field") {
+      val cfg = BaklavaRoutesConfig.fromEnv(
+        Map(
+          "BAKLAVA_ROUTES_ENABLED"                -> "false",
+          "BAKLAVA_ROUTES_BASIC_AUTH_USER"        -> "admin",
+          "BAKLAVA_ROUTES_BASIC_AUTH_PASSWORD"    -> "secret",
+          "BAKLAVA_ROUTES_FILESYSTEM_PATH"        -> "/srv/docs",
+          "BAKLAVA_ROUTES_PUBLIC_PATH_PREFIX"     -> "/x/",
+          "BAKLAVA_ROUTES_API_PUBLIC_PATH_PREFIX" -> "/api/v9"
+        )
+      )
+      cfg shouldBe BaklavaRoutesConfig(
+        enabled = false,
+        basicAuthUser = Some("admin"),
+        basicAuthPassword = Some("secret"),
+        fileSystemPath = "/srv/docs",
+        publicPathPrefix = "/x/",
+        apiPublicPathPrefix = "/api/v9"
+      )
+    }
+
+    it("falls back to a field's default when only some variables are set") {
+      val cfg = BaklavaRoutesConfig.fromEnv(Map("BAKLAVA_ROUTES_PUBLIC_PATH_PREFIX" -> "/docs"))
+      cfg.publicPathPrefix shouldBe "/docs"
+      cfg.fileSystemPath shouldBe BaklavaRoutesConfig().fileSystemPath
+      cfg.enabled shouldBe true
     }
   }
 }

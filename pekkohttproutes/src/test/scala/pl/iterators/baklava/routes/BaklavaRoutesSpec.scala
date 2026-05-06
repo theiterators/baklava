@@ -25,19 +25,41 @@ class BaklavaRoutesSpec extends AnyFunSpec with Matchers with ScalatestRouteTest
       }
     }
 
-    it("redirects /swagger to the swagger-ui index, honoring publicPathPrefix") {
-      val r = BaklavaRoutes.routes(BaklavaRoutesConfig(publicPathPrefix = "/internal/docs/"))
+    it("redirects /swagger to the swagger-ui index, honoring publicPathPrefix without trailing slash") {
+      val r = BaklavaRoutes.routes(BaklavaRoutesConfig(publicPathPrefix = "/internal/docs"))
       Get("/swagger") ~> r ~> check {
         status shouldBe StatusCodes.SeeOther
         header[Location].map(_.uri.toString).get shouldBe s"/internal/docs/swagger-ui/$swaggerVersion/index.html"
       }
     }
 
-    it("returns the swagger initializer JS pointing at the configured openapi URL") {
-      val r = BaklavaRoutes.routes(BaklavaRoutesConfig(publicPathPrefix = "/api-docs/"))
+    it("redirects /swagger correctly when publicPathPrefix already has trailing slash") {
+      val r = BaklavaRoutes.routes(BaklavaRoutesConfig(publicPathPrefix = "/internal/docs/"))
+      Get("/swagger") ~> r ~> check {
+        header[Location].map(_.uri.toString).get shouldBe s"/internal/docs/swagger-ui/$swaggerVersion/index.html"
+      }
+    }
+
+    it("returns the swagger initializer JS pointing at the configured openapi URL (no trailing slash)") {
+      val r = BaklavaRoutes.routes(BaklavaRoutesConfig(publicPathPrefix = "/api-docs"))
       Get(s"/swagger-ui/$swaggerVersion/swagger-initializer.js") ~> r ~> check {
         status shouldBe StatusCodes.OK
         responseAs[String] should include("\"/api-docs/openapi\"")
+      }
+    }
+
+    it("returns the swagger initializer JS correctly when publicPathPrefix has trailing slash") {
+      val r = BaklavaRoutes.routes(BaklavaRoutesConfig(publicPathPrefix = "/api-docs/"))
+      Get(s"/swagger-ui/$swaggerVersion/swagger-initializer.js") ~> r ~> check {
+        responseAs[String] should include("\"/api-docs/openapi\"")
+      }
+    }
+
+    it("returns a helpful 404 when the openapi file is missing") {
+      val r = BaklavaRoutes.routes(BaklavaRoutesConfig(fileSystemPath = "./target/baklava-routes-test-nonexistent"))
+      Get("/openapi") ~> r ~> check {
+        status shouldBe StatusCodes.NotFound
+        responseAs[String] should include("run `sbt test` first")
       }
     }
 
@@ -122,6 +144,52 @@ class BaklavaRoutesSpec extends AnyFunSpec with Matchers with ScalatestRouteTest
       val parsed = BaklavaRoutesConfig.fromTypesafeConfig(cfg)
       parsed.basicAuthUser shouldBe Some("admin")
       parsed.basicAuthPassword shouldBe Some("secret")
+    }
+  }
+
+  describe("BaklavaRoutesConfig defaults") {
+    it("matches the documented defaults") {
+      val cfg = BaklavaRoutesConfig()
+      cfg.enabled shouldBe true
+      cfg.basicAuthUser shouldBe None
+      cfg.basicAuthPassword shouldBe None
+      cfg.fileSystemPath shouldBe "./target/baklava"
+      cfg.publicPathPrefix shouldBe "/"
+      cfg.apiPublicPathPrefix shouldBe "/v1"
+    }
+  }
+
+  describe("BaklavaRoutesConfig.fromEnv(env)") {
+    it("returns the documented defaults when the env map is empty") {
+      BaklavaRoutesConfig.fromEnv(Map.empty) shouldBe BaklavaRoutesConfig()
+    }
+
+    it("maps every BAKLAVA_ROUTES_* variable onto the matching field") {
+      val cfg = BaklavaRoutesConfig.fromEnv(
+        Map(
+          "BAKLAVA_ROUTES_ENABLED"                -> "false",
+          "BAKLAVA_ROUTES_BASIC_AUTH_USER"        -> "admin",
+          "BAKLAVA_ROUTES_BASIC_AUTH_PASSWORD"    -> "secret",
+          "BAKLAVA_ROUTES_FILESYSTEM_PATH"        -> "/srv/docs",
+          "BAKLAVA_ROUTES_PUBLIC_PATH_PREFIX"     -> "/x/",
+          "BAKLAVA_ROUTES_API_PUBLIC_PATH_PREFIX" -> "/api/v9"
+        )
+      )
+      cfg shouldBe BaklavaRoutesConfig(
+        enabled = false,
+        basicAuthUser = Some("admin"),
+        basicAuthPassword = Some("secret"),
+        fileSystemPath = "/srv/docs",
+        publicPathPrefix = "/x/",
+        apiPublicPathPrefix = "/api/v9"
+      )
+    }
+
+    it("falls back to a field's default when only some variables are set") {
+      val cfg = BaklavaRoutesConfig.fromEnv(Map("BAKLAVA_ROUTES_PUBLIC_PATH_PREFIX" -> "/docs"))
+      cfg.publicPathPrefix shouldBe "/docs"
+      cfg.fileSystemPath shouldBe BaklavaRoutesConfig().fileSystemPath
+      cfg.enabled shouldBe true
     }
   }
 }

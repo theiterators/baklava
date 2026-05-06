@@ -10,6 +10,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.directives.{Credentials, RouteDirectives}
 import org.webjars.WebJarAssetLocator
 
+import java.io.FileNotFoundException
 import scala.io.Source
 import scala.jdk.CollectionConverters.SeqHasAsJava
 import scala.util.{Failure, Success, Try, Using}
@@ -30,6 +31,9 @@ object BaklavaRoutes {
   private val javascriptContentType: ContentType.NonBinary =
     MediaTypes.`application/javascript`.toContentType(HttpCharsets.`UTF-8`)
 
+  private def withTrailingSlash(prefix: String): String =
+    if (prefix.endsWith("/")) prefix else prefix + "/"
+
   def routes(config: BaklavaRoutesConfig = BaklavaRoutesConfig.fromEnv): Route =
     if (config.enabled)
       authenticateBasic("docs", basicAuthOpt(config)) { _ =>
@@ -38,7 +42,12 @@ object BaklavaRoutes {
             getFromFile(s"${config.fileSystemPath}/simple/index.html")
           } ~ getFromDirectory(s"${config.fileSystemPath}/simple")
         } ~ path("openapi") {
-          complete(HttpEntity(yamlContentType, openApiFileContent(config)))
+          Try(openApiFileContent(config)) match {
+            case Success(yaml)                     => complete(HttpEntity(yamlContentType, yaml))
+            case Failure(_: FileNotFoundException) =>
+              complete(StatusCodes.NotFound -> "openapi document not available — run `sbt test` first to generate it")
+            case Failure(e) => failWith(e)
+          }
         } ~ (path("swagger-ui" / swaggerVersion / "swagger-initializer.js") & get) {
           complete(HttpEntity(javascriptContentType, swaggerInitializerContent(config)))
         } ~ pathPrefix("swagger-ui") {
@@ -74,7 +83,7 @@ object BaklavaRoutes {
     }
 
   private def swaggerInitializerContent(config: BaklavaRoutesConfig): String = {
-    val swaggerDocsUrl = s"${config.publicPathPrefix}openapi"
+    val swaggerDocsUrl = s"${withTrailingSlash(config.publicPathPrefix)}openapi"
 
     s"""
        |window.onload = function() {
@@ -96,7 +105,7 @@ object BaklavaRoutes {
   }
 
   private def swaggerRedirectHttpResponse(config: BaklavaRoutesConfig): HttpResponse = {
-    val swaggerUiUrl = s"${config.publicPathPrefix}swagger-ui/${swaggerVersion}/index.html"
+    val swaggerUiUrl = s"${withTrailingSlash(config.publicPathPrefix)}swagger-ui/${swaggerVersion}/index.html"
     HttpResponse(status = StatusCodes.SeeOther, headers = Location(swaggerUiUrl) :: Nil)
   }
 

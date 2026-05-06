@@ -229,6 +229,7 @@ Adding `baklava-http4s-routes` dependency to your project lets you serve OpenAPI
 
 ```scala
 import cats.effect.{ExitCode, IO, IOApp}
+import cats.syntax.all.*
 import com.comcast.ip4s.{ipv4, port}
 import org.http4s.HttpRoutes
 import org.http4s.ember.server.EmberServerBuilder
