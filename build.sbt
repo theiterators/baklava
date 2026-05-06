@@ -206,13 +206,16 @@ lazy val pekkohttproutes = project
     name := "baklava-pekko-http-routes",
     libraryDependencies ++= {
       Seq(
-        "org.apache.pekko"    %% "pekko-stream"    % pekkoHttpV,
-        "org.apache.pekko"    %% "pekko-http"      % pekkoHttpV,
-        "com.typesafe"         % "config"          % typesafeConfigV,
-        "org.webjars"          % "webjars-locator" % webjarsLocatorV,
-        "io.swagger.core.v3"   % "swagger-core"    % swaggerV,
-        "io.swagger.parser.v3" % "swagger-parser"  % swaggerParserV,
-        "org.webjars"          % "swagger-ui"      % swaggerUiV
+        "org.apache.pekko"    %% "pekko-stream"       % pekkoHttpV,
+        "org.apache.pekko"    %% "pekko-http"         % pekkoHttpV,
+        "com.typesafe"         % "config"             % typesafeConfigV,
+        "org.webjars"          % "webjars-locator"    % webjarsLocatorV,
+        "io.swagger.core.v3"   % "swagger-core"       % swaggerV,
+        "io.swagger.parser.v3" % "swagger-parser"     % swaggerParserV,
+        "org.webjars"          % "swagger-ui"         % swaggerUiV,
+        "org.apache.pekko"    %% "pekko-http-testkit" % pekkoHttpV % "test",
+        "org.apache.pekko"    %% "pekko-testkit"      % pekkoHttpV % "test",
+        "org.scalatest"       %% "scalatest"          % scalatestV % "test"
       )
     }
   )
@@ -234,11 +237,11 @@ lazy val http4sroutes = project
     libraryDependencies ++= Seq(
       "org.http4s"          %% "http4s-dsl"      % http4sV,
       "org.http4s"          %% "http4s-server"   % http4sV,
-      "com.typesafe"         % "config"          % typesafeConfigV,
       "org.webjars"          % "webjars-locator" % webjarsLocatorV,
       "io.swagger.core.v3"   % "swagger-core"    % swaggerV,
       "io.swagger.parser.v3" % "swagger-parser"  % swaggerParserV,
-      "org.webjars"          % "swagger-ui"      % swaggerUiV
+      "org.webjars"          % "swagger-ui"      % swaggerUiV,
+      "org.scalatest"       %% "scalatest"       % scalatestV % "test"
     )
   )
 

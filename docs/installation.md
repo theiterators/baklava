@@ -292,11 +292,54 @@ The documentation will be generated in `target/baklava/` directory after running
 
 ### SwaggerUI and Routes Configuration
 
-If you're using SwaggerUI (Pekko HTTP or http4s + OpenAPI), you can configure the routes behavior at runtime. Both `baklava-pekko-http-routes` and `baklava-http4s-routes` modules read the same `baklava-routes { ... }` section, so the configuration below applies to either.
+If you're using SwaggerUI (Pekko HTTP or http4s + OpenAPI), you can configure the routes behavior at runtime. Each module exposes its own `BaklavaRoutesConfig` case class with identical fields — `pl.iterators.baklava.http4s.routes.BaklavaRoutesConfig` for the http4s module and `pl.iterators.baklava.routes.BaklavaRoutesConfig` for the Pekko HTTP module. They are not interchangeable types; import the one that matches the module you're wiring up. The Pekko HTTP module additionally accepts a Typesafe `com.typesafe.config.Config`, since HOCON is the idiomatic config format on that stack.
 
-#### Configuration via application.conf
+#### Configuration options at a glance
 
-Create or update your `src/main/resources/application.conf` file:
+| Field                      | Default            | Environment variable                 |
+| -------------------------- | ------------------ | ------------------------------------ |
+| `enabled`                  | `true`             | `BAKLAVA_ROUTES_ENABLED`             |
+| `basicAuthUser`            | `None`             | `BAKLAVA_ROUTES_BASIC_AUTH_USER`     |
+| `basicAuthPassword`        | `None`             | `BAKLAVA_ROUTES_BASIC_AUTH_PASSWORD` |
+| `fileSystemPath`           | `./target/baklava` | `BAKLAVA_ROUTES_FILESYSTEM_PATH`     |
+| `publicPathPrefix`         | `/`                | `BAKLAVA_ROUTES_PUBLIC_PATH_PREFIX`  |
+| `apiPublicPathPrefix`      | `/v1`              | `BAKLAVA_ROUTES_API_PUBLIC_PATH_PREFIX` |
+
+#### Configuration via case class (both modules)
+
+Calling `BaklavaRoutes.routes()` with no arguments uses defaults overridden by the `BAKLAVA_ROUTES_*` environment variables:
+
+```scala
+// http4s
+import pl.iterators.baklava.http4s.routes.BaklavaRoutes
+val docs: HttpRoutes[IO] = BaklavaRoutes.routes()
+
+// Pekko HTTP
+import pl.iterators.baklava.routes.BaklavaRoutes
+val docs: Route = BaklavaRoutes.routes()
+```
+
+To configure explicitly, build a `BaklavaRoutesConfig` yourself (works well with Ciris, PureConfig, or anything else that produces a case class):
+
+```scala
+// http4s
+import pl.iterators.baklava.http4s.routes.{BaklavaRoutes, BaklavaRoutesConfig}
+val docs: HttpRoutes[IO] = BaklavaRoutes.routes(
+  BaklavaRoutesConfig(
+    basicAuthUser = Some("admin"),
+    basicAuthPassword = Some("secret"),
+    publicPathPrefix = "/internal/docs"
+  )
+)
+
+// Pekko HTTP — same shape, different package
+import pl.iterators.baklava.routes.{BaklavaRoutes, BaklavaRoutesConfig}
+val docs: Route = BaklavaRoutes.routes(BaklavaRoutesConfig(enabled = false))
+```
+
+#### Configuration via application.conf (Pekko HTTP only)
+
+The Pekko HTTP module also accepts a Typesafe `Config`. Add a `baklava-routes` section to `src/main/resources/application.conf`:
 
 ```hocon
 baklava-routes {
@@ -323,9 +366,36 @@ baklava-routes {
 }
 ```
 
+```scala
+import com.typesafe.config.ConfigFactory
+import pl.iterators.baklava.routes.BaklavaRoutes
+
+val docs: Route = BaklavaRoutes.routes(ConfigFactory.load())
+```
+
+If you're on http4s and want HOCON, build the case class from your `Config`:
+
+```scala
+import com.typesafe.config.{Config, ConfigFactory}
+import pl.iterators.baklava.http4s.routes.{BaklavaRoutes, BaklavaRoutesConfig}
+import scala.util.Try
+
+val c: Config = ConfigFactory.load().getConfig("baklava-routes")
+val docs = BaklavaRoutes.routes(
+  BaklavaRoutesConfig(
+    enabled = c.getBoolean("enabled"),
+    basicAuthUser = Try(c.getString("basic-auth-user")).toOption,
+    basicAuthPassword = Try(c.getString("basic-auth-password")).toOption,
+    fileSystemPath = c.getString("filesystem-path"),
+    publicPathPrefix = c.getString("public-path-prefix"),
+    apiPublicPathPrefix = c.getString("api-public-path-prefix")
+  )
+)
+```
+
 #### Configuration via Environment Variables
 
-Alternatively, you can configure everything using environment variables:
+Either module's no-arg `BaklavaRoutes.routes()` reads these variables on startup:
 
 ```bash
 # Enable/disable baklava routes
@@ -346,23 +416,23 @@ export BAKLAVA_ROUTES_API_PUBLIC_PATH_PREFIX=/api/v2
 #### Common Configuration Examples
 
 **Example 1: Development setup with custom paths**
-```hocon
-baklava-routes {
-  enabled = true
-  filesystem-path = "./docs/generated"
-  public-path-prefix = "/api-docs"
-  api-public-path-prefix = "/api/v1"
-}
+```scala
+BaklavaRoutesConfig(
+  enabled = true,
+  fileSystemPath = "./docs/generated",
+  publicPathPrefix = "/api-docs",
+  apiPublicPathPrefix = "/api/v1"
+)
 ```
 
 **Example 2: Production setup with basic auth**
-```hocon
-baklava-routes {
-  enabled = true
-  basic-auth-user = "api-docs"
-  basic-auth-password = "secure-password"
-  public-path-prefix = "/internal/docs"
-}
+```scala
+BaklavaRoutesConfig(
+  enabled = true,
+  basicAuthUser = Some("api-docs"),
+  basicAuthPassword = Some("secure-password"),
+  publicPathPrefix = "/internal/docs"
+)
 ```
 
 **Example 3: Disabled in production (using environment variable)**

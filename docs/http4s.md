@@ -223,6 +223,48 @@ class GetUsersUserIdRouteSpec extends BaseRouteSpec {
 }
 ```
 
+## Serving Open API and Swagger UI
+
+Adding `baklava-http4s-routes` dependency to your project lets you serve OpenAPI and Swagger UI alongside your application routes. The module is config-less by default — it pulls overrides from `BAKLAVA_ROUTES_*` environment variables — but accepts an explicit `BaklavaRoutesConfig` when you want to wire it up from your own config layer (Ciris, PureConfig, plain code, etc.).
+
+```scala
+import cats.effect.{ExitCode, IO, IOApp}
+import cats.syntax.all.*
+import com.comcast.ip4s.{ipv4, port}
+import org.http4s.HttpRoutes
+import org.http4s.ember.server.EmberServerBuilder
+import org.http4s.server.Router
+import pl.iterators.baklava.http4s.routes.{BaklavaRoutes, BaklavaRoutesConfig}
+
+object Main extends IOApp {
+  def run(args: List[String]): IO[ExitCode] = {
+    val apiRoutes: HttpRoutes[IO] = ??? // all your api routes
+
+    val docsRoutes: HttpRoutes[IO] = BaklavaRoutes.routes(
+      BaklavaRoutesConfig(
+        publicPathPrefix = "/",
+        apiPublicPathPrefix = "/v1"
+      )
+    )
+
+    val app = Router("/" -> (apiRoutes <+> docsRoutes)).orNotFound
+
+    EmberServerBuilder
+      .default[IO]
+      .withHost(ipv4"0.0.0.0")
+      .withPort(port"8080")
+      .withHttpApp(app)
+      .build
+      .useForever
+      .as(ExitCode.Success)
+  }
+}
+```
+
+`BaklavaRoutes.routes()` (no arguments) reads `BAKLAVA_ROUTES_*` environment variables and falls back to defaults — convenient for containerized deployments. For detailed configuration options check [installation.md#swaggerui-and-routes-configuration].
+
+Unlike the Pekko HTTP module, `baklava-http4s-routes` does not depend on Typesafe Config. If you prefer HOCON, parse the config in your own code and pass the resulting `BaklavaRoutesConfig` into `routes(...)` — the [installation guide](installation.md#swaggerui-and-routes-configuration) shows a small adapter you can copy.
+
 ## Documenting file uploads
 
 To document a binary upload (e.g. an avatar PNG), declare `Content-Type` among the request headers and pass the matching value on the `onRequest(...)` call — the http4s adapter honors that declared value, overriding the content type the `EntityEncoder` bakes into the request.
