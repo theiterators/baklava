@@ -213,9 +213,9 @@ lazy val pekkohttproutes = project
         "io.swagger.core.v3"   % "swagger-core"       % swaggerV,
         "io.swagger.parser.v3" % "swagger-parser"     % swaggerParserV,
         "org.webjars"          % "swagger-ui"         % swaggerUiV,
-        "org.apache.pekko"    %% "pekko-http-testkit" % pekkoHttpV  % "test",
-        "org.apache.pekko"    %% "pekko-testkit"      % pekkoHttpV  % "test",
-        "org.scalatest"       %% "scalatest"          % scalatestV  % "test"
+        "org.apache.pekko"    %% "pekko-http-testkit" % pekkoHttpV % "test",
+        "org.apache.pekko"    %% "pekko-testkit"      % pekkoHttpV % "test",
+        "org.scalatest"       %% "scalatest"          % scalatestV % "test"
       )
     }
   )
