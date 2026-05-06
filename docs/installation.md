@@ -292,7 +292,7 @@ The documentation will be generated in `target/baklava/` directory after running
 
 ### SwaggerUI and Routes Configuration
 
-If you're using SwaggerUI (Pekko HTTP or http4s + OpenAPI), you can configure the routes behavior at runtime. Both modules accept the same `BaklavaRoutesConfig` case class. The Pekko HTTP module additionally accepts a Typesafe `com.typesafe.config.Config`, since HOCON is the idiomatic config format on that stack.
+If you're using SwaggerUI (Pekko HTTP or http4s + OpenAPI), you can configure the routes behavior at runtime. Each module exposes its own `BaklavaRoutesConfig` case class with identical fields — `pl.iterators.baklava.http4s.routes.BaklavaRoutesConfig` for the http4s module and `pl.iterators.baklava.routes.BaklavaRoutesConfig` for the Pekko HTTP module. They are not interchangeable types; import the one that matches the module you're wiring up. The Pekko HTTP module additionally accepts a Typesafe `com.typesafe.config.Config`, since HOCON is the idiomatic config format on that stack.
 
 #### Configuration options at a glance
 
