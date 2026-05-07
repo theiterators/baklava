@@ -79,11 +79,13 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
 
   implicit val urlFormSchema: Schema[UrlForm] = FreeFormSchema("UrlForm")
 
-  /** Build the http4s `Multipart` from the user-facing baklava `Multipart`. Extracted from the encoder so `baklavaContextToHttpRequest`
-    * can reuse it to recover the `Content-Type: multipart/form-data; boundary=…` header that http4s' `MultipartEncoder` leaves at
-    * `Headers.empty` (issue #102).
+  /** Build the http4s `Multipart` from the user-facing baklava `Multipart`. `baklavaContextToHttpRequest` builds the value once and uses
+    * it for both the entity body and to recover the `Content-Type: multipart/form-data; boundary=…` header that http4s' `MultipartEncoder`
+    * leaves at `Headers.empty` (issue #102) — keeping the boundary on the encoded body and the boundary on the advertised `Content-Type`
+    * impossible to diverge. Override this (rather than `multipartToRequestBodyType`) to customize the wire format; the request-building
+    * path uses this method directly so the override is honored everywhere.
     */
-  private def toHttp4sMultipart(baklavaMultipart: BaklavaMultipart): org.http4s.multipart.Multipart[IO] = {
+  protected def toHttp4sMultipart(baklavaMultipart: BaklavaMultipart): org.http4s.multipart.Multipart[IO] = {
     // `Vector[Http4sPart[IO]]` annotation: Scala 2.13 otherwise widens the match to `Part[Pure] | Part[IO]`.
     val parts: Vector[Http4sPart[IO]] = baklavaMultipart.parts.toVector.map {
       case FilePart(name, contentType, filename, bytes) =>
@@ -212,21 +214,20 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
       uri = Uri.fromString(ctx.path).fold(throw _, identity),
       headers = baklavaHeadersToHttpHeaders(otherHeaders)
     )
+    // http4s' `MultipartEncoder` ships `headers = Headers.empty` (long-standing TODO upstream),
+    // so `withEntity(multipart)` alone produces a request without the
+    // `Content-Type: multipart/form-data; boundary=…` header — the header lives on the http4s
+    // `Multipart` value itself, not the encoder. We build the http4s `Multipart` once and use it
+    // both for the entity body and to recover those headers, so the boundary on the encoded body
+    // and the boundary on the advertised `Content-Type` are guaranteed to match (issue #102).
     val withBody = ctx.body match {
+      case Some(mp: BaklavaMultipart) =>
+        val http4sMp = toHttp4sMultipart(mp)
+        base.withEntity(http4sMp).putHeaders(http4sMp.headers)
       case Some(body) => base.withEntity(body)
       case None       => base
     }
-    // http4s' `MultipartEncoder` ships `headers = Headers.empty` (long-standing TODO upstream),
-    // so `withEntity` for a multipart body produces a request without the
-    // `Content-Type: multipart/form-data; boundary=…` header. The header lives on the http4s
-    // `Multipart` value itself. Recover it here so http4s routes that decode `Multipart[IO]`
-    // accept the request (issue #102).
-    val withMultipartHeaders = ctx.body match {
-      case Some(mp: BaklavaMultipart) =>
-        withBody.putHeaders(toHttp4sMultipart(mp).headers)
-      case _ => withBody
-    }
-    parsedOverride.fold(withMultipartHeaders)(ct => withMultipartHeaders.withContentType(ct))
+    parsedOverride.fold(withBody)(ct => withBody.withContentType(ct))
   }
 
   /** Find a `Content-Type` in the declared headers (case-insensitive) and return the parsed http4s `Content-Type`. Throws on either

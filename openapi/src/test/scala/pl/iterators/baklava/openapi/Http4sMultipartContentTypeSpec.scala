@@ -12,6 +12,8 @@ import pl.iterators.baklava.scalatest.{BaklavaScalatest, ScalatestAsExecution}
 import pl.iterators.baklava.{AppliedSecurity, BaklavaRequestContext, FilePart, Multipart => BaklavaMultipart, NoopSecurity, TextPart}
 import sttp.model.{Header => SttpHeader, Method}
 
+import java.nio.charset.StandardCharsets
+
 /** Regression test for issue #102 on the http4s adapter. http4s' `MultipartEncoder` carries an empty header set, so a vanilla
   * `withEntity(multipart)` produces a request with no `Content-Type: multipart/form-data; boundary=…`. The adapter has to recover those
   * headers from the http4s `Multipart` value itself; otherwise routes decoding `Multipart[IO]` reject with
@@ -49,6 +51,24 @@ class Http4sMultipartContentTypeSpec
       val request = baklavaContextToHttpRequest(ctx)(multipartToRequestBodyType)
 
       request.contentType shouldBe Some(`Content-Type`(MediaType.image.png))
+    }
+
+    it("uses one Multipart value for both the body and the Content-Type so boundaries can't diverge") {
+      // Lock in the same-Multipart invariant: the boundary on the advertised Content-Type and
+      // the boundary marker inside the encoded body bytes must match. If a future refactor goes
+      // back to building the http4s Multipart twice (once for the entity, once for headers),
+      // a consumer override of `toHttp4sMultipart` could let the two diverge — this assertion
+      // catches that by reading the boundary parameter from the header and grepping the body.
+      val ctx     = buildMultipartRequestContext(Seq.empty)
+      val request = baklavaContextToHttpRequest(ctx)(multipartToRequestBodyType)
+
+      val advertisedBoundary = request.contentType
+        .flatMap(_.mediaType.extensions.get("boundary"))
+        .getOrElse(
+          fail("expected a boundary parameter on the Content-Type header")
+        )
+      val bodyString = new String(request.body.compile.toVector.unsafeRunSync().toArray, StandardCharsets.UTF_8)
+      bodyString should include(s"--$advertisedBoundary")
     }
 
     it("produces a request that http4s' Multipart decoder accepts") {
@@ -90,7 +110,7 @@ class Http4sMultipartContentTypeSpec
       securitySchemes = Seq.empty,
       body = Some(
         BaklavaMultipart(
-          FilePart("photo", "image/png", "photo.png", "fake png bytes".getBytes("UTF-8")),
+          FilePart("photo", "image/png", "photo.png", "fake png bytes".getBytes(StandardCharsets.UTF_8)),
           TextPart("caption", "profile photo")
         )
       ),

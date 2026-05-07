@@ -14,6 +14,7 @@ import pl.iterators.baklava.scalatest.{BaklavaScalatest, ScalatestAsExecution}
 import pl.iterators.baklava.{AppliedSecurity, BaklavaRequestContext, FilePart, Multipart => BaklavaMultipart, NoopSecurity, TextPart}
 import sttp.model.{Header => SttpHeader, Method}
 
+import java.nio.charset.StandardCharsets
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 
@@ -91,7 +92,7 @@ class PekkoMultipartContentTypeSpec
       securitySchemes = Seq.empty,
       body = Some(
         BaklavaMultipart(
-          FilePart("photo", "image/png", "photo.png", "fake png bytes".getBytes("UTF-8")),
+          FilePart("photo", "image/png", "photo.png", "fake png bytes".getBytes(StandardCharsets.UTF_8)),
           TextPart("caption", "profile photo")
         )
       ),
