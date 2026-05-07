@@ -112,6 +112,11 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
     org.http4s.multipart.Multipart[IO](parts, Boundary("baklava-multipart-boundary"))
   }
 
+  /** This implicit satisfies the `BaklavaHttpDsl` API and is what type-class derivation resolves for `RequestBody = BaklavaMultipart`, but
+    * `baklavaContextToHttpRequest` does NOT use it for request building — it goes through `toHttp4sMultipart` directly so the encoded body
+    * and the advertised `Content-Type` boundary stay in sync (issue #102). To customize the wire format (parts layout, headers, boundary),
+    * override `toHttp4sMultipart` rather than this implicit; an override here alone will not affect outgoing multipart requests.
+    */
   override implicit protected def multipartToRequestBodyType: BaklavaHttp4s.ToEntityMarshaller[BaklavaMultipart] =
     implicitly[EntityEncoder[IO, org.http4s.multipart.Multipart[IO]]].contramap(toHttp4sMultipart)
 

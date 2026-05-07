@@ -84,12 +84,13 @@ class Http4sMultipartContentTypeSpec
       decoded.parts.map(_.name).toList.flatten shouldBe List("photo", "caption")
     }
 
-    it("does not put a Content-Type on requests with a non-multipart body") {
-      // Sanity check that the multipart-only branch does not affect ordinary bodies.
+    it("leaves the marshaller-provided Content-Type intact on non-multipart bodies") {
+      // Sanity check that the multipart-only branch does not affect ordinary bodies — they should
+      // get the Content-Type their EntityEncoder bakes in (here: text/plain from the String encoder).
       val ctx     = buildStringRequestContext(Seq.empty, "plain text")
       val request = baklavaContextToHttpRequest(ctx)(implicitly)
 
-      // String EntityEncoder defaults to text/plain; assert main type, not exact subtype/charset.
+      // Assert main type only — exact subtype/charset varies across http4s versions.
       request.contentType.map(_.mediaType.mainType) shouldBe Some("text")
     }
   }
