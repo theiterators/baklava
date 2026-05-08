@@ -79,33 +79,39 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
 
   implicit val urlFormSchema: Schema[UrlForm] = FreeFormSchema("UrlForm")
 
-  override implicit protected def multipartToRequestBodyType: BaklavaHttp4s.ToEntityMarshaller[BaklavaMultipart] =
-    implicitly[EntityEncoder[IO, org.http4s.multipart.Multipart[IO]]].contramap { baklavaMultipart =>
-      // `Vector[Http4sPart[IO]]` annotation: Scala 2.13 otherwise widens the match to `Part[Pure] | Part[IO]`.
-      val parts: Vector[Http4sPart[IO]] = baklavaMultipart.parts.toVector.map {
-        case FilePart(name, contentType, filename, bytes) =>
-          val ct = headers.`Content-Type`
-            .parse(contentType)
-            .toOption
-            .getOrElse(headers.`Content-Type`(MediaType.application.`octet-stream`))
-          val body = Stream.chunk(fs2.Chunk.array(bytes))
-          if (filename.isEmpty)
-            Http4sPart[IO](
-              Headers(
-                headers.`Content-Disposition`("form-data", Map(CIString("name") -> name)),
-                (headers.`Content-Transfer-Encoding`.Binary: headers.`Content-Transfer-Encoding`),
-                ct
-              ),
-              body
-            )
-          else
-            Http4sPart.fileData[IO](name, filename, body, ct)
-        case TextPart(name, value) =>
-          Http4sPart.formData[IO](name, value)
-      }
-      // Fixed boundary keeps the captured request body byte-stable across gold-test runs.
-      org.http4s.multipart.Multipart[IO](parts, Boundary("baklava-multipart-boundary"))
+  // Override here (not `multipartToRequestBodyType`) to customize the wire format —
+  // `baklavaContextToHttpRequest` calls this directly so the body boundary and the Content-Type
+  // boundary can't diverge (issue #102).
+  protected def toHttp4sMultipart(baklavaMultipart: BaklavaMultipart): org.http4s.multipart.Multipart[IO] = {
+    // `Vector[Http4sPart[IO]]` annotation: Scala 2.13 otherwise widens the match to `Part[Pure] | Part[IO]`.
+    val parts: Vector[Http4sPart[IO]] = baklavaMultipart.parts.toVector.map {
+      case FilePart(name, contentType, filename, bytes) =>
+        val ct = headers.`Content-Type`
+          .parse(contentType)
+          .toOption
+          .getOrElse(headers.`Content-Type`(MediaType.application.`octet-stream`))
+        val body = Stream.chunk(fs2.Chunk.array(bytes))
+        if (filename.isEmpty)
+          Http4sPart[IO](
+            Headers(
+              headers.`Content-Disposition`("form-data", Map(CIString("name") -> name)),
+              (headers.`Content-Transfer-Encoding`.Binary: headers.`Content-Transfer-Encoding`),
+              ct
+            ),
+            body
+          )
+        else
+          Http4sPart.fileData[IO](name, filename, body, ct)
+      case TextPart(name, value) =>
+        Http4sPart.formData[IO](name, value)
     }
+    // Fixed boundary keeps the captured request body byte-stable across gold-test runs.
+    org.http4s.multipart.Multipart[IO](parts, Boundary("baklava-multipart-boundary"))
+  }
+
+  // Required by the abstract API; not used by `baklavaContextToHttpRequest` — override `toHttp4sMultipart` instead.
+  override implicit protected def multipartToRequestBodyType: BaklavaHttp4s.ToEntityMarshaller[BaklavaMultipart] =
+    implicitly[EntityEncoder[IO, org.http4s.multipart.Multipart[IO]]].contramap(toHttp4sMultipart)
 
   override implicit protected def emptyToResponseBodyType: BaklavaHttp4s.FromEntityUnmarshaller[EmptyBody] =
     EntityDecoder.void[IO].map(_ => EmptyBodyInstance)
@@ -206,7 +212,13 @@ trait BaklavaHttp4s[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestF
       uri = Uri.fromString(ctx.path).fold(throw _, identity),
       headers = baklavaHeadersToHttpHeaders(otherHeaders)
     )
+    // http4s' MultipartEncoder ships Headers.empty; the Content-Type/boundary live on the
+    // Multipart value itself. Build it once and use it for both `withEntity` and `putHeaders`
+    // so the body boundary and the advertised boundary can't diverge (issue #102).
     val withBody = ctx.body match {
+      case Some(mp: BaklavaMultipart) =>
+        val http4sMp = toHttp4sMultipart(mp)
+        base.withEntity(http4sMp).putHeaders(http4sMp.headers)
       case Some(body) => base.withEntity(body)
       case None       => base
     }
