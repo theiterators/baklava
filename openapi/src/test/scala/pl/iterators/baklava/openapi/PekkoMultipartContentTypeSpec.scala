@@ -18,11 +18,8 @@ import java.nio.charset.StandardCharsets
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 
-/** Companion to `Http4sMultipartContentTypeSpec` (issue #102). Pekko's `Multipart.FormData.toEntity(boundary)` bakes
-  * `Content-Type: multipart/form-data; boundary=…` into the `MessageEntity` itself — unlike http4s, where the encoder leaves
-  * `Headers.empty` and the adapter has to recover the header. So pekko is NOT affected by #102. This spec locks that behavior in so a
-  * future marshaller change can't silently regress it.
-  */
+// Sibling to Http4sMultipartContentTypeSpec — pekko bakes Content-Type into the entity directly,
+// so it isn't affected by issue #102. This spec locks that in.
 class PekkoMultipartContentTypeSpec
     extends AnyFunSpec
     with Matchers
@@ -51,8 +48,6 @@ class PekkoMultipartContentTypeSpec
     }
 
     it("produces an entity that pekko's Multipart.FormData unmarshaller accepts") {
-      // Sibling to the http4s round-trip test — verifies that the resulting request can be parsed
-      // back into a multipart form by pekko's own unmarshaller.
       val ctx     = buildMultipartRequestContext(Seq.empty)
       val request = baklavaContextToHttpRequest(ctx)
 
@@ -68,7 +63,6 @@ class PekkoMultipartContentTypeSpec
     }
 
     it("still honors a declared Content-Type override") {
-      // Mirrors the http4s sibling: a declared Content-Type header on the test should win.
       val ctx     = buildMultipartRequestContext(Seq(SttpHeader("Content-Type", "image/png")))
       val request = baklavaContextToHttpRequest(ctx)
 

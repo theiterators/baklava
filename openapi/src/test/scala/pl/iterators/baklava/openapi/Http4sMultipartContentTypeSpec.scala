@@ -14,11 +14,8 @@ import sttp.model.{Header => SttpHeader, Method}
 
 import java.nio.charset.StandardCharsets
 
-/** Regression test for issue #102 on the http4s adapter. http4s' `MultipartEncoder` carries an empty header set, so a vanilla
-  * `withEntity(multipart)` produces a request with no `Content-Type: multipart/form-data; boundary=…`. The adapter has to recover those
-  * headers from the http4s `Multipart` value itself; otherwise routes decoding `Multipart[IO]` reject with
-  * `Missing boundary extension to Content-Type`.
-  */
+// Regression for issue #102: http4s' MultipartEncoder leaves Content-Type unset, so the adapter
+// has to recover it from the Multipart value itself.
 class Http4sMultipartContentTypeSpec
     extends AnyFunSpec
     with Matchers
@@ -45,8 +42,7 @@ class Http4sMultipartContentTypeSpec
     }
 
     it("still honors a declared Content-Type override") {
-      // If the user explicitly declares a Content-Type header, it wins over the encoder-derived
-      // one — preserving the existing override behavior from issue #52.
+      // Preserves issue #52 override behavior on top of the multipart fix.
       val ctx     = buildMultipartRequestContext(Seq(SttpHeader("Content-Type", "image/png")))
       val request = baklavaContextToHttpRequest(ctx)(multipartToRequestBodyType)
 
@@ -54,11 +50,7 @@ class Http4sMultipartContentTypeSpec
     }
 
     it("uses one Multipart value for both the body and the Content-Type so boundaries can't diverge") {
-      // Lock in the same-Multipart invariant: the boundary on the advertised Content-Type and
-      // the boundary marker inside the encoded body bytes must match. If a future refactor goes
-      // back to building the http4s Multipart twice (once for the entity, once for headers),
-      // a consumer override of `toHttp4sMultipart` could let the two diverge — this assertion
-      // catches that by reading the boundary parameter from the header and grepping the body.
+      // The boundary on the Content-Type and the boundary marker in the body bytes must match.
       val ctx     = buildMultipartRequestContext(Seq.empty)
       val request = baklavaContextToHttpRequest(ctx)(multipartToRequestBodyType)
 
@@ -72,9 +64,7 @@ class Http4sMultipartContentTypeSpec
     }
 
     it("produces a request that http4s' Multipart decoder accepts") {
-      // This is the exact failure mode reported in issue #102: an http4s route doing
-      // `entity(as[Multipart[IO]])` previously rejected the request with
-      // `Missing boundary extension to Content-Type`. After the fix, decoding succeeds.
+      // Reproduces the exact failure mode from issue #102.
       val ctx     = buildMultipartRequestContext(Seq.empty)
       val request = baklavaContextToHttpRequest(ctx)(multipartToRequestBodyType)
 
@@ -85,12 +75,10 @@ class Http4sMultipartContentTypeSpec
     }
 
     it("leaves the marshaller-provided Content-Type intact on non-multipart bodies") {
-      // Sanity check that the multipart-only branch does not affect ordinary bodies — they should
-      // get the Content-Type their EntityEncoder bakes in (here: text/plain from the String encoder).
       val ctx     = buildStringRequestContext(Seq.empty, "plain text")
       val request = baklavaContextToHttpRequest(ctx)(implicitly)
 
-      // Assert main type only — exact subtype/charset varies across http4s versions.
+      // Main type only — subtype/charset varies across http4s versions.
       request.contentType.map(_.mediaType.mainType) shouldBe Some("text")
     }
   }
