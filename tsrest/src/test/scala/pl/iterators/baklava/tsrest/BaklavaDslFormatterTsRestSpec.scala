@@ -5,9 +5,6 @@ import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
 import sttp.model.{Method, StatusCode}
 
-import java.io.File
-import java.nio.file.Files
-
 class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
 
   private val generator = new BaklavaDslFormatterTsRest
@@ -218,77 +215,72 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
     }
   }
 
-  describe("create(): end-to-end contract emission") {
+  describe("createContractForEndpoint") {
 
-    it("quotes a kebab-case query key in the generated contract file (issue #105)") {
-      val ts = generateAndRead(
-        "v1-auctions.contract.ts",
-        Seq(
-          getCall(
-            "/v1/auctions",
-            queryParams = Seq("status" -> stringSchema().copy(required = false), "seller-id" -> uuidSchema(required = false))
-          )
+    it("quotes a kebab-case query key in the generated contract entry (issue #105)") {
+      val entry = endpoint(
+        "GET",
+        "/v1/auctions",
+        getCall(
+          "/v1/auctions",
+          queryParams = Seq("status" -> stringSchema().copy(required = false), "seller-id" -> uuidSchema(required = false))
         )
       )
-      ts should include("""query: z.object({status: z.string().nullish(), "seller-id": z.string().uuid().nullish()}),""")
+      entry should include("""query: z.object({status: z.string().nullish(), "seller-id": z.string().uuid().nullish()}),""")
     }
 
     it("emits contentType: 'multipart/form-data' and named part fields for a multipart body (issue #106)") {
-      val ts = generateAndRead(
-        "v1-auctions---auctionId-images.contract.ts",
-        Seq(
-          getCall(
-            "/v1/auctions/{auctionId}/images",
-            method = "POST",
-            pathParams = Seq("auctionId" -> uuidSchema(required = true)),
-            multipartParts = Some(
-              Seq(
-                BaklavaMultipartPartSerializable("file", isFile = true),
-                BaklavaMultipartPartSerializable("caption", isFile = false)
-              )
+      val entry = endpoint(
+        "POST",
+        "/v1/auctions/{auctionId}/images",
+        getCall(
+          "/v1/auctions/{auctionId}/images",
+          method = "POST",
+          pathParams = Seq("auctionId" -> uuidSchema(required = true)),
+          multipartParts = Some(
+            Seq(
+              BaklavaMultipartPartSerializable("file", isFile = true),
+              BaklavaMultipartPartSerializable("caption", isFile = false)
             )
           )
         )
       )
       // `contentType` is emitted immediately before `body`.
-      ts should include("    contentType: 'multipart/form-data',\n    body: z.object({caption: z.string(), file: z.instanceof(File)}),\n")
+      entry should include(
+        "    contentType: 'multipart/form-data',\n    body: z.object({caption: z.string(), file: z.instanceof(File)}),\n"
+      )
     }
 
     it("still emits an empty object body (with the content type) for a multipart body with no parts") {
-      val ts = generateAndRead(
-        "v1-blank.contract.ts",
-        Seq(getCall("/v1/blank", method = "POST", multipartParts = Some(Nil)))
-      )
-      ts should include("    contentType: 'multipart/form-data',\n    body: z.object({}),\n")
+      val entry = endpoint("POST", "/v1/blank", getCall("/v1/blank", method = "POST", multipartParts = Some(Nil)))
+      entry should include("    contentType: 'multipart/form-data',\n    body: z.object({}),\n")
     }
 
     it("unions distinct multipart part-sets across calls, broader shape first so Zod doesn't strip extra fields") {
       val file    = BaklavaMultipartPartSerializable("file", isFile = true)
       val caption = BaklavaMultipartPartSerializable("caption", isFile = false)
       // Calls are passed narrower-first; the generated union must still put `{caption, file}` first.
-      val ts = generateAndRead(
-        "v1-uploads.contract.ts",
-        Seq(
-          getCall("/v1/uploads", method = "POST", multipartParts = Some(Seq(file))),
-          getCall("/v1/uploads", method = "POST", multipartParts = Some(Seq(file, caption)))
-        )
+      val entry = endpoint(
+        "POST",
+        "/v1/uploads",
+        getCall("/v1/uploads", method = "POST", multipartParts = Some(Seq(file))),
+        getCall("/v1/uploads", method = "POST", multipartParts = Some(Seq(file, caption)))
       )
-      ts should include(
+      entry should include(
         "    contentType: 'multipart/form-data',\n" +
           "    body: z.union([z.object({caption: z.string(), file: z.instanceof(File)}), z.object({file: z.instanceof(File)})]),\n"
       )
     }
 
     it("orders an empty multipart variant last in the union") {
-      val file = BaklavaMultipartPartSerializable("file", isFile = true)
-      val ts   = generateAndRead(
-        "v1-mixed-uploads.contract.ts",
-        Seq(
-          getCall("/v1/mixed-uploads", method = "POST", multipartParts = Some(Nil)),
-          getCall("/v1/mixed-uploads", method = "POST", multipartParts = Some(Seq(file)))
-        )
+      val file  = BaklavaMultipartPartSerializable("file", isFile = true)
+      val entry = endpoint(
+        "POST",
+        "/v1/mixed-uploads",
+        getCall("/v1/mixed-uploads", method = "POST", multipartParts = Some(Nil)),
+        getCall("/v1/mixed-uploads", method = "POST", multipartParts = Some(Seq(file)))
       )
-      ts should include("    body: z.union([z.object({file: z.instanceof(File)}), z.object({})]),\n")
+      entry should include("    body: z.union([z.object({file: z.instanceof(File)}), z.object({})]),\n")
     }
 
     it("orders multipart variants by field count even when the narrower variant's first key is quoted") {
@@ -296,14 +288,13 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       // (a quote sorts before a letter), shadowing the broader shape — ordering must be semantic.
       val file1   = BaklavaMultipartPartSerializable("file-1", isFile = true)
       val caption = BaklavaMultipartPartSerializable("caption", isFile = false)
-      val ts      = generateAndRead(
-        "v1-kebab-uploads.contract.ts",
-        Seq(
-          getCall("/v1/kebab-uploads", method = "POST", multipartParts = Some(Seq(file1))),
-          getCall("/v1/kebab-uploads", method = "POST", multipartParts = Some(Seq(file1, caption)))
-        )
+      val entry   = endpoint(
+        "POST",
+        "/v1/kebab-uploads",
+        getCall("/v1/kebab-uploads", method = "POST", multipartParts = Some(Seq(file1))),
+        getCall("/v1/kebab-uploads", method = "POST", multipartParts = Some(Seq(file1, caption)))
       )
-      ts should include(
+      entry should include(
         """    body: z.union([z.object({caption: z.string(), "file-1": z.instanceof(File)}), z.object({"file-1": z.instanceof(File)})]),""" + "\n"
       )
     }
@@ -365,10 +356,10 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       )
     )
 
-  private def generateAndRead(relContractPath: String, calls: Seq[BaklavaSerializableCall]): String = {
-    new BaklavaDslFormatterTsRest().create(Map.empty, calls)
-    new String(Files.readAllBytes(new File(s"target/baklava/tsrest/src/$relContractPath").toPath))
-  }
+  // The contract entry (`get: { ... }` / `post: { ... }` block) the generator emits for one
+  // (method, path) endpoint group — exercised directly so the tests don't touch the filesystem.
+  private def endpoint(method: String, path: String, calls: BaklavaSerializableCall*): String =
+    generator.createContractForEndpoint(((Some(Method(method)), path), calls.toSeq))
 
   private def stringSchema(description: Option[String] = None, enumValues: Option[Set[String]] = None): BaklavaSchemaSerializable =
     BaklavaSchemaSerializable(

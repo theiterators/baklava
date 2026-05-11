@@ -102,11 +102,13 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     }
   }
 
+  private val jsIdentifier = "[A-Za-z_$][A-Za-z0-9_$]*".r
+
   // An object key may be written bare only if it's a valid JS identifier; query/header/path-param
   // names can be kebab-case (`seller-id`, `X-Forwarded-For`) or start with a digit, which would
   // otherwise produce uncompilable TypeScript — so quote anything that isn't identifier-shaped.
   private[tsrest] def tsObjectKey(name: String): String =
-    if (name.matches("[A-Za-z_$][A-Za-z0-9_$]*")) name
+    if (jsIdentifier.matches(name)) name
     else s""""${escapeTsDoubleQuoted(name)}""""
 
   // Render one captured `Multipart` value as a ts-rest body schema (see
@@ -169,7 +171,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   }
 
   // Contract endpoint generator
-  private def createContractForEndpoint(
+  private[tsrest] def createContractForEndpoint(
       endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall])
   ): String = {
     val ((httpMethodOpt, _), calls) = endpoint
