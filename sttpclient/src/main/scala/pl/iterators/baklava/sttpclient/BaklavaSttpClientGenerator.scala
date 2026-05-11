@@ -400,8 +400,10 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
       case SchemaType.ObjectType if isNamedCaseClass(schema) =>
         if (!collected.contains(schema.className)) collected(schema.className) = renderCaseClassBody(schema)
         schema.properties.values.foreach(visit)
+        schema.additionalPropertiesSchema.foreach(visit)
       case SchemaType.ObjectType =>
         schema.properties.values.foreach(visit)
+        schema.additionalPropertiesSchema.foreach(visit)
       case SchemaType.ArrayType =>
         schema.items.foreach(visit)
       case _ => ()
@@ -420,16 +422,19 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     val byClassName = scala.collection.mutable.Map.empty[String, Set[String]].withDefaultValue(Set.empty)
     def findTopLevelRef(s: BaklavaSchemaSerializable): Set[String] = s.`type` match {
       case SchemaType.ObjectType if isNamedCaseClass(s) => Set(s.className)
+      case SchemaType.ObjectType                        => s.additionalPropertiesSchema.toSet.flatMap(findTopLevelRef)
       case SchemaType.ArrayType                         => s.items.toSet.flatMap(findTopLevelRef)
       case _                                            => Set.empty
     }
     def collectFromSchema(schema: BaklavaSchemaSerializable): Unit = schema.`type` match {
       case SchemaType.ObjectType if isNamedCaseClass(schema) =>
-        val refs = schema.properties.values.flatMap(findTopLevelRef).toSet
+        val refs = (schema.properties.values ++ schema.additionalPropertiesSchema).flatMap(findTopLevelRef).toSet
         byClassName.update(schema.className, byClassName(schema.className) ++ refs)
         schema.properties.values.foreach(collectFromSchema)
+        schema.additionalPropertiesSchema.foreach(collectFromSchema)
       case SchemaType.ObjectType =>
         schema.properties.values.foreach(collectFromSchema)
+        schema.additionalPropertiesSchema.foreach(collectFromSchema)
       case SchemaType.ArrayType => schema.items.foreach(collectFromSchema)
       case _                    => ()
     }
@@ -470,10 +475,15 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     val acc                                       = scala.collection.mutable.Set.empty[String]
     def visit(s: BaklavaSchemaSerializable): Unit = s.`type` match {
       case SchemaType.ObjectType if isNamedCaseClass(s) =>
-        if (acc.add(s.className)) s.properties.values.foreach(visit)
-      case SchemaType.ObjectType => s.properties.values.foreach(visit)
-      case SchemaType.ArrayType  => s.items.foreach(visit)
-      case _                     => ()
+        if (acc.add(s.className)) {
+          s.properties.values.foreach(visit)
+          s.additionalPropertiesSchema.foreach(visit)
+        }
+      case SchemaType.ObjectType =>
+        s.properties.values.foreach(visit)
+        s.additionalPropertiesSchema.foreach(visit)
+      case SchemaType.ArrayType => s.items.foreach(visit)
+      case _                    => ()
     }
     c.request.bodySchema.foreach(visit)
     c.response.bodySchema.foreach(visit)
@@ -529,10 +539,14 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
       val inner = schema.items.map(scalaType).getOrElse("Any")
       s"Seq[$inner]"
     case SchemaType.ObjectType =>
-      // Anonymous / `additionalProperties` objects render as `Map[String, io.circe.Json]` rather than `Map[String, Any]`. circe has
-      // built-in codecs for `Json`, so a typed case class that contains such a field still derives cleanly via `generic.auto._`.
       if (isNamedCaseClass(schema)) scalaSafeIdent(schema.className)
-      else "Map[String, io.circe.Json]"
+      else
+        schema.additionalPropertiesSchema match {
+          case Some(v) => s"Map[String, ${scalaType(v)}]"
+          // Anonymous / open objects render as `Map[String, io.circe.Json]` rather than `Map[String, Any]`. circe has
+          // built-in codecs for `Json`, so a typed case class that contains such a field still derives cleanly via `generic.auto._`.
+          case None => "Map[String, io.circe.Json]"
+        }
   }
 
   private def isSpecialHeader(name: String): Boolean =

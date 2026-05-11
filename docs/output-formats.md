@@ -373,6 +373,7 @@ Endpoints with a request body emit `.contentType(...)` honoring the content-type
 | `Boolean` | `Boolean` |
 | `Seq/List/Vector/Set/Array[T]` | `Seq[T]` |
 | Named case class | Case class (emitted in the owning tag's `dtos.scala` or `common/dtos.scala`) |
+| `Map[K, V]` | `Map[String, V]` |
 | `Option[T]` | Field becomes `Option[T] = None` |
 
 ### Configuration
@@ -461,6 +462,7 @@ Endpoint files import types from the appropriate location (`./types`, `../common
 | `Null` | `null` |
 | `Seq[T]`, `List[T]`, `Vector[T]`, `Set[T]`, `Array[T]` | `InnerType[]` |
 | Case class with properties | Named `interface` (re-exported per-tag as `Users.ClassName` / shared as `Common.ClassName`) |
+| `Map[K, V]` | `Record<string, V>` |
 | `Option[T]` | Field becomes optional (`field?: T`) |
 
 ### Configuration
