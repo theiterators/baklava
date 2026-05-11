@@ -214,7 +214,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       .distinct
       .sortBy { parts =>
         val names = parts.map(_.name).distinct
-        (-names.size, names.sorted.mkString(" "))
+        (-names.size, names.sorted.mkString(","))
       }
     val (contentTypeLineOpt, bodyZod) =
       if (multipartPartSets.nonEmpty)
