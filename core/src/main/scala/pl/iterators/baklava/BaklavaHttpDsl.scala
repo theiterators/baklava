@@ -15,16 +15,17 @@ case class FormOf[T](fields: (String, String)*)(implicit val schema: Schema[T])
 
 object FormOf {
   implicit def schema[T](implicit schema: Schema[T]): Schema[FormOf[T]] = new Schema[FormOf[T]] {
-    val `type`: SchemaType                 = schema.`type`
-    val className: String                  = schema.className
-    val format: Option[String]             = schema.format
-    val properties: Map[String, Schema[?]] = schema.properties
-    val items: Option[Schema[?]]           = schema.items
-    val `enum`: Option[Set[String]]        = schema.`enum`
-    val required: Boolean                  = schema.required
-    val additionalProperties: Boolean      = schema.additionalProperties
-    val default: Option[FormOf[T]]         = None
-    val description: Option[String]        = schema.description
+    val `type`: SchemaType                                     = schema.`type`
+    val className: String                                      = schema.className
+    val format: Option[String]                                 = schema.format
+    val properties: Map[String, Schema[?]]                     = schema.properties
+    val items: Option[Schema[?]]                               = schema.items
+    val `enum`: Option[Set[String]]                            = schema.`enum`
+    val required: Boolean                                      = schema.required
+    val additionalProperties: Boolean                          = schema.additionalProperties
+    override val additionalPropertiesSchema: Option[Schema[?]] = schema.additionalPropertiesSchema
+    val default: Option[FormOf[T]]                             = None
+    val description: Option[String]                            = schema.description
   }
 }
 

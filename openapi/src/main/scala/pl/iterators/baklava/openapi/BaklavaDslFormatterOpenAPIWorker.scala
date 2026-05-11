@@ -372,7 +372,12 @@ object BaklavaDslFormatterOpenAPIWorker {
 
   private def baklavaSchemaToOpenAPISchema(baklavaSchema: BaklavaSchemaSerializable): Schema[?] = {
     val schema = new Schema[String]()
-    if (baklavaSchema.`type` == SchemaType.ObjectType) {
+    // A named object type carries an `x-class` extension so post-processors can lift it into
+    // components/schemas; a *pure* map (no declared properties, just `additionalProperties: <schema>`)
+    // is structural rather than a named class, so it's left untagged. An object that has both
+    // declared properties and a catch-all is still a named DTO and keeps its `x-class`.
+    val isPureMap = baklavaSchema.additionalPropertiesSchema.isDefined && baklavaSchema.properties.isEmpty
+    if (baklavaSchema.`type` == SchemaType.ObjectType && !isPureMap) {
       schema.extensions(
         Map
           .apply[String, AnyRef](
@@ -400,7 +405,10 @@ object BaklavaDslFormatterOpenAPIWorker {
     baklavaSchema.`enum`.foreach(e => schema.setEnum(e.toList.asJava))
     baklavaSchema.default.flatMap(jsonToJavaDefault).foreach(schema.setDefault)
     schema.setRequired(baklavaSchema.properties.toList.filter(_._2.required).map(_._1).asJava)
-    if (baklavaSchema.additionalProperties) schema.setAdditionalProperties(baklavaSchema.additionalProperties)
+    baklavaSchema.additionalPropertiesSchema match {
+      case Some(bs) => schema.setAdditionalProperties(baklavaSchemaToOpenAPISchema(bs))
+      case None     => if (baklavaSchema.additionalProperties) schema.setAdditionalProperties(baklavaSchema.additionalProperties)
+    }
 
     schema
   }

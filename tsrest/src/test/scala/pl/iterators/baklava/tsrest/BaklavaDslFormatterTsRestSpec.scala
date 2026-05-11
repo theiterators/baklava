@@ -84,6 +84,24 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
     }
   }
 
+  describe("zod(): maps (additionalProperties)") {
+
+    it("renders a map-like object (only a value schema) as z.record(z.string(), <value>)") {
+      generator.zod(objectSchema(Map.empty, additionalPropertiesValueSchema = Some(stringSchema()))) shouldBe
+      "z.record(z.string(), z.string())"
+      val uuid = stringSchema().copy(format = Some("uuid"))
+      generator.zod(objectSchema(Map.empty, additionalPropertiesValueSchema = Some(uuid))) shouldBe
+      "z.record(z.string(), z.string().uuid())"
+    }
+
+    it("renders an object with both declared properties and a value schema using .catchall") {
+      val out = generator.zod(objectSchema(Map("known" -> stringSchema()), additionalPropertiesValueSchema = Some(stringSchema())))
+      out should startWith("z.object({")
+      out should include(""""known": z.string()""")
+      out should endWith(".catchall(z.string())")
+    }
+  }
+
   describe("collapseZodUnion") {
 
     it("preserves non-object variants alongside object variants (regression)") {
@@ -375,7 +393,10 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       description = description
     )
 
-  private def objectSchema(properties: Map[String, BaklavaSchemaSerializable]): BaklavaSchemaSerializable =
+  private def objectSchema(
+      properties: Map[String, BaklavaSchemaSerializable],
+      additionalPropertiesValueSchema: Option[BaklavaSchemaSerializable] = None
+  ): BaklavaSchemaSerializable =
     BaklavaSchemaSerializable(
       className = "Object",
       `type` = SchemaType.ObjectType,
@@ -384,8 +405,9 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       items = None,
       `enum` = None,
       required = true,
-      additionalProperties = false,
+      additionalProperties = additionalPropertiesValueSchema.isDefined,
       default = None,
-      description = None
+      description = None,
+      additionalPropertiesSchema = additionalPropertiesValueSchema
     )
 }

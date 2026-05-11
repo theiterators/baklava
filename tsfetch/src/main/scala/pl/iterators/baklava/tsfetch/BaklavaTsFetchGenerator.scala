@@ -305,8 +305,10 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
       case SchemaType.ObjectType if isNamedInterface(schema) =>
         if (!collected.contains(schema.className)) collected(schema.className) = renderInterfaceBody(schema)
         schema.properties.values.foreach(visit)
+        schema.additionalPropertiesSchema.foreach(visit)
       case SchemaType.ObjectType =>
         schema.properties.values.foreach(visit)
+        schema.additionalPropertiesSchema.foreach(visit)
       case SchemaType.ArrayType =>
         schema.items.foreach(visit)
       case _ => ()
@@ -325,11 +327,13 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
     val byClassName = scala.collection.mutable.Map.empty[String, Set[String]].withDefaultValue(Set.empty)
     def collectFromSchema(schema: BaklavaSchemaSerializable): Unit = schema.`type` match {
       case SchemaType.ObjectType if isNamedInterface(schema) =>
-        val refs = schema.properties.values.flatMap(directReferencesIn).toSet
+        val refs = (schema.properties.values ++ schema.additionalPropertiesSchema).flatMap(directReferencesIn).toSet
         byClassName.update(schema.className, byClassName(schema.className) ++ refs)
         schema.properties.values.foreach(collectFromSchema)
+        schema.additionalPropertiesSchema.foreach(collectFromSchema)
       case SchemaType.ObjectType =>
         schema.properties.values.foreach(collectFromSchema)
+        schema.additionalPropertiesSchema.foreach(collectFromSchema)
       case SchemaType.ArrayType => schema.items.foreach(collectFromSchema)
       case _                    => ()
     }
@@ -349,9 +353,9 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
     */
   private def directReferencesIn(schema: BaklavaSchemaSerializable): Set[String] = schema.`type` match {
     case SchemaType.ObjectType if isNamedInterface(schema) => Set(schema.className)
-    case SchemaType.ObjectType                             => schema.properties.values.flatMap(directReferencesIn).toSet
-    case SchemaType.ArrayType                              => schema.items.toSet.flatMap(directReferencesIn)
-    case _                                                 => Set.empty
+    case SchemaType.ObjectType => (schema.properties.values ++ schema.additionalPropertiesSchema).flatMap(directReferencesIn).toSet
+    case SchemaType.ArrayType  => schema.items.toSet.flatMap(directReferencesIn)
+    case _                     => Set.empty
   }
 
   private def collectUsageByTag(calls: Seq[BaklavaSerializableCall]): Map[String, Set[String]] = {
@@ -382,10 +386,15 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
     val acc                                       = scala.collection.mutable.Set.empty[String]
     def visit(s: BaklavaSchemaSerializable): Unit = s.`type` match {
       case SchemaType.ObjectType if isNamedInterface(s) =>
-        if (acc.add(s.className)) s.properties.values.foreach(visit)
-      case SchemaType.ObjectType => s.properties.values.foreach(visit)
-      case SchemaType.ArrayType  => s.items.foreach(visit)
-      case _                     => ()
+        if (acc.add(s.className)) {
+          s.properties.values.foreach(visit)
+          s.additionalPropertiesSchema.foreach(visit)
+        }
+      case SchemaType.ObjectType =>
+        s.properties.values.foreach(visit)
+        s.additionalPropertiesSchema.foreach(visit)
+      case SchemaType.ArrayType => s.items.foreach(visit)
+      case _                    => ()
     }
     c.request.bodySchema.foreach(visit)
     c.response.bodySchema.foreach(visit)
@@ -473,8 +482,11 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
       if (inner.contains(" | ") || inner.contains(" & ")) s"($inner)[]" else s"$inner[]"
     case SchemaType.ObjectType =>
       if (isNamedInterface(schema)) tsSafeIdent(schema.className)
-      else if (schema.properties.isEmpty) "Record<string, unknown>"
-      else renderInterfaceBody(schema)
+      else
+        schema.additionalPropertiesSchema match {
+          case Some(v) => s"Record<string, ${tsType(v)}>"
+          case None    => if (schema.properties.isEmpty) "Record<string, unknown>" else renderInterfaceBody(schema)
+        }
   }
 
   private def functionName(req: BaklavaRequestContextSerializable): String =

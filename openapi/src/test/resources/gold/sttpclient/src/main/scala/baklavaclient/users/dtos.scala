@@ -4,4 +4,8 @@ import baklavaclient.common.User
 
 final case class PaginatedUsers(limit: Int, page: Int, total: Int, users: Seq[User])
 
+final case class PhotoUpload(id: java.util.UUID, variants: Map[String, PhotoVariant])
+
+final case class PhotoVariant(format: String, height: Int, url: String, width: Int)
+
 final case class UpdateUserRequest(name: String, role: String)

@@ -148,6 +148,14 @@ class ComprehensiveGoldSpec
   private val task1 = Task(101L, "Wire up telemetry", Some("Prometheus + Grafana"), done = false, Priority.High)
   private val task2 = Task(102L, "Write docs", None, done = true, Priority.Low)
 
+  private val samplePhotoUpload = PhotoUpload(
+    UUID.fromString("00000000-0000-0000-0000-000000000010"),
+    Map(
+      "thumbnail" -> PhotoVariant("https://cdn.example.com/photo_thumb.png", 64, 64, "png"),
+      "full"      -> PhotoVariant("https://cdn.example.com/photo.png", 1024, 768, "png")
+    )
+  )
+
   // ---------------------------------------------------------------------------
   // API surface
   // ---------------------------------------------------------------------------
@@ -467,12 +475,12 @@ class ComprehensiveGoldSpec
           TextPart("caption", "profile photo")
         ),
         security = bearerAuth("jwt.token.xyz")
-      ).respondsWith[EmptyBody](NoContent, description = "Photo uploaded")
+      ).respondsWith[PhotoUpload](Created, description = "Photo uploaded; rendered variants returned keyed by name")
         .assert { ctx =>
-          nextResponse = emptyResponse(NoContent)
+          nextResponse = jsonResponse(Created, samplePhotoUpload.asJson.noSpaces)
           val response = ctx.performRequest(routes)
           lastRequest.get().entity.contentType.mediaType.value should startWith("multipart/form-data")
-          response.status.intValue() shouldBe 204
+          response.status.intValue() shouldBe 201
         }
     )
   )
@@ -704,4 +712,7 @@ object ComprehensiveGoldSpec {
   case class WebhookPayload(event: String, data: String)
   case class WebhookAck(received: Boolean)
   case class HealthResponse(status: String, uptimeSeconds: Long)
+
+  case class PhotoVariant(url: String, width: Int, height: Int, format: String)
+  case class PhotoUpload(id: UUID, variants: Map[String, PhotoVariant])
 }

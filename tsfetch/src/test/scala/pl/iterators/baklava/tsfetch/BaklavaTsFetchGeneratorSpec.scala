@@ -210,7 +210,21 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
       indexTs should include("""export * from "./projects/endpoints";""")
       indexTs should include("""export * as Users from "./users/types";""")
     }
+
+    it("renders a Map[String, V] field as Record<string, V> and emits the value interface (#108)") {
+      cleanSrc()
+      val base = getCall("/images", tag = Some("Images"))
+      val call =
+        base.let(c => c.copy(response = c.response.copy(bodySchema = Some(BaklavaSchemaSerializable(implicitly[Schema[ImageDto]])))))
+      val typesTs = generateAndRead("src/images/types.ts", Seq(call))
+      typesTs should include("export interface ImageDto")
+      typesTs should include("variants: Record<string, Variant>;")
+      typesTs should include("export interface Variant")
+    }
   }
+
+  case class Variant(url: String, width: Int)
+  case class ImageDto(id: String, variants: Map[String, Variant])
 
   private def namedObject(name: String, props: Map[String, PrimitiveSchema[?]]): BaklavaSchemaSerializable =
     BaklavaSchemaSerializable(

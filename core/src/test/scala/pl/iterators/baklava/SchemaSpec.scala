@@ -70,5 +70,36 @@ class SchemaSpec extends AnyFunSpec with Matchers {
 
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
+
+    it("for Map[String, Int] (object + additionalProperties value schema)") {
+      val derived = implicitly[Schema[Map[String, Int]]]
+      derived.`type` shouldBe SchemaType.ObjectType
+      derived.className shouldBe "Map[String, Int]"
+      derived.additionalProperties shouldBe true
+      derived.additionalPropertiesSchema.map(_.`type`) shouldBe Some(SchemaType.IntegerType)
+    }
+
+    it("for Map[UUID, String] (a non-string key drops the key constraint, keeps the value schema)") {
+      val derived = implicitly[Schema[Map[UUID, String]]]
+      derived.`type` shouldBe SchemaType.ObjectType
+      derived.additionalPropertiesSchema.map(_.`type`) shouldBe Some(SchemaType.StringType)
+    }
+
+    case class WithMap(id: Int, tags: Map[String, String])
+
+    it("for a case class with a Map[String, String] field") {
+      val derived = implicitly[Schema[WithMap]]
+      val tags    = derived.properties("tags")
+      tags.`type` shouldBe SchemaType.ObjectType
+      tags.additionalProperties shouldBe true
+      tags.additionalPropertiesSchema.map(_.`type`) shouldBe Some(SchemaType.StringType)
+    }
+
+    it("for Option[Map[String, Int]] (the value schema survives the Option wrapper)") {
+      val derived = implicitly[Schema[Option[Map[String, Int]]]]
+      derived.required shouldBe false
+      derived.`type` shouldBe SchemaType.ObjectType
+      derived.additionalPropertiesSchema.map(_.`type`) shouldBe Some(SchemaType.IntegerType)
+    }
   }
 }

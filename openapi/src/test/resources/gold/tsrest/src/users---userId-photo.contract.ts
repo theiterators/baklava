@@ -11,7 +11,13 @@ export const usersUserIdPhotoContract = initContract().router({
     contentType: 'multipart/form-data',
     body: z.object({caption: z.string(), photo: z.instanceof(File)}),
     responses: {
-      204: z.undefined()
+      201: z.object({
+        "id": z.string().uuid(),
+        "variants": z.record(z.string(), z.object({
+        "format": z.string(),
+        "height": z.number().int(),
+        "url": z.string(),
+        "width": z.number().int()}))})
     }
   }
 });

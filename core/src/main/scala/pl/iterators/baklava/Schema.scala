@@ -29,30 +29,36 @@ trait Schema[T] {
   val default: Option[T]
   val description: Option[String]
 
+  // For map-like object schemas: the schema all values conform to (renders as a JSON Schema /
+  // OpenAPI `additionalProperties: <schema>`). `None` for ordinary objects and primitives.
+  def additionalPropertiesSchema: Option[Schema[?]] = None
+
   def withDescription(_description: String): Schema[T] = new Schema[T] {
-    val className: String                  = Schema.this.className
-    val `type`: SchemaType                 = Schema.this.`type`
-    val format: Option[String]             = Schema.this.format
-    val properties: Map[String, Schema[?]] = Schema.this.properties
-    val items: Option[Schema[?]]           = Schema.this.items
-    val `enum`: Option[Set[String]]        = Schema.this.`enum`
-    val required: Boolean                  = Schema.this.required
-    val additionalProperties: Boolean      = Schema.this.additionalProperties
-    val default: Option[T]                 = Schema.this.default
-    val description: Option[String]        = Some(_description)
+    val className: String                                      = Schema.this.className
+    val `type`: SchemaType                                     = Schema.this.`type`
+    val format: Option[String]                                 = Schema.this.format
+    val properties: Map[String, Schema[?]]                     = Schema.this.properties
+    val items: Option[Schema[?]]                               = Schema.this.items
+    val `enum`: Option[Set[String]]                            = Schema.this.`enum`
+    val required: Boolean                                      = Schema.this.required
+    val additionalProperties: Boolean                          = Schema.this.additionalProperties
+    override val additionalPropertiesSchema: Option[Schema[?]] = Schema.this.additionalPropertiesSchema
+    val default: Option[T]                                     = Schema.this.default
+    val description: Option[String]                            = Some(_description)
   }
 
   def withDefault(_default: T): Schema[T] = new Schema[T] {
-    val className: String                  = Schema.this.className
-    val `type`: SchemaType                 = Schema.this.`type`
-    val format: Option[String]             = Schema.this.format
-    val properties: Map[String, Schema[?]] = Schema.this.properties
-    val items: Option[Schema[?]]           = Schema.this.items
-    val `enum`: Option[Set[String]]        = Schema.this.`enum`
-    val required: Boolean                  = Schema.this.required
-    val additionalProperties: Boolean      = Schema.this.additionalProperties
-    val default: Option[T]                 = Some(_default)
-    val description: Option[String]        = Schema.this.description
+    val className: String                                      = Schema.this.className
+    val `type`: SchemaType                                     = Schema.this.`type`
+    val format: Option[String]                                 = Schema.this.format
+    val properties: Map[String, Schema[?]]                     = Schema.this.properties
+    val items: Option[Schema[?]]                               = Schema.this.items
+    val `enum`: Option[Set[String]]                            = Schema.this.`enum`
+    val required: Boolean                                      = Schema.this.required
+    val additionalProperties: Boolean                          = Schema.this.additionalProperties
+    override val additionalPropertiesSchema: Option[Schema[?]] = Schema.this.additionalPropertiesSchema
+    val default: Option[T]                                     = Some(_default)
+    val description: Option[String]                            = Schema.this.description
   }
 
   override def toString: String = {
@@ -122,16 +128,17 @@ trait SchemaDefaults {
   implicit val unitSchema: PrimitiveSchema[Unit]             = PrimitiveSchema[Unit]("Unit", SchemaType.NullType, None)
   implicit val bigDecimalSchema: PrimitiveSchema[BigDecimal] = PrimitiveSchema[BigDecimal]("BigDecimal", SchemaType.NumberType, None)
   implicit def optionSchema[T](implicit schema: Schema[T]): Schema[Option[T]] = new Schema[Option[T]] {
-    val className: String                  = schema.className
-    val `type`: SchemaType                 = schema.`type`
-    val format: Option[String]             = schema.format
-    val properties: Map[String, Schema[?]] = schema.properties
-    val items: Option[Schema[?]]           = schema.items
-    val `enum`: Option[Set[String]]        = schema.`enum`
-    val required: Boolean                  = false
-    val additionalProperties: Boolean      = schema.additionalProperties
-    val default: Option[Option[T]]         = Some(None)
-    val description: Option[String]        = schema.description
+    val className: String                                      = schema.className
+    val `type`: SchemaType                                     = schema.`type`
+    val format: Option[String]                                 = schema.format
+    val properties: Map[String, Schema[?]]                     = schema.properties
+    val items: Option[Schema[?]]                               = schema.items
+    val `enum`: Option[Set[String]]                            = schema.`enum`
+    val required: Boolean                                      = false
+    val additionalProperties: Boolean                          = schema.additionalProperties
+    override val additionalPropertiesSchema: Option[Schema[?]] = schema.additionalPropertiesSchema
+    val default: Option[Option[T]]                             = Some(None)
+    val description: Option[String]                            = schema.description
   }
   implicit def seqSchema[T](implicit schema: Schema[T]): Schema[Seq[T]] = new Schema[Seq[T]] {
     val className: String                  = "Seq[" + schema.className + "]"
@@ -157,17 +164,21 @@ trait SchemaDefaults {
     val default: Option[List[T]]           = None
     val description: Option[String]        = None
   }
-  implicit def stringMapSchema[T](implicit schema: Schema[T]): Schema[Map[String, T]] = new Schema[Map[String, T]] {
-    val className: String                  = "Map[String, " + schema.className + "]"
-    val `type`: SchemaType                 = SchemaType.ObjectType
-    val format: Option[String]             = None
-    val properties: Map[String, Schema[?]] = Map.empty
-    val items: Option[Schema[?]]           = None
-    val `enum`: Option[Set[String]]        = None
-    val required: Boolean                  = true
-    val additionalProperties: Boolean      = true
-    val default: Option[Map[String, T]]    = None
-    val description: Option[String]        = None
+  // A JSON object whose keys are the (string-encoded) `K` values and whose values all conform to
+  // `V` — renders as `type: object` + `additionalProperties: <schema for V>`. The key constraint
+  // isn't expressible in OpenAPI 3.0, so it's dropped (JSON object keys are strings regardless).
+  implicit def mapSchema[K, V](implicit keySchema: Schema[K], valueSchema: Schema[V]): Schema[Map[K, V]] = new Schema[Map[K, V]] {
+    val className: String                                      = s"Map[${keySchema.className}, ${valueSchema.className}]"
+    val `type`: SchemaType                                     = SchemaType.ObjectType
+    val format: Option[String]                                 = None
+    val properties: Map[String, Schema[?]]                     = Map.empty
+    val items: Option[Schema[?]]                               = None
+    val `enum`: Option[Set[String]]                            = None
+    val required: Boolean                                      = true
+    val additionalProperties: Boolean                          = true
+    override val additionalPropertiesSchema: Option[Schema[?]] = Some(valueSchema)
+    val default: Option[Map[K, V]]                             = None
+    val description: Option[String]                            = None
   }
   implicit val uuidSchema: PrimitiveSchema[java.util.UUID] = PrimitiveSchema[java.util.UUID]("UUID", SchemaType.StringType, Some("uuid"))
 

@@ -272,7 +272,40 @@ class BaklavaSttpClientGeneratorSpec extends AnyFunSpec with Matchers {
       content should include("""sttp.model.Method("PROPFIND")""")
       content should not include ".propfind("
     }
+
+    it("renders a Map[String, V] field as Map[String, V] and emits the value case class (#108)") {
+      cleanSrc()
+      val base = getCall("/images", tag = Some("Images"))
+      val call =
+        base.let(c => c.copy(response = c.response.copy(bodySchema = Some(BaklavaSchemaSerializable(implicitly[Schema[ImageDto]])))))
+      val dtos = generateAndRead("src/main/scala/baklavaclient/images/dtos.scala", Seq(call))
+      dtos should include("final case class ImageDto(")
+      dtos should include("variants: Map[String, Variant]")
+      dtos should include("final case class Variant(")
+    }
+
+    it("treats a top-level Map[String, V] JSON body as a typed Map[String, V], not raw String (#108)") {
+      cleanSrc()
+      val base = getCall("/images", tag = Some("Images"))
+      val call = base.let(c =>
+        c.copy(response =
+          c.response.copy(
+            bodySchema = Some(BaklavaSchemaSerializable(implicitly[Schema[Map[String, Variant]]])),
+            responseContentType = Some("application/json")
+          )
+        )
+      )
+      val endpoints = generateAndRead("src/main/scala/baklavaclient/images/ImagesEndpoints.scala", Seq(call))
+      endpoints should include("Map[String, Variant]")
+      endpoints should not include "Either[String, String]"
+      val dtos =
+        new String(Files.readAllBytes(new File("target/baklava/sttpclient/src/main/scala/baklavaclient/images/dtos.scala").toPath))
+      dtos should include("final case class Variant(")
+    }
   }
+
+  case class Variant(url: String, width: Int)
+  case class ImageDto(id: String, variants: Map[String, Variant])
 
   private def namedObject(name: String, props: Map[String, PrimitiveSchema[?]]): BaklavaSchemaSerializable =
     BaklavaSchemaSerializable(

@@ -19,6 +19,8 @@ object SchemaCompare {
     a.`enum` shouldEqual b.`enum`
     a.required shouldEqual b.required
     a.additionalProperties shouldEqual b.additionalProperties
+    a.additionalPropertiesSchema.map(_.`type`) shouldEqual b.additionalPropertiesSchema.map(_.`type`)
+    a.additionalPropertiesSchema.flatMap(_.format) shouldEqual b.additionalPropertiesSchema.flatMap(_.format)
     a.description shouldEqual b.description
     a.default shouldEqual b.default
     ()

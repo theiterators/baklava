@@ -313,15 +313,22 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
         val item = schema.items.map(zod).getOrElse("z.any()")
         s"z.array($item)$desc"
       case SchemaType.ObjectType =>
-        if (schema.properties.isEmpty) s"z.object({})$desc"
-        else {
-          val props = schema.properties.toSeq
-            .sortBy(_._1)
-            .map { case (k, v) =>
-              s""""${escapeTsDoubleQuoted(k)}": ${zod(v)}${if (!v.required) ".nullish()" else ""}"""
-            }
-            .mkString("\n        ", ",\n        ", "")
-          s"z.object({$props})$desc"
+        val objectBody =
+          if (schema.properties.isEmpty) "z.object({})"
+          else {
+            val props = schema.properties.toSeq
+              .sortBy(_._1)
+              .map { case (k, v) =>
+                s""""${escapeTsDoubleQuoted(k)}": ${zod(v)}${if (!v.required) ".nullish()" else ""}"""
+              }
+              .mkString("\n        ", ",\n        ", "")
+            s"z.object({$props})"
+          }
+        schema.additionalPropertiesSchema match {
+          // A map-like object: all values conform to one schema -> z.record (keys are strings in JSON).
+          case Some(v) if schema.properties.isEmpty => s"z.record(z.string(), ${zod(v)})$desc"
+          case Some(v)                              => s"$objectBody.catchall(${zod(v)})$desc"
+          case None                                 => s"$objectBody$desc"
         }
       case SchemaType.NullType => s"z.null()$desc"
     }

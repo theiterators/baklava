@@ -242,6 +242,57 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
       }
     }
 
+    describe("map-typed schemas (additionalProperties: <schema>)") {
+      it("renders additionalProperties as the value schema and leaves the map itself untagged") {
+        val variantSchema = BaklavaSchemaSerializable(
+          className = "VariantDto",
+          `type` = SchemaType.ObjectType,
+          format = None,
+          properties = Map("url" -> BaklavaSchemaSerializable(Schema.stringSchema)),
+          items = None,
+          `enum` = None,
+          required = true,
+          additionalProperties = false,
+          default = None,
+          description = None
+        )
+        val mapBodySchema = BaklavaSchemaSerializable(
+          className = "Map[String, VariantDto]",
+          `type` = SchemaType.ObjectType,
+          format = None,
+          properties = Map.empty,
+          items = None,
+          `enum` = None,
+          required = true,
+          additionalProperties = true,
+          default = None,
+          description = None,
+          additionalPropertiesSchema = Some(variantSchema)
+        )
+        val base = call("POST", "/v1/variants", None, None, Nil, None, Nil)
+        val c    = base.copy(
+          response = base.response.copy(requestContentType = Some("application/json"), bodySchema = None),
+          request = base.request.copy(bodySchema = Some(mapBodySchema))
+        )
+
+        val openAPI = new OpenAPI()
+        BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(c))
+
+        val bodySchema = openAPI.getPaths.get("/v1/variants").getPost.getRequestBody.getContent.get("application/json").getSchema
+        bodySchema.getType shouldBe "object"
+        bodySchema.getExtensions shouldBe null // a map is structural, not a named class — no x-class
+        bodySchema.getRequired shouldBe null   // no `required: []` noise for a propertyless object (swagger nulls an empty list)
+        val valueSchema = bodySchema.getAdditionalProperties match {
+          case s: io.swagger.v3.oas.models.media.Schema[?] => s
+          case other                                       =>
+            fail(s"expected additionalProperties to be a Schema, got: ${Option(other).map(_.getClass.getName).getOrElse("null")}")
+        }
+        valueSchema.getType shouldBe "object"
+        valueSchema.getProperties.keySet.asScala should contain("url")
+        valueSchema.getExtensions.get("x-class") shouldBe "VariantDto" // the value type is still a named class
+      }
+    }
+
     describe("example key deduplication") {
       it("disambiguates duplicate response-example keys with numeric suffixes") {
         val sameDescription = "Some response"
