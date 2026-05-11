@@ -204,11 +204,14 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     // A `multipart/form-data` body has a free-form schema, so it can't be projected through `zod`;
     // instead emit `contentType: 'multipart/form-data'` plus a `z.object` of the captured part
     // names. Each call's part-set is rendered separately and combined into a `z.union`, mirroring
-    // how distinct non-multipart body shapes are handled.
+    // how distinct non-multipart body shapes are handled. The variants are sorted before unioning so
+    // a shape with more required fields is tried before a more-permissive shape that would also
+    // accept it (`z.object({})` sorts last) — otherwise Zod's non-strict `z.object` would match the
+    // narrower branch first and silently strip the extra fields.
     val multipartPartSets             = calls.flatMap(_.request.multipartFormData).distinct
     val (contentTypeLineOpt, bodyZod) =
       if (multipartPartSets.nonEmpty)
-        (Some("    contentType: 'multipart/form-data',"), collapseZodUnion(multipartPartSets.map(renderMultipartBody)))
+        (Some("    contentType: 'multipart/form-data',"), collapseZodUnion(multipartPartSets.map(renderMultipartBody).sorted))
       else {
         val bodySchemas = calls.flatMap(_.request.bodySchema).distinct
         val bodyZods    =

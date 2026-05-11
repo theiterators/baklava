@@ -262,10 +262,11 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       ts should include("    contentType: 'multipart/form-data',\n    body: z.object({}),\n")
     }
 
-    it("unions distinct multipart part-sets recorded across calls for the same endpoint (one z.object per call)") {
+    it("unions distinct multipart part-sets across calls, broader shape first so Zod doesn't strip extra fields") {
       val file    = BaklavaMultipartPartSerializable("file", isFile = true)
       val caption = BaklavaMultipartPartSerializable("caption", isFile = false)
-      val ts      = generateAndRead(
+      // Calls are passed narrower-first; the generated union must still put `{caption, file}` first.
+      val ts = generateAndRead(
         "v1-uploads.contract.ts",
         Seq(
           getCall("/v1/uploads", method = "POST", multipartParts = Some(Seq(file))),
@@ -274,8 +275,20 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       )
       ts should include(
         "    contentType: 'multipart/form-data',\n" +
-          "    body: z.union([z.object({file: z.instanceof(File)}), z.object({caption: z.string(), file: z.instanceof(File)})]),\n"
+          "    body: z.union([z.object({caption: z.string(), file: z.instanceof(File)}), z.object({file: z.instanceof(File)})]),\n"
       )
+    }
+
+    it("orders an empty multipart variant last in the union") {
+      val file = BaklavaMultipartPartSerializable("file", isFile = true)
+      val ts   = generateAndRead(
+        "v1-mixed-uploads.contract.ts",
+        Seq(
+          getCall("/v1/mixed-uploads", method = "POST", multipartParts = Some(Nil)),
+          getCall("/v1/mixed-uploads", method = "POST", multipartParts = Some(Seq(file)))
+        )
+      )
+      ts should include("    body: z.union([z.object({file: z.instanceof(File)}), z.object({})]),\n")
     }
   }
 
