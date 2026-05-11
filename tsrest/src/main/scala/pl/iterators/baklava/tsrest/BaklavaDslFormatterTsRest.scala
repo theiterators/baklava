@@ -83,25 +83,50 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private def writeTo(path: String, content: String): Unit =
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
 
-  private def buildParamsZod[P](
+  private[tsrest] def buildParamsZod[P](
       paramsPerCall: Seq[Seq[P]],
       nameOf: P => String,
-      schemaOf: P => BaklavaSchemaSerializable,
-      quoteKeys: Boolean
+      schemaOf: P => BaklavaSchemaSerializable
   ): Option[String] = {
     val distinctSets = paramsPerCall.distinct
     if (!distinctSets.exists(_.nonEmpty)) None
     else {
       val zds = distinctSets.map { params =>
         val fields = params.map { p =>
-          val key          = if (quoteKeys) s""""${escapeTsDoubleQuoted(nameOf(p))}"""" else nameOf(p)
           val nullishMaybe = if (!schemaOf(p).required) ".nullish()" else ""
-          s"$key: ${zod(schemaOf(p))}$nullishMaybe"
+          s"${tsObjectKey(nameOf(p))}: ${zod(schemaOf(p))}$nullishMaybe"
         }
         "z.object({" + fields.mkString(", ") + "})"
       }
       Some(collapseZodUnion(zds))
     }
+  }
+
+  private val jsIdentifier = "[A-Za-z_$][A-Za-z0-9_$]*".r
+
+  // An object key may be written bare only if it's a valid JS identifier; query/header/path-param
+  // names can be kebab-case (`seller-id`, `X-Forwarded-For`) or start with a digit, which would
+  // otherwise produce uncompilable TypeScript — so quote anything that isn't identifier-shaped.
+  private[tsrest] def tsObjectKey(name: String): String =
+    if (jsIdentifier.matches(name)) name
+    else s""""${escapeTsDoubleQuoted(name)}""""
+
+  // Render one captured `Multipart` value as a ts-rest body schema (see
+  // https://ts-rest.com/docs/core/multi-part): a `z.object` keyed by part name, `FilePart` ->
+  // `z.instanceof(File)`, `TextPart` -> `z.string()`. A repeated part name (a multi-value form
+  // field) becomes a `z.array(...)`; a name that mixes file and text parts unions the element
+  // schemas. Names and element schemas are sorted so output is deterministic.
+  private[tsrest] def renderMultipartBody(parts: Seq[BaklavaMultipartPartSerializable]): String = {
+    val fields = parts
+      .groupBy(_.name)
+      .toSeq
+      .sortBy(_._1)
+      .map { case (name, ps) =>
+        val element = collapseZodUnion(ps.map(p => if (p.isFile) "z.instanceof(File)" else "z.string()").sorted)
+        val schema  = if (ps.size > 1) s"z.array($element)" else element
+        s"${tsObjectKey(name)}: $schema"
+      }
+    s"z.object({${fields.mkString(", ")}})"
   }
 
   /** Convert a Baklava `{name}` placeholder path to the ts-rest `:name` syntax. Non-placeholder braces (i.e. anything containing `/` or
@@ -146,7 +171,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   }
 
   // Contract endpoint generator
-  private def createContractForEndpoint(
+  private[tsrest] def createContractForEndpoint(
       endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall])
   ): String = {
     val ((httpMethodOpt, _), calls) = endpoint
@@ -165,31 +190,48 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     val pathParamsZodOpt = buildParamsZod(
       calls.map(_.request.pathParametersSeq),
       (p: BaklavaPathParamSerializable) => p.name,
-      (p: BaklavaPathParamSerializable) => p.schema,
-      quoteKeys = false
+      (p: BaklavaPathParamSerializable) => p.schema
     )
     val queryParamsZodOpt = buildParamsZod(
       calls.map(_.request.queryParametersSeq),
       (p: BaklavaQueryParamSerializable) => p.name,
-      (p: BaklavaQueryParamSerializable) => p.schema,
-      quoteKeys = false
+      (p: BaklavaQueryParamSerializable) => p.schema
     )
     val headersZodOpt = buildParamsZod(
       calls.map(_.request.headersSeq),
       (h: BaklavaHeaderSerializable) => h.name,
-      (h: BaklavaHeaderSerializable) => h.schema,
-      quoteKeys = true
+      (h: BaklavaHeaderSerializable) => h.schema
     )
     // --- Body ---
-    val bodySchemas = calls.flatMap(_.request.bodySchema).distinct
-    val bodyZods    =
-      if (bodySchemas.isEmpty) Seq("z.undefined()")
-      else if (bodySchemas.size == 1 && isEmptyBodyInstance(bodySchemas.head)) Seq("z.undefined()")
-      else {
-        val notEmptyBodies = bodySchemas.filterNot(isEmptyBodyInstance)
-        if (notEmptyBodies.isEmpty) Seq("z.undefined()") else notEmptyBodies.map(zod)
+    // A `multipart/form-data` body has a free-form schema, so it can't be projected through `zod`;
+    // instead emit `contentType: 'multipart/form-data'` plus a `z.object` of the captured part
+    // names. Each call's part-set is rendered separately and combined into a `z.union`, mirroring
+    // how distinct non-multipart body shapes are handled. Variants are ordered by descending
+    // field count (sorted part names as a stable tiebreaker, so `z.object({})` lands last) before
+    // unioning: a shape with more required fields must be tried before a more-permissive one that
+    // would also accept it, otherwise Zod's non-strict `z.object` matches the narrower branch first
+    // and silently strips the extra fields.
+    val multipartPartSets = calls
+      .flatMap(_.request.multipartFormData)
+      .distinct
+      .sortBy { parts =>
+        val names = parts.map(_.name).distinct
+        (-names.size, names.sorted.mkString(","))
       }
-    val bodyZod = collapseZodUnion(bodyZods)
+    val (contentTypeLineOpt, bodyZod) =
+      if (multipartPartSets.nonEmpty)
+        (Some("    contentType: 'multipart/form-data',"), collapseZodUnion(multipartPartSets.map(renderMultipartBody)))
+      else {
+        val bodySchemas = calls.flatMap(_.request.bodySchema).distinct
+        val bodyZods    =
+          if (bodySchemas.isEmpty) Seq("z.undefined()")
+          else if (bodySchemas.size == 1 && isEmptyBodyInstance(bodySchemas.head)) Seq("z.undefined()")
+          else {
+            val notEmptyBodies = bodySchemas.filterNot(isEmptyBodyInstance)
+            if (notEmptyBodies.isEmpty) Seq("z.undefined()") else notEmptyBodies.map(zod)
+          }
+        (None, collapseZodUnion(bodyZods))
+      }
 
     // --- Responses ---
     val responses = calls
@@ -217,7 +259,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     ).++(pathParamsZodOpt.toList.map(z => s"    pathParams: $z,"))
       .++(queryParamsZodOpt.toList.map(z => s"    query: $z,"))
       .++(headersZodOpt.toList.map(z => s"    headers: $z,"))
-      .++(bodyLine.toList)
+      // `contentType` only makes sense alongside `body`, so emit them as one block (or neither).
+      .++(bodyLine.toList.flatMap(line => contentTypeLineOpt.toList :+ line))
       .++(
         List(
           s"    responses: {",

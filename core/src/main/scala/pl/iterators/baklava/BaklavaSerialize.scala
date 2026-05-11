@@ -210,6 +210,10 @@ object BaklavaQueryParamSerializable {
     BaklavaQueryParamSerializable(h.name, h.description, BaklavaSchemaSerializable(h.schema), example)
 }
 
+// A single part of a `multipart/form-data` request body, captured so generators can name the form
+// fields. `isFile` distinguishes `FilePart` (binary upload) from `TextPart` (plain form field).
+case class BaklavaMultipartPartSerializable(name: String, isFile: Boolean) extends Serializable
+
 case class BaklavaRequestContextSerializable(
     symbolicPath: String,
     path: String,
@@ -227,7 +231,9 @@ case class BaklavaRequestContextSerializable(
     pathParametersSeq: Seq[BaklavaPathParamSerializable],
     queryParametersSeq: Seq[BaklavaQueryParamSerializable],
     responseDescription: Option[String],
-    responseHeaders: Seq[BaklavaHeaderSerializable]
+    responseHeaders: Seq[BaklavaHeaderSerializable],
+    // `Some(parts)` iff the request body was a `Multipart` (even an empty one); `None` otherwise.
+    multipartFormData: Option[Seq[BaklavaMultipartPartSerializable]] = None
 ) extends Serializable
 
 object BaklavaRequestContextSerializable {
@@ -261,7 +267,13 @@ object BaklavaRequestContextSerializable {
         BaklavaQueryParamSerializable(p, queryParamValues.get(p.name))
       },
       responseDescription = c.responseDescription,
-      responseHeaders = c.responseHeaders.map(h => BaklavaHeaderSerializable(h))
+      responseHeaders = c.responseHeaders.map(h => BaklavaHeaderSerializable(h)),
+      multipartFormData = c.body.collect { case mp: Multipart =>
+        mp.parts.toSeq.map {
+          case p: FilePart => BaklavaMultipartPartSerializable(p.name, isFile = true)
+          case t: TextPart => BaklavaMultipartPartSerializable(t.name, isFile = false)
+        }
+      }
     )
   }
 
