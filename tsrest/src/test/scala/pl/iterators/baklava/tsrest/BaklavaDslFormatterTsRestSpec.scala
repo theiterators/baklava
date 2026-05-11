@@ -290,6 +290,23 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       )
       ts should include("    body: z.union([z.object({file: z.instanceof(File)}), z.object({})]),\n")
     }
+
+    it("orders multipart variants by field count even when the narrower variant's first key is quoted") {
+      // Lexicographic ordering of the rendered strings would put `z.object({"file-1": ...})` first
+      // (a quote sorts before a letter), shadowing the broader shape — ordering must be semantic.
+      val file1   = BaklavaMultipartPartSerializable("file-1", isFile = true)
+      val caption = BaklavaMultipartPartSerializable("caption", isFile = false)
+      val ts      = generateAndRead(
+        "v1-kebab-uploads.contract.ts",
+        Seq(
+          getCall("/v1/kebab-uploads", method = "POST", multipartParts = Some(Seq(file1))),
+          getCall("/v1/kebab-uploads", method = "POST", multipartParts = Some(Seq(file1, caption)))
+        )
+      )
+      ts should include(
+        """    body: z.union([z.object({caption: z.string(), "file-1": z.instanceof(File)}), z.object({"file-1": z.instanceof(File)})]),""" + "\n"
+      )
+    }
   }
 
   private def queryParam(name: String, schema: BaklavaSchemaSerializable): BaklavaQueryParamSerializable =
