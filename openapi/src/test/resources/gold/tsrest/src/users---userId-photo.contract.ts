@@ -8,7 +8,8 @@ export const usersUserIdPhotoContract = initContract().router({
     method: 'POST',
     path: '/users/:userId/photo',
     pathParams: z.object({userId: z.string().uuid()}),
-    body: z.object({}),
+    contentType: 'multipart/form-data',
+    body: z.object({caption: z.string(), photo: z.instanceof(File)}),
     responses: {
       204: z.undefined()
     }

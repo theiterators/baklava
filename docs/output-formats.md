@@ -140,6 +140,10 @@ Baklava schemas are converted to Zod validators:
 
 When multiple test cases produce different schemas for the same endpoint input/output, they are combined into `z.union([...])`.
 
+Object keys that aren't valid JavaScript identifiers (e.g. kebab-case query/header parameters like `seller-id` or `X-Forwarded-For`) are emitted quoted so the generated source compiles.
+
+`multipart/form-data` request bodies (a `Multipart(...)` body in the test) are emitted as `contentType: 'multipart/form-data'` plus a `z.object({...})` naming each captured form part — `FilePart`s become `z.instanceof(File)` and `TextPart`s become `z.string()`. (`z.instanceof(File)` references the global `File` constructor; it's available in browsers and Node ≥ 20.)
+
 ### Configuration
 
 ```scala

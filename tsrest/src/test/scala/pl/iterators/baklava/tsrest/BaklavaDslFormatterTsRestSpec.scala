@@ -3,6 +3,10 @@ package pl.iterators.baklava.tsrest
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
+import sttp.model.{Method, StatusCode}
+
+import java.io.File
+import java.nio.file.Files
 
 class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
 
@@ -134,6 +138,181 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       generator.toTsRestPath("/foo{bar") shouldBe "/foo{bar"
       generator.toTsRestPath("/{a/b}") shouldBe "/{a/b}"
     }
+  }
+
+  describe("tsObjectKey") {
+
+    it("leaves valid JS identifiers bare") {
+      generator.tsObjectKey("status") shouldBe "status"
+      generator.tsObjectKey("sellerId") shouldBe "sellerId"
+      generator.tsObjectKey("_private") shouldBe "_private"
+      generator.tsObjectKey("$ref") shouldBe "$ref"
+      generator.tsObjectKey("page2") shouldBe "page2"
+      // Reserved words are valid object keys (bare) at both runtime and type level.
+      generator.tsObjectKey("class") shouldBe "class"
+    }
+
+    it("quotes keys with characters that aren't valid in a JS identifier") {
+      generator.tsObjectKey("seller-id") shouldBe "\"seller-id\""
+      generator.tsObjectKey("X-Forwarded-For") shouldBe "\"X-Forwarded-For\""
+      generator.tsObjectKey("2fa") shouldBe "\"2fa\""
+      generator.tsObjectKey("a.b") shouldBe "\"a.b\""
+      generator.tsObjectKey("") shouldBe "\"\""
+    }
+
+    it("escapes embedded quotes/backslashes when it has to quote") {
+      generator.tsObjectKey("""weird"key""") shouldBe """"weird\"key""""
+      generator.tsObjectKey("""back\slash-x""") shouldBe """"back\\slash-x""""
+    }
+  }
+
+  describe("buildParamsZod (query/header/path keys)") {
+
+    it("quotes a kebab-case query-parameter key so the generated z.object is valid TypeScript (issue #105)") {
+      val out = generator
+        .buildParamsZod[BaklavaQueryParamSerializable](
+          Seq(Seq(queryParam("seller-id", uuidSchema(required = false)), queryParam("status", stringSchema().copy(required = false)))),
+          _.name,
+          _.schema
+        )
+        .getOrElse(fail("expected a query schema"))
+      out shouldBe """z.object({"seller-id": z.string().uuid().nullish(), status: z.string().nullish()})"""
+    }
+
+    it("returns None when no call carries any parameters") {
+      generator.buildParamsZod[BaklavaQueryParamSerializable](Seq(Nil, Nil), _.name, _.schema) shouldBe None
+    }
+  }
+
+  describe("renderMultipartBody") {
+
+    it("emits z.instanceof(File) for file parts and z.string() for text parts, sorted by name") {
+      generator.renderMultipartBody(
+        Seq(
+          BaklavaMultipartPartSerializable("photo", isFile = true),
+          BaklavaMultipartPartSerializable("caption", isFile = false)
+        )
+      ) shouldBe "z.object({caption: z.string(), photo: z.instanceof(File)})"
+    }
+
+    it("quotes part names that aren't valid identifiers and de-duplicates by name") {
+      generator.renderMultipartBody(
+        Seq(
+          BaklavaMultipartPartSerializable("file-1", isFile = true),
+          BaklavaMultipartPartSerializable("file-1", isFile = true)
+        )
+      ) shouldBe """z.object({"file-1": z.instanceof(File)})"""
+    }
+
+    it("emits an empty object when the multipart body has no parts") {
+      generator.renderMultipartBody(Nil) shouldBe "z.object({})"
+    }
+  }
+
+  describe("create(): end-to-end contract emission") {
+
+    it("quotes a kebab-case query key in the generated contract file (issue #105)") {
+      val ts = generateAndRead(
+        "v1-auctions.contract.ts",
+        Seq(
+          getCall(
+            "/v1/auctions",
+            queryParams = Seq("status" -> stringSchema().copy(required = false), "seller-id" -> uuidSchema(required = false))
+          )
+        )
+      )
+      ts should include("""query: z.object({status: z.string().nullish(), "seller-id": z.string().uuid().nullish()}),""")
+    }
+
+    it("emits contentType: 'multipart/form-data' and named part fields for a multipart body (issue #106)") {
+      val ts = generateAndRead(
+        "v1-auctions---auctionId-images.contract.ts",
+        Seq(
+          getCall(
+            "/v1/auctions/{auctionId}/images",
+            method = "POST",
+            pathParams = Seq("auctionId" -> uuidSchema(required = true)),
+            multipartParts = Some(
+              Seq(
+                BaklavaMultipartPartSerializable("file", isFile = true),
+                BaklavaMultipartPartSerializable("caption", isFile = false)
+              )
+            )
+          )
+        )
+      )
+      // `contentType` is emitted immediately before `body`.
+      ts should include("    contentType: 'multipart/form-data',\n    body: z.object({caption: z.string(), file: z.instanceof(File)}),\n")
+    }
+
+    it("still emits an empty object body (with the content type) for a multipart body with no parts") {
+      val ts = generateAndRead(
+        "v1-blank.contract.ts",
+        Seq(getCall("/v1/blank", method = "POST", multipartParts = Some(Nil)))
+      )
+      ts should include("    contentType: 'multipart/form-data',\n    body: z.object({}),\n")
+    }
+  }
+
+  private def queryParam(name: String, schema: BaklavaSchemaSerializable): BaklavaQueryParamSerializable =
+    BaklavaQueryParamSerializable(name, None, schema)
+
+  private def uuidSchema(required: Boolean): BaklavaSchemaSerializable =
+    BaklavaSchemaSerializable(
+      className = "UUID",
+      `type` = SchemaType.StringType,
+      format = Some("uuid"),
+      properties = Map.empty,
+      items = None,
+      `enum` = None,
+      required = required,
+      additionalProperties = false,
+      default = None,
+      description = None
+    )
+
+  private def getCall(
+      path: String,
+      method: String = "GET",
+      pathParams: Seq[(String, BaklavaSchemaSerializable)] = Nil,
+      queryParams: Seq[(String, BaklavaSchemaSerializable)] = Nil,
+      multipartParts: Option[Seq[BaklavaMultipartPartSerializable]] = None
+  ): BaklavaSerializableCall =
+    BaklavaSerializableCall(
+      request = BaklavaRequestContextSerializable(
+        symbolicPath = path,
+        path = path,
+        pathDescription = None,
+        pathSummary = None,
+        method = Some(Method(method)),
+        operationDescription = None,
+        operationSummary = None,
+        operationId = None,
+        operationTags = Nil,
+        securitySchemes = Nil,
+        bodySchema = None,
+        bodyString = "",
+        headersSeq = Nil,
+        pathParametersSeq = pathParams.map { case (n, s) => BaklavaPathParamSerializable(n, None, s) },
+        queryParametersSeq = queryParams.map { case (n, s) => BaklavaQueryParamSerializable(n, None, s) },
+        responseDescription = None,
+        responseHeaders = Nil,
+        multipartFormData = multipartParts
+      ),
+      response = BaklavaResponseContextSerializable(
+        protocol = BaklavaHttpProtocol("HTTP/1.1"),
+        status = StatusCode(if (method == "POST") 204 else 200),
+        headers = Seq.empty,
+        bodyString = "",
+        requestContentType = multipartParts.map(_ => "multipart/form-data; boundary=baklava-multipart-boundary"),
+        responseContentType = None,
+        bodySchema = None
+      )
+    )
+
+  private def generateAndRead(relContractPath: String, calls: Seq[BaklavaSerializableCall]): String = {
+    new BaklavaDslFormatterTsRest().create(Map.empty, calls)
+    new String(Files.readAllBytes(new File(s"target/baklava/tsrest/src/$relContractPath").toPath))
   }
 
   private def stringSchema(description: Option[String] = None, enumValues: Option[Set[String]] = None): BaklavaSchemaSerializable =
