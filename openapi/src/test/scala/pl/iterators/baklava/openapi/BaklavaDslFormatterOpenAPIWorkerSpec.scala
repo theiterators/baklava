@@ -281,6 +281,7 @@ class BaklavaDslFormatterOpenAPIWorkerSpec extends AnyFunSpec with Matchers {
         val bodySchema = openAPI.getPaths.get("/v1/variants").getPost.getRequestBody.getContent.get("application/json").getSchema
         bodySchema.getType shouldBe "object"
         bodySchema.getExtensions shouldBe null // a map is structural, not a named class — no x-class
+        bodySchema.getRequired shouldBe null   // no `required: []` noise for a propertyless object (swagger nulls an empty list)
         val valueSchema = bodySchema.getAdditionalProperties match {
           case s: io.swagger.v3.oas.models.media.Schema[?] => s
           case other                                       =>
