@@ -109,15 +109,21 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     if (name.matches("[A-Za-z_$][A-Za-z0-9_$]*")) name
     else s""""${escapeTsDoubleQuoted(name)}""""
 
-  // ts-rest renders multipart bodies as a `z.object({...})` of named parts (see
-  // https://ts-rest.com/docs/core/multi-part). The captured `Multipart` value carries part names +
-  // a file/text flag, so `FilePart`s become `z.instanceof(File)` and `TextPart`s `z.string()`.
-  // Sorted for deterministic output.
+  // Render one captured `Multipart` value as a ts-rest body schema (see
+  // https://ts-rest.com/docs/core/multi-part): a `z.object` keyed by part name, `FilePart` ->
+  // `z.instanceof(File)`, `TextPart` -> `z.string()`. A repeated part name (a multi-value form
+  // field) becomes a `z.array(...)`; a name that mixes file and text parts unions the element
+  // schemas. Names and element schemas are sorted so output is deterministic.
   private[tsrest] def renderMultipartBody(parts: Seq[BaklavaMultipartPartSerializable]): String = {
     val fields = parts
-      .distinctBy(_.name)
-      .sortBy(_.name)
-      .map(p => s"${tsObjectKey(p.name)}: ${if (p.isFile) "z.instanceof(File)" else "z.string()"}")
+      .groupBy(_.name)
+      .toSeq
+      .sortBy(_._1)
+      .map { case (name, ps) =>
+        val element = collapseZodUnion(ps.map(p => if (p.isFile) "z.instanceof(File)" else "z.string()").sorted)
+        val schema  = if (ps.size > 1) s"z.array($element)" else element
+        s"${tsObjectKey(name)}: $schema"
+      }
     s"z.object({${fields.mkString(", ")}})"
   }
 
@@ -196,11 +202,13 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     )
     // --- Body ---
     // A `multipart/form-data` body has a free-form schema, so it can't be projected through `zod`;
-    // instead emit `contentType: 'multipart/form-data'` plus a `z.object` of the captured part names.
-    val multipartParts                = calls.flatMap(_.request.multipartFormData).flatten
-    val isMultipartBody               = calls.exists(_.request.multipartFormData.isDefined)
+    // instead emit `contentType: 'multipart/form-data'` plus a `z.object` of the captured part
+    // names. Each call's part-set is rendered separately and combined into a `z.union`, mirroring
+    // how distinct non-multipart body shapes are handled.
+    val multipartPartSets             = calls.flatMap(_.request.multipartFormData).distinct
     val (contentTypeLineOpt, bodyZod) =
-      if (isMultipartBody) (Some("    contentType: 'multipart/form-data',"), renderMultipartBody(multipartParts))
+      if (multipartPartSets.nonEmpty)
+        (Some("    contentType: 'multipart/form-data',"), collapseZodUnion(multipartPartSets.map(renderMultipartBody)))
       else {
         val bodySchemas = calls.flatMap(_.request.bodySchema).distinct
         val bodyZods    =

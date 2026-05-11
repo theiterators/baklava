@@ -195,13 +195,22 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       ) shouldBe "z.object({caption: z.string(), photo: z.instanceof(File)})"
     }
 
-    it("quotes part names that aren't valid identifiers and de-duplicates by name") {
+    it("renders a repeated part name (multi-value form field) as a z.array, with the key quoted when needed") {
       generator.renderMultipartBody(
         Seq(
           BaklavaMultipartPartSerializable("file-1", isFile = true),
           BaklavaMultipartPartSerializable("file-1", isFile = true)
         )
-      ) shouldBe """z.object({"file-1": z.instanceof(File)})"""
+      ) shouldBe """z.object({"file-1": z.array(z.instanceof(File))})"""
+    }
+
+    it("unions the element schemas when a repeated part name mixes file and text parts") {
+      generator.renderMultipartBody(
+        Seq(
+          BaklavaMultipartPartSerializable("payload", isFile = true),
+          BaklavaMultipartPartSerializable("payload", isFile = false)
+        )
+      ) shouldBe "z.object({payload: z.array(z.union([z.instanceof(File), z.string()]))})"
     }
 
     it("emits an empty object when the multipart body has no parts") {
@@ -251,6 +260,22 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
         Seq(getCall("/v1/blank", method = "POST", multipartParts = Some(Nil)))
       )
       ts should include("    contentType: 'multipart/form-data',\n    body: z.object({}),\n")
+    }
+
+    it("unions distinct multipart part-sets recorded across calls for the same endpoint (one z.object per call)") {
+      val file    = BaklavaMultipartPartSerializable("file", isFile = true)
+      val caption = BaklavaMultipartPartSerializable("caption", isFile = false)
+      val ts      = generateAndRead(
+        "v1-uploads.contract.ts",
+        Seq(
+          getCall("/v1/uploads", method = "POST", multipartParts = Some(Seq(file))),
+          getCall("/v1/uploads", method = "POST", multipartParts = Some(Seq(file, caption)))
+        )
+      )
+      ts should include(
+        "    contentType: 'multipart/form-data',\n" +
+          "    body: z.union([z.object({file: z.instanceof(File)}), z.object({caption: z.string(), file: z.instanceof(File)})]),\n"
+      )
     }
   }
 

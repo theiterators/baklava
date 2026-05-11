@@ -142,7 +142,7 @@ When multiple test cases produce different schemas for the same endpoint input/o
 
 Object keys that aren't valid JavaScript identifiers (e.g. kebab-case query/header parameters like `seller-id` or `X-Forwarded-For`) are emitted quoted so the generated source compiles.
 
-`multipart/form-data` request bodies (a `Multipart(...)` body in the test) are emitted as `contentType: 'multipart/form-data'` plus a `z.object({...})` naming each captured form part — `FilePart`s become `z.instanceof(File)` and `TextPart`s become `z.string()`. (`z.instanceof(File)` references the global `File` constructor; it's available in browsers and Node ≥ 20.)
+`multipart/form-data` request bodies (a `Multipart(...)` body in the test) are emitted as `contentType: 'multipart/form-data'` plus a `z.object({...})` naming each captured form part — `FilePart`s become `z.instanceof(File)`, `TextPart`s become `z.string()`, and a part name that appears more than once (a multi-value field) becomes a `z.array(...)`. Distinct part-sets recorded across calls for the same endpoint are combined into a `z.union([...])`, like any other body shape. (`z.instanceof(File)` references the global `File` constructor; it's available in browsers and Node ≥ 20.)
 
 ### Configuration
 
