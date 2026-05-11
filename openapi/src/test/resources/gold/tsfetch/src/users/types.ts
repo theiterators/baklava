@@ -7,6 +7,18 @@ export interface PaginatedUsers {
   users: User[];
 }
 
+export interface PhotoUpload {
+  id: string;
+  variants: Record<string, PhotoVariant>;
+}
+
+export interface PhotoVariant {
+  format: string;
+  height: number;
+  url: string;
+  width: number;
+}
+
 export interface UpdateUserRequest {
   name: string;
   role: "admin" | "guest" | "member";

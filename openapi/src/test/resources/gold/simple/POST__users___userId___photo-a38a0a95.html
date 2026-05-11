@@ -51,7 +51,7 @@
   ],
   "additionalProperties" : true
 }</pre></details></div></div>
-<div class="card"><div class="card-header"><span class="status-badge status-2xx">204</span> Response</div><div class="card-body"><p>Photo uploaded</p><h4>Curl</h4><div class="curl-block"><pre>curl -X POST '$BASE_URL/users/00000000-0000-0000-0000-000000000001/photo' \
+<div class="card"><div class="card-header"><span class="status-badge status-2xx">201</span> Response</div><div class="card-body"><p>Photo uploaded; rendered variants returned keyed by name</p><h4>Curl</h4><div class="curl-block"><pre>curl -X POST '$BASE_URL/users/00000000-0000-0000-0000-000000000001/photo' \
   -H 'Content-Type: multipart/form-data; boundary=baklava-multipart-boundary' \
   -H 'Authorization: Bearer &lt;TOKEN&gt;' \
   --data-raw '--baklava-multipart-boundary
@@ -74,7 +74,74 @@ Content-Type: text/plain; charset=UTF-8
 Content-Disposition: form-data; name="caption"
 
 profile photo
---baklava-multipart-boundary--</pre></div></div>
+--baklava-multipart-boundary--</pre><h4>Response body</h4><pre>{
+  "id" : "00000000-0000-0000-0000-000000000010",
+  "variants" : {
+    "thumbnail" : {
+      "url" : "https://cdn.example.com/photo_thumb.png",
+      "width" : 64,
+      "height" : 64,
+      "format" : "png"
+    },
+    "full" : {
+      "url" : "https://cdn.example.com/photo.png",
+      "width" : 1024,
+      "height" : 768,
+      "format" : "png"
+    }
+  }
+}</pre><details><summary>Response schema</summary><pre>{
+  "$schema" : "http://json-schema.org/draft-07/schema#",
+  "title" : "PhotoUpload",
+  "type" : "object",
+  "properties" : {
+    "id" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "variants" : {
+      "title" : "Map[String, PhotoVariant]",
+      "type" : "object",
+      "properties" : {
+        
+      },
+      "required" : [
+      ],
+      "additionalProperties" : {
+        "title" : "PhotoVariant",
+        "type" : "object",
+        "properties" : {
+          "url" : {
+            "type" : "string"
+          },
+          "width" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "height" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "format" : {
+            "type" : "string"
+          }
+        },
+        "required" : [
+          "format",
+          "height",
+          "url",
+          "width"
+        ],
+        "additionalProperties" : false
+      }
+    }
+  },
+  "required" : [
+    "id",
+    "variants"
+  ],
+  "additionalProperties" : false
+}</pre></details></div></div>
 <script>
 document.addEventListener('click', function (e) {
   var btn = e.target.closest('button.copy-btn');

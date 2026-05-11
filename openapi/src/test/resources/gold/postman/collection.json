@@ -726,13 +726,13 @@
           },
           "response" : [
             {
-              "name" : "Photo uploaded",
-              "status" : "No Content",
-              "code" : 204,
+              "name" : "Photo uploaded; rendered variants returned keyed by name",
+              "status" : "Created",
+              "code" : 201,
               "header" : [
               ],
-              "body" : "",
-              "_postman_previewlanguage" : "text"
+              "body" : "{\"id\":\"00000000-0000-0000-0000-000000000010\",\"variants\":{\"thumbnail\":{\"url\":\"https://cdn.example.com/photo_thumb.png\",\"width\":64,\"height\":64,\"format\":\"png\"},\"full\":{\"url\":\"https://cdn.example.com/photo.png\",\"width\":1024,\"height\":768,\"format\":\"png\"}}}",
+              "_postman_previewlanguage" : "json"
             }
           ]
         }

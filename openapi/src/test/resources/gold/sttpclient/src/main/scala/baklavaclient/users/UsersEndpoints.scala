@@ -75,11 +75,12 @@ object UsersEndpoints {
   )(
       userId: java.util.UUID,
       bodyJson: String
-  ): Request[Either[String, String]] = {
+  ): Request[Either[ResponseException[String], PhotoUpload]] = {
     basicRequest
       .post(baseUri.addPath("users", s"$userId", "photo"))
       .header("Authorization", s"Bearer ${bearerAuthToken}")
       .body(bodyJson)
       .contentType("multipart/form-data; boundary=baklava-multipart-boundary")
+      .response(asJson[PhotoUpload])
   }
 }

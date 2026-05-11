@@ -1010,15 +1010,68 @@ paths:
               additionalProperties: true
               x-class: Multipart
             examples:
-              Photo uploaded:
+              Photo uploaded; rendered variants returned keyed by name:
                 value: "--baklava-multipart-boundary\r\nContent-Type: image/png\r\n\
                   Content-Disposition: form-data; filename=\"photo.png\"; name=\"\
                   photo\"\r\n\r\nfake png bytes\r\n--baklava-multipart-boundary\r\n\
                   Content-Type: text/plain; charset=UTF-8\r\nContent-Disposition:\
                   \ form-data; name=\"caption\"\r\n\r\nprofile photo\r\n--baklava-multipart-boundary--"
       responses:
-        "204":
-          description: Photo uploaded
+        "201":
+          description: Photo uploaded; rendered variants returned keyed by name
+          content:
+            application/json:
+              schema:
+                required:
+                - id
+                - variants
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  variants:
+                    type: object
+                    additionalProperties:
+                      required:
+                      - format
+                      - height
+                      - url
+                      - width
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                        width:
+                          type: integer
+                          format: int32
+                        height:
+                          type: integer
+                          format: int32
+                        format:
+                          type: string
+                      x-class: PhotoVariant
+                x-class: PhotoUpload
+              examples:
+                Photo uploaded; rendered variants returned keyed by name:
+                  value: |-
+                    {
+                      "id" : "00000000-0000-0000-0000-000000000010",
+                      "variants" : {
+                        "thumbnail" : {
+                          "url" : "https://cdn.example.com/photo_thumb.png",
+                          "width" : 64,
+                          "height" : 64,
+                          "format" : "png"
+                        },
+                        "full" : {
+                          "url" : "https://cdn.example.com/photo.png",
+                          "width" : 1024,
+                          "height" : 768,
+                          "format" : "png"
+                        }
+                      }
+                    }
       security:
       - bearerAuth: []
   /webhooks:
