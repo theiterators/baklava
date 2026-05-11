@@ -253,13 +253,15 @@ private[sttpclient] class BaklavaSttpClientGenerator(basePackage: String, calls:
     typedReq || uniformTypedResponseSchema(ec).isDefined
   }
 
-  /** A schema is "typed" (i.e. `asJson[T]`-able) when it resolves to a named case class or a collection of one. Primitive/form/empty
-    * schemas stay untyped so endpoints with non-JSON bodies keep working.
+  /** A schema is "typed" (i.e. `asJson[T]`-able) when it resolves to a named case class, a string-keyed map (`Map[String, V]` — circe has
+    * a built-in codec given one for `V`), or a collection of either. Primitive/form/empty/free-form schemas stay untyped so endpoints with
+    * non-JSON bodies keep working.
     */
   private def isTypedBodySchema(schema: BaklavaSchemaSerializable): Boolean = schema.`type` match {
-    case SchemaType.ObjectType if isNamedCaseClass(schema) => true
-    case SchemaType.ArrayType                              => schema.items.exists(isTypedBodySchema)
-    case _                                                 => false
+    case SchemaType.ObjectType if isNamedCaseClass(schema)                   => true
+    case SchemaType.ObjectType if schema.additionalPropertiesSchema.nonEmpty => true
+    case SchemaType.ArrayType                                                => schema.items.exists(isTypedBodySchema)
+    case _                                                                   => false
   }
 
   /** If *every* 2xx capture on this endpoint has a typed, non-empty body schema, all render to the same Scala type, AND all declare a

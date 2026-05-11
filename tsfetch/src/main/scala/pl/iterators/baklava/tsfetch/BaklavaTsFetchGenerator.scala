@@ -484,9 +484,8 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
       if (isNamedInterface(schema)) tsSafeIdent(schema.className)
       else
         schema.additionalPropertiesSchema match {
-          case Some(v) if schema.properties.nonEmpty => s"${renderInterfaceBody(schema)} & Record<string, ${tsType(v)}>"
-          case Some(v)                               => s"Record<string, ${tsType(v)}>"
-          case None => if (schema.properties.isEmpty) "Record<string, unknown>" else renderInterfaceBody(schema)
+          case Some(v) => s"Record<string, ${tsType(v)}>"
+          case None    => if (schema.properties.isEmpty) "Record<string, unknown>" else renderInterfaceBody(schema)
         }
   }
 

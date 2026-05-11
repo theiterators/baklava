@@ -41,6 +41,40 @@ class BaklavaDslFormatterSimpleSpec extends AnyFunSpec with Matchers {
       requiredArray(generator.jsonSchemaV7(schemaB)) shouldBe requiredA
     }
 
+    it("renders additionalProperties as the value schema for a string-keyed map (issue #108)") {
+      val variant = BaklavaSchemaSerializable(
+        className = "Variant",
+        `type` = SchemaType.ObjectType,
+        format = None,
+        properties = Map("url" -> stringRequired),
+        items = None,
+        `enum` = None,
+        required = true,
+        additionalProperties = false,
+        default = None,
+        description = None
+      )
+      val mapSchema = BaklavaSchemaSerializable(
+        className = "Map[String, Variant]",
+        `type` = SchemaType.ObjectType,
+        format = None,
+        properties = Map.empty,
+        items = None,
+        `enum` = None,
+        required = true,
+        additionalProperties = true,
+        default = None,
+        description = None,
+        additionalPropertiesSchema = Some(variant)
+      )
+      val json = parser.parse(generator.jsonSchemaV7(mapSchema)).toTry.get.hcursor
+      json.downField("type").as[String].toTry.get shouldBe "object"
+      val ap = json.downField("additionalProperties")
+      ap.downField("type").as[String].toTry.get shouldBe "object"
+      ap.downField("title").as[String].toTry.get shouldBe "Variant"
+      ap.downField("properties").downField("url").downField("type").as[String].toTry.get shouldBe "string"
+    }
+
     it("omits the `required` keyword on non-object schemas (valid JSON Schema)") {
       val schema = objectSchema(Map("a" -> stringRequired, "b" -> stringRequired))
       val json   = parser.parse(generator.jsonSchemaV7(schema)).toTry.get.hcursor

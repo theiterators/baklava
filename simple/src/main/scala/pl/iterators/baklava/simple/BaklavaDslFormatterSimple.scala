@@ -435,8 +435,13 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
                              .map(Json.fromString): _*
                          )
                        else Json.Null),
-        "additionalProperties" -> (if (baklavaSchema.`type` == SchemaType.ObjectType) Json.fromBoolean(baklavaSchema.additionalProperties)
-                                   else Json.Null),
+        "additionalProperties" -> (
+          if (baklavaSchema.`type` != SchemaType.ObjectType) Json.Null
+          else
+            baklavaSchema.additionalPropertiesSchema
+              .map(j => toJsonSchemaV7(j))
+              .getOrElse(Json.fromBoolean(baklavaSchema.additionalProperties))
+        ),
         "items" -> baklavaSchema.items.map(j => toJsonSchemaV7(j)).getOrElse(Json.Null)
       )
       .deepDropNullValues
