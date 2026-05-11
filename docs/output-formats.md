@@ -136,6 +136,7 @@ Baklava schemas are converted to Zod validators:
 | `Boolean` | `z.boolean()` |
 | `Seq[T]`, `List[T]` | `z.array(innerSchema)` |
 | Case class | `z.object({ field: schema, ... })` |
+| `Map[K, V]` | `z.record(z.string(), innerSchema)` |
 | `Option[T]` | `schema.nullish()` |
 
 When multiple test cases produce different schemas for the same endpoint input/output, they are combined into `z.union([...])`.
