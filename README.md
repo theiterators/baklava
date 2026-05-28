@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="Baklava" width="180" />
+</p>
+
 # Baklava
 
 [![Maven Central](https://img.shields.io/maven-central/v/pl.iterators/baklava-core_2.13)](https://central.sonatype.com/namespace/pl.iterators)
