@@ -281,16 +281,12 @@ lazy val sbtplugin = project
   .settings(
     name                          := "baklava-sbt-plugin",
     scalaVersion                  := "2.12.21",
-    // Cross-build the plugin for both sbt 1.x (Scala 2.12) and sbt 2.x (Scala 3).
-    // The sbt 2.x meta-build runs on Scala 3, so plugins must be published for it (`_sbt2_3`).
     crossScalaVersions            := Seq("2.12.21", "3.8.4"),
-    // sbt 2.x requires JDK 17+, and modern JDKs (25) no longer accept `-release:8`. Target 17
-    // for the Scala 3 / sbt 2 variant, keeping 8 for the sbt 1.x (Scala 2.12) variant.
     tlJdkRelease                  := (if (scalaBinaryVersion.value == "3") Some(17) else Some(8)),
     pluginCrossBuild / sbtVersion := {
       scalaBinaryVersion.value match {
         case "2.12" => "1.3.10" // set minimum sbt version
-        case _      => "2.0.0"  // Scala 3 -> sbt 2.x
+        case _      => "2.0.0"
       }
     }
   )

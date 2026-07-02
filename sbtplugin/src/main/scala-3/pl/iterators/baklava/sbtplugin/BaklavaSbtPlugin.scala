@@ -8,11 +8,6 @@ import java.io.File
 import java.util.Base64
 import scala.annotation.unused
 
-// sbt 2.x / Scala 3 variant of the plugin. Kept behaviourally identical to the sbt 1.x
-// (scala-2.12) variant; the only substantive difference is that in sbt 2 a classpath is a
-// `Seq[Attributed[xsbti.HashedVirtualFileRef]]` rather than `Seq[Attributed[File]]`, so the
-// virtual-file references must be materialised to real files (via `fileConverter`) before
-// being handed to the runner.
 object BaklavaSbtPlugin extends AutoPlugin {
 
   override def trigger = noTrigger
@@ -21,8 +16,6 @@ object BaklavaSbtPlugin extends AutoPlugin {
     val baklavaGenerate = taskKey[Unit]("Generate documentation using baklava")
     val baklavaClean    = taskKey[Unit]("Clean artifacts created by baklava")
 
-    // a settingKey (not taskKey) so sbt 2 does not try to cache this static config map
-    // (which would require a sjsonnew.JsonFormat); transparent to `:=` / `.value` users.
     val baklavaGenerateConfigs = settingKey[Map[String, String]]("Options for baklava generate")
   }
 
@@ -53,8 +46,6 @@ object BaklavaSbtPlugin extends AutoPlugin {
             |}
             |""".stripMargin
       ),
-      // side-effecting (runs the app to generate docs) so it must opt out of sbt 2's
-      // default task caching, otherwise sbt requires a HashWriter for the captured inputs.
       baklavaGenerate := Def.uncached {
         val configurationClassPath = (Test / fullClasspath).value: @sbtUnchecked
         val r                      = (Test / run / runner).value: @sbtUnchecked
