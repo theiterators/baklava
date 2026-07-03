@@ -16,6 +16,7 @@ libraryDependencies ++= Seq(
   "pl.iterators" %% "baklava-simple"     % "VERSION" % Test,  // adds Simple format
   "pl.iterators" %% "baklava-openapi"    % "VERSION" % Test,  // adds OpenAPI format
   "pl.iterators" %% "baklava-tsrest"     % "VERSION" % Test,  // adds TS-REST format
+  "pl.iterators" %% "baklava-orpc"       % "VERSION" % Test,  // adds oRPC contract format
   "pl.iterators" %% "baklava-tsfetch"    % "VERSION" % Test,  // adds TypeScript fetch client
   "pl.iterators" %% "baklava-postman"    % "VERSION" % Test,  // adds Postman Collection format
   "pl.iterators" %% "baklava-sttpclient" % "VERSION" % Test   // adds Scala sttp-client stubs
@@ -179,6 +180,101 @@ import { contracts } from "@company/backend-contracts";
 // Full type safety and autocompletion for API calls
 const userContract = contracts.user;
 ```
+
+## oRPC Contract Format
+
+**Dependency:** `"pl.iterators" %% "baklava-orpc" % "VERSION" % Test`
+**Configuration:** Optional — `orpc-package-contract-json` key in `baklavaGenerateConfigs`
+**Output:** `target/baklava/orpc/`
+
+Generates a TypeScript npm package of [oRPC](https://orpc.dev) contracts ([`@orpc/contract`](https://orpc.dev/docs/contract-first/define-contract) + [Zod](https://zod.dev/)). Consume it from any TypeScript frontend through [`OpenAPILink`](https://orpc.dev/docs/openapi/client/openapi-link), which speaks plain REST against the documented backend — plus oRPC's first-class TanStack Query utilities.
+
+### Generated Files
+
+- `package.json` — npm package with build scripts, peer dependencies on `@orpc/contract` and `zod`
+- `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
+- `src/contracts.ts` — main exports file aggregating all contracts into one router object
+- `src/{name}.contract.ts` — one contract file per route group
+
+File naming follows the same path-derived scheme as the TS-REST format (`/pet/{petId}` → `pet---petId.contract.ts`), and the Zod schema mapping table above applies unchanged.
+
+### Contract Shape
+
+Each path group exports an object of procedures keyed by lowercase HTTP method, built with `oc.route(...)`:
+
+```typescript
+export const usersUserIdContract = {
+  get: oc
+    .route({
+      method: 'GET',
+      path: '/users/{userId}',
+      summary: 'Get user',
+      description: 'Fetch a single user by UUID',
+      successStatus: 200,
+      inputStructure: 'detailed'
+    })
+    .input(z.object({
+      params: z.object({userId: z.string().uuid()})
+    }))
+    .output(z.object({ /* ... */ })),
+};
+```
+
+Mapping decisions:
+
+- **Paths keep `{param}` placeholders** — oRPC's native syntax, no conversion.
+- **`inputStructure: 'detailed'`** throughout: the input object has explicit `params` (path), `query`, `headers`, and `body` groups. A query/header group whose parameters are all optional is emitted `.optional()`, so callers may omit it.
+- **One success shape per procedure** (oRPC's model): the lowest captured 2xx status becomes `successStatus`, all captured 2xx bodies union into `.output(...)`, and a bodyless success (e.g. 204) renders `z.void()`.
+- **Multipart bodies** render as `z.object` fields with `z.instanceof(File)` / `z.string()`; oRPC serializes File-bearing bodies as `multipart/form-data` on the wire.
+
+### Error Responses
+
+Non-2xx responses are **not** declared via oRPC's `.errors(...)` — that mechanism assumes the server speaks oRPC's own error envelope, which a documented-by-baklava backend does not. Instead each contract exports a per-method, per-status map of the captured error body schemas:
+
+```typescript
+export const usersUserIdErrors = {
+  get: {
+    404: z.object({ /* the captured error body shape */ })
+  }
+};
+```
+
+Pair it with `OpenAPILink`'s [`customErrorResponseBodyDecoder`](https://orpc.dev/docs/openapi/advanced/customizing-error-response) to lift your backend's error format into typed `ORPCError`s, or parse `error.data` at the call site.
+
+### Configuration
+
+```scala
+baklavaGenerateConfigs := Map(
+  "orpc-package-contract-json" ->
+    """
+      |{
+      |  "name": "@company/backend-orpc-contracts",
+      |  "version": "1.0.0",
+      |  "main": "index.js",
+      |  "types": "index.d.ts"
+      |}
+      |""".stripMargin
+)
+```
+
+### Usage in Frontend
+
+```typescript
+import { createORPCClient } from "@orpc/client";
+import { OpenAPILink } from "@orpc/openapi-client/fetch";
+import type { JsonifiedClient } from "@orpc/openapi-client";
+import type { ContractRouterClient } from "@orpc/contract";
+import { contracts } from "@company/backend-orpc-contracts";
+
+const link = new OpenAPILink(contracts, { url: "https://api.example.com" });
+const client: JsonifiedClient<ContractRouterClient<typeof contracts>> =
+  createORPCClient(link);
+
+// Full type safety; JsonifiedClient types are wire-true (dates are ISO strings)
+const user = await client["users---userId"].get({ params: { userId } });
+```
+
+For TanStack Query, wrap the client with `createTanstackQueryUtils` from `@orpc/tanstack-query`.
 
 ## Postman Collection Format
 
