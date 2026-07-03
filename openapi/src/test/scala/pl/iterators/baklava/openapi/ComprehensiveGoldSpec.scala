@@ -21,6 +21,7 @@ import pl.iterators.baklava.scalatest.{BaklavaScalatest, ScalatestAsExecution}
 import pl.iterators.baklava.postman.BaklavaDslFormatterPostman
 import pl.iterators.baklava.simple.BaklavaDslFormatterSimple
 import pl.iterators.baklava.sttpclient.BaklavaDslFormatterSttpClient
+import pl.iterators.baklava.orpc.BaklavaDslFormatterOrpc
 import pl.iterators.baklava.tsfetch.BaklavaDslFormatterTsFetch
 import pl.iterators.baklava.tsrest.BaklavaDslFormatterTsRest
 import pl.iterators.baklava.{
@@ -52,9 +53,9 @@ import java.util.UUID
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
-/** Gold test for the six Baklava generators (OpenAPI, ts-rest, simple HTML, Postman Collection, sttp-client, ts-fetch).
+/** Gold test for the seven Baklava generators (OpenAPI, ts-rest, oRPC, simple HTML, Postman Collection, sttp-client, ts-fetch).
   *
-  * Builds a comprehensive but realistic API and drives it end-to-end through the Baklava DSL, then generates all six output formats from
+  * Builds a comprehensive but realistic API and drives it end-to-end through the Baklava DSL, then generates all seven output formats from
   * the captured calls and compares byte-for-byte against checked-in golden files under `openapi/src/test/resources/gold/`.
   *
   * Run with `BAKLAVA_REGEN_GOLD=1` to overwrite the golden files when the generator output legitimately changes (review the diff before
@@ -499,6 +500,7 @@ class ComprehensiveGoldSpec
     val config = Map(
       "openapi-info"                  -> openApiInfo,
       "ts-rest-package-contract-json" -> tsRestPackageJson,
+      "orpc-package-contract-json"    -> orpcPackageJson,
       "postman.collectionName"        -> "Baklava Comprehensive Gold Spec"
     )
 
@@ -538,6 +540,12 @@ class ComprehensiveGoldSpec
     new BaklavaDslFormatterTsFetch().create(config, listCalls)
     assertGoldDir("tsfetch", tsfetchDir)
 
+    // 7. oRPC
+    val orpcDir = new File("target/baklava/orpc")
+    deleteRecursively(orpcDir)
+    new BaklavaDslFormatterOrpc().create(config, listCalls)
+    assertGoldDir("orpc", orpcDir)
+
     if (regen) println(s"[gold] Regenerated gold files under ${goldRoot.getAbsolutePath}")
     val _ = system.terminate()
     super.afterAll()
@@ -557,6 +565,15 @@ class ComprehensiveGoldSpec
   private val tsRestPackageJson =
     """{
       |  "name": "baklava-gold-contracts",
+      |  "version": "0.0.0-test",
+      |  "main": "index.js",
+      |  "types": "index.d.ts"
+      |}
+      |""".stripMargin
+
+  private val orpcPackageJson =
+    """{
+      |  "name": "baklava-gold-orpc-contracts",
       |  "version": "0.0.0-test",
       |  "main": "index.js",
       |  "types": "index.d.ts"

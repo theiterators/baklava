@@ -52,6 +52,7 @@ lazy val baklava =
     simple,
     openapi,
     tsrest,
+    orpc,
     postman,
     sttpclient,
     tsfetch,
@@ -140,6 +141,13 @@ lazy val tsrest = project
     name := "baklava-tsrest"
   )
 
+lazy val orpc = project
+  .in(file("orpc"))
+  .dependsOn(core, scalatest % "test")
+  .settings(
+    name := "baklava-orpc"
+  )
+
 lazy val sttpclient = project
   .in(file("sttpclient"))
   .dependsOn(core, scalatest % "test")
@@ -163,6 +171,7 @@ lazy val openapi = project
     scalatest  % "test",
     simple     % "test",
     tsrest     % "test",
+    orpc       % "test",
     postman    % "test",
     sttpclient % "test",
     tsfetch    % "test"
