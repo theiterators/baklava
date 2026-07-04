@@ -20,7 +20,7 @@ ThisBuild / publishTo          := {
   else localStaging.value
 }
 ThisBuild / tlMimaPreviousVersions     := Set.empty
-ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("11"))
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("17"))
 
 scalacOptions += "-Xmax-inlines:64"
 // Suppress magnolia macro type parameter shadowing warning (magnolia 1.1.x generates shadowed type params)
@@ -279,12 +279,19 @@ lazy val sbtplugin = project
   .in(file("sbtplugin"))
   .enablePlugins(SbtPlugin)
   .settings(
-    name                          := "baklava-sbt-plugin",
-    scalaVersion                  := "2.12.21",
-    crossScalaVersions            := Seq("2.12.21"),
+    name               := "baklava-sbt-plugin",
+    scalaVersion       := "2.12.21",
+    crossScalaVersions := Seq("2.12.21", "3.8.4"),
+    tlJdkRelease       := {
+      scalaBinaryVersion.value match {
+        case "2.12" => Some(8)
+        case _      => Some(17)
+      }
+    },
     pluginCrossBuild / sbtVersion := {
       scalaBinaryVersion.value match {
         case "2.12" => "1.3.10" // set minimum sbt version
+        case _      => "2.0.0"
       }
     }
   )
