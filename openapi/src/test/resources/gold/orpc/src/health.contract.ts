@@ -8,6 +8,8 @@ export const healthContract = {
       path: '/health',
       summary: 'Liveness probe',
       description: 'Return service liveness — no authentication required',
+      operationId: 'health',
+      tags: ['System'],
       successStatus: 200,
       inputStructure: 'detailed'
     })

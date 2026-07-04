@@ -8,6 +8,8 @@ export const usersContract = {
       path: '/users',
       summary: 'List users',
       description: 'List users with pagination and optional role filter',
+      operationId: 'listUsers',
+      tags: ['Users'],
       successStatus: 200,
       inputStructure: 'detailed'
     })

@@ -145,40 +145,112 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
     }
   }
 
-  describe("createErrorsForEndpoint()") {
+  describe("declared errors (.errors)") {
 
-    it("returns None when only 2xx responses were captured") {
-      generator.createErrorsForEndpoint(
-        ((Some(Method("GET")), "/v1/health"), Seq(call("/v1/health")))
-      ) shouldBe None
+    val problemSchema = objectSchema(Map("type" -> stringSchema(), "title" -> stringSchema()))
+
+    it("emits nothing when only 2xx responses were captured") {
+      val entry = endpoint("GET", "/v1/health", call("/v1/health"))
+      (entry should not).include(".errors(")
     }
 
-    it("maps non-2xx statuses to their captured schemas") {
-      val entry = generator
-        .createErrorsForEndpoint(
-          (
-            (Some(Method("POST")), "/v1/things"),
-            Seq(
-              call("/v1/things", method = "POST", status = 201),
-              call("/v1/things", method = "POST", status = 404, responseSchema = Some(objectSchema(Map("title" -> stringSchema())))),
-              call("/v1/things", method = "POST", status = 409, responseSchema = Some(objectSchema(Map("title" -> stringSchema()))))
+    it("declares one error per code extracted from the captured body (default field: type)") {
+      val entry = endpoint(
+        "POST",
+        "/v1/things",
+        call("/v1/things", method = "POST", status = 201),
+        call(
+          "/v1/things",
+          method = "POST",
+          status = 409,
+          responseSchema = Some(problemSchema),
+          responseBodyString = """{"type":"result:bid-too-low","status":409,"title":"Bid too low"}"""
+        ),
+        call(
+          "/v1/things",
+          method = "POST",
+          status = 409,
+          responseSchema = Some(problemSchema),
+          responseBodyString = """{"type":"result:already-highest-bidder","status":409,"title":"Already highest"}"""
+        )
+      )
+      entry should include(".errors({")
+      entry should include("      'result:bid-too-low': {")
+      entry should include("      'result:already-highest-bidder': {")
+      entry should include("        status: 409")
+      entry should include("        data: z.object(")
+    }
+
+    it("extracts the code from a configurable field") {
+      val entry = generator.createContractForEndpoint(
+        (
+          (Some(Method("GET")), "/v1/things"),
+          Seq(
+            call("/v1/things"),
+            call(
+              "/v1/things",
+              status = 404,
+              responseSchema = Some(objectSchema(Map("code" -> stringSchema()))),
+              responseBodyString = """{"code":"NOT_FOUND","message":"missing"}"""
             )
           )
-        )
-        .getOrElse(fail("expected errors entry"))
-      entry should include("  post: {")
-      entry should include("    404: z.object(")
-      entry should include("    409: z.object(")
-      (entry should not).include("201")
+        ),
+        errorCodeField = "code"
+      )
+      entry should include("      'NOT_FOUND': {")
+      entry should include("        status: 404")
     }
 
-    it("renders a bodyless error status as z.void()") {
-      val entry = generator
-        .createErrorsForEndpoint(
-          ((Some(Method("GET")), "/v1/things"), Seq(call("/v1/things", status = 429)))
-        )
-        .getOrElse(fail("expected errors entry"))
-      entry should include("    429: z.void()")
+    it("skips error responses whose body carries no extractable code") {
+      val entry = endpoint(
+        "GET",
+        "/v1/things",
+        call("/v1/things"),
+        call("/v1/things", status = 429)
+      )
+      (entry should not).include(".errors(")
+    }
+
+    it("uses the lowest status when the same code appears with several") {
+      val entry = endpoint(
+        "GET",
+        "/v1/things",
+        call("/v1/things"),
+        call("/v1/things", status = 410, responseBodyString = """{"type":"gone-ish"}"""),
+        call("/v1/things", status = 404, responseBodyString = """{"type":"gone-ish"}""")
+      )
+      entry should include("      'gone-ish': {")
+      entry should include("        status: 404")
+      (entry should not).include("status: 410")
+    }
+
+    it("omits data when no error body schema was captured") {
+      val entry = endpoint(
+        "GET",
+        "/v1/things",
+        call("/v1/things"),
+        call("/v1/things", status = 404, responseBodyString = """{"type":"nope"}""")
+      )
+      entry should include("      'nope': {\n        status: 404\n      }")
+    }
+  }
+
+  describe("route metadata") {
+
+    it("emits sorted distinct tags and the operationId") {
+      val entry = endpoint(
+        "GET",
+        "/v1/things",
+        call("/v1/things", tags = Seq("Things", "Admin"), operationId = Some("listThings"))
+      )
+      entry should include("      operationId: 'listThings'")
+      entry should include("      tags: ['Admin', 'Things']")
+    }
+
+    it("omits tags and operationId when absent") {
+      val entry = endpoint("GET", "/v1/things", call("/v1/things"))
+      (entry should not).include("tags:")
+      (entry should not).include("operationId:")
     }
   }
 
@@ -195,7 +267,7 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
 
     it("renders uuid, date-time and enum formats") {
       generator.zod(uuidSchema(required = true)) shouldBe "z.string().uuid()"
-      generator.zod(stringSchema(format = Some("date-time"))) shouldBe "z.coerce.date()"
+      generator.zod(stringSchema(format = Some("date-time"))) shouldBe "z.string().datetime({ offset: true })"
       generator.zod(stringSchema(enumValues = Some(Set("b", "a")))) shouldBe """z.enum(["a","b"])"""
     }
 
@@ -217,7 +289,10 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       queryParams: Seq[(String, BaklavaSchemaSerializable)] = Nil,
       bodySchema: Option[BaklavaSchemaSerializable] = None,
       responseSchema: Option[BaklavaSchemaSerializable] = None,
-      multipartParts: Option[Seq[BaklavaMultipartPartSerializable]] = None
+      responseBodyString: String = "",
+      multipartParts: Option[Seq[BaklavaMultipartPartSerializable]] = None,
+      tags: Seq[String] = Nil,
+      operationId: Option[String] = None
   ): BaklavaSerializableCall =
     BaklavaSerializableCall(
       request = BaklavaRequestContextSerializable(
@@ -228,8 +303,8 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
         method = Some(Method(method)),
         operationDescription = None,
         operationSummary = None,
-        operationId = None,
-        operationTags = Nil,
+        operationId = operationId,
+        operationTags = tags,
         securitySchemes = Nil,
         bodySchema = bodySchema,
         bodyString = "",
@@ -244,7 +319,7 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
         protocol = BaklavaHttpProtocol("HTTP/1.1"),
         status = StatusCode(status),
         headers = Seq.empty,
-        bodyString = "",
+        bodyString = responseBodyString,
         requestContentType = multipartParts.map(_ => "multipart/form-data; boundary=baklava-multipart-boundary"),
         responseContentType = None,
         bodySchema = responseSchema

@@ -8,6 +8,8 @@ export const usersUserIdPhotoContract = {
       path: '/users/{userId}/photo',
       summary: 'Upload photo',
       description: 'Upload a profile photo alongside a caption as multipart/form-data',
+      operationId: 'uploadPhoto',
+      tags: ['Users'],
       successStatus: 201,
       inputStructure: 'detailed'
     })

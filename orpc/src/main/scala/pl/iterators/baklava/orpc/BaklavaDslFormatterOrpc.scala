@@ -47,9 +47,11 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       }
     }
 
+    val errorCodeField = config.getOrElse("orpc-error-code-field", "type")
+
     val contractNames = callsGroupedBySymbolicPathIntoContractName
       .map { case (name, endpoints) =>
-        val constName = createContractForGroup(name, endpoints)
+        val constName = createContractForGroup(name, endpoints, errorCodeField)
         (name, constName)
       }
 
@@ -154,37 +156,23 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
 
   private def createContractForGroup(
       contractName: String,
-      endpointsWithCalls: Seq[((Option[Method], String), Seq[BaklavaSerializableCall])]
+      endpointsWithCalls: Seq[((Option[Method], String), Seq[BaklavaSerializableCall])],
+      errorCodeField: String
   ): String = {
     val contractConstName = toCamelCase(contractName) + "Contract"
-    val errorsConstName   = toCamelCase(contractName) + "Errors"
     val sortedEndpoints   = endpointsWithCalls.sortBy(_._1._1.map(_.toString).getOrElse(""))
 
     val code =
       s"""export const $contractConstName = {
-         |${sortedEndpoints.map(createContractForEndpoint).mkString(",\n")}
+         |${sortedEndpoints.map(e => createContractForEndpoint(e, errorCodeField)).mkString(",\n")}
          |};
          |""".stripMargin
-
-    // Error responses don't follow oRPC's own error envelope (the backend is not an oRPC
-    // server), so they are not declared via `.errors()`. Instead each contract exports a
-    // per-method, per-status map of zod schemas — pair it with OpenAPILink's
-    // `customErrorResponseBodyDecoder`, or parse `error.data` at the call site.
-    val errorEntries = sortedEndpoints.flatMap(createErrorsForEndpoint)
-    val errorsCode   =
-      if (errorEntries.isEmpty) ""
-      else
-        s"""
-           |export const $errorsConstName = {
-           |${errorEntries.mkString(",\n")}
-           |};
-           |""".stripMargin
 
     writeTo(
       s"$sourcesDirName/$contractName.contract.ts",
       """import { z } from "zod";
         |import { oc } from "@orpc/contract";
-        |""".stripMargin + "\n" + code + errorsCode
+        |""".stripMargin + "\n" + code
     )
     contractConstName
   }
@@ -192,9 +180,10 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
   private def successStatuses(calls: Seq[BaklavaSerializableCall]): Seq[Int] =
     calls.map(_.response.status.code).filter(c => c >= 200 && c < 300).distinct.sorted
 
-  // Contract endpoint generator: one `<method>: oc.route({...}).input(...).output(...)` entry.
+  // Contract endpoint generator: one `<method>: oc.route({...}).input(...).output(...).errors({...})` entry.
   private[orpc] def createContractForEndpoint(
-      endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall])
+      endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall]),
+      errorCodeField: String = "type"
   ): String = {
     val ((httpMethodOpt, _), calls) = endpoint
     require(
@@ -268,11 +257,23 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       bodyZodOpt.map(z => s"      body: $z")
     ).flatten
 
+    val tags         = calls.flatMap(_.request.operationTags).distinct.sorted
+    val tagsFieldOpt =
+      if (tags.isEmpty) None
+      else Some(s"      tags: [${tags.map(t => s"'${escapeTsSingleQuoted(t)}'").mkString(", ")}]")
+    val operationIdOpt = calls
+      .flatMap(_.request.operationId)
+      .distinct
+      .headOption
+      .map(id => s"      operationId: '${escapeTsSingleQuoted(id)}'")
+
     val routeFields = List(
       Some(s"      method: '${httpMethod.toUpperCase()}'"),
       Some(s"      path: '${req.symbolicPath}'"),
       Some(s"      summary: '$summary'"),
       Some(s"      description: '$description'"),
+      operationIdOpt,
+      tagsFieldOpt,
       successStatusOpt.map(s => s"      successStatus: $s"),
       Some(s"      inputStructure: 'detailed'")
     ).flatten
@@ -290,32 +291,49 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
            inputGroups.mkString(",\n"),
            s"    }))"
          )) ++
-      outputZodOpt.toList.map(z => s"    .output($z)")
+      outputZodOpt.toList.map(z => s"    .output($z)") ++
+      declaredErrors(calls, errorCodeField).toList
 
     lines.mkString("\n")
   }
 
-  // Non-2xx responses captured for one endpoint, as `<method>: { <status>: <zod> }`.
-  private[orpc] def createErrorsForEndpoint(
-      endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall])
+  private val errorCodeRegexCache = scala.collection.concurrent.TrieMap.empty[String, scala.util.matching.Regex]
+
+  // Extract the discriminator value (e.g. RFC 9457 `type`) from a captured error body. The
+  // captured example, not the schema, carries the literal — schemas only know it's a string.
+  // Top-level string fields only; nested discriminators aren't supported.
+  private[orpc] def extractErrorCode(bodyString: String, field: String): Option[String] = {
+    val regex = errorCodeRegexCache.getOrElseUpdate(
+      field,
+      ("\"" + java.util.regex.Pattern.quote(field) + "\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").r
+    )
+    regex.findFirstMatchIn(bodyString).map(_.group(1))
+  }
+
+  // Declared, typed errors: non-2xx calls grouped by the code extracted from their example
+  // bodies. Codes match what a client-side error decoder should set on its ORPCErrors, making
+  // `isDefinedError` narrowing work end to end. Calls whose body carries no extractable code
+  // (bodyless 429s, non-JSON payloads) are left undeclared and surface via oRPC's defaults.
+  private[orpc] def declaredErrors(
+      calls: Seq[BaklavaSerializableCall],
+      errorCodeField: String
   ): Option[String] = {
-    val ((httpMethodOpt, _), calls) = endpoint
-    val httpMethod                  = httpMethodOpt.map(_.method).getOrElse("ANY").toLowerCase
-    val errorCalls                  = calls.filter(c => c.response.status.code < 200 || c.response.status.code >= 300)
-    if (errorCalls.isEmpty) None
+    val errorCalls = calls.filter(c => c.response.status.code < 200 || c.response.status.code >= 300)
+    val byCode     = errorCalls
+      .flatMap(c => extractErrorCode(c.response.bodyString, errorCodeField).map(_ -> c))
+      .groupBy(_._1)
+      .toList
+      .sortBy(_._1)
+    if (byCode.isEmpty) None
     else {
-      val byStatus = errorCalls
-        .groupBy(_.response.status.code)
-        .toList
-        .sortBy(_._1)
-        .map { case (status, respCalls) =>
-          val schemas = respCalls.flatMap(_.response.bodySchema).distinct.map(zod)
-          val zodStr  = if (schemas.isEmpty) "z.void()" else collapseZodUnion(schemas)
-          s"    $status: $zodStr"
-        }
-      Some(s"""  $httpMethod: {
-              |${byStatus.mkString(",\n")}
-              |  }""".stripMargin)
+      val entries = byCode.map { case (code, codeCalls) =>
+        val status  = codeCalls.map(_._2.response.status.code).min
+        val schemas = codeCalls.flatMap(_._2.response.bodySchema).distinct.map(zod)
+        val dataOpt = if (schemas.isEmpty) None else Some(s"        data: ${collapseZodUnion(schemas)}")
+        val fields  = List(Some(s"        status: $status"), dataOpt).flatten.mkString(",\n")
+        s"      '${escapeTsSingleQuoted(code)}': {\n$fields\n      }"
+      }
+      Some(s"    .errors({\n${entries.mkString(",\n")}\n    })")
     }
   }
 
@@ -351,7 +369,9 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
           s"z.enum([$e])$desc"
         } else if (schema.format.contains("email")) s"z.string().email()$desc"
         else if (schema.format.contains("uuid")) s"z.string().uuid()$desc"
-        else if (schema.format.contains("date-time")) s"z.coerce.date()$desc"
+        // Wire-true: over HTTP a timestamp is an ISO string and OpenAPILink runs no client-side
+        // coercion, so the contract type says string (no JsonifiedClient rewrite needed for dates).
+        else if (schema.format.contains("date-time")) s"z.string().datetime({ offset: true })$desc"
         else s"z.string()$desc"
       case SchemaType.BooleanType => s"z.boolean()$desc"
       case SchemaType.IntegerType => s"z.number().int()$desc"

@@ -8,6 +8,8 @@ export const usersUserIdContract = {
       path: '/users/{userId}',
       summary: 'Delete user',
       description: 'Delete a user',
+      operationId: 'deleteUser',
+      tags: ['Users'],
       successStatus: 204,
       inputStructure: 'detailed'
     })
@@ -21,6 +23,8 @@ export const usersUserIdContract = {
       path: '/users/{userId}',
       summary: 'Get user',
       description: 'Fetch a single user by UUID',
+      operationId: 'getUser',
+      tags: ['Users'],
       successStatus: 200,
       inputStructure: 'detailed'
     })
@@ -31,13 +35,24 @@ export const usersUserIdContract = {
         "email": z.string(),
         "id": z.string().uuid(),
         "name": z.string(),
-        "role": z.enum(["admin","guest","member"]).describe("User role within the system")})),
+        "role": z.enum(["admin","guest","member"]).describe("User role within the system")}))
+    .errors({
+      'not_found': {
+        status: 404,
+        data: z.object({
+        "code": z.string(),
+        "details": z.array(z.string()).nullish(),
+        "message": z.string()})
+      }
+    }),
   put: oc
     .route({
       method: 'PUT',
       path: '/users/{userId}',
       summary: 'Update user',
       description: 'Replace a user\'s profile (admin only)',
+      operationId: 'updateUser',
+      tags: ['Users'],
       successStatus: 200,
       inputStructure: 'detailed'
     })
@@ -52,13 +67,4 @@ export const usersUserIdContract = {
         "id": z.string().uuid(),
         "name": z.string(),
         "role": z.enum(["admin","guest","member"]).describe("User role within the system")}))
-};
-
-export const usersUserIdErrors = {
-  get: {
-    404: z.object({
-        "code": z.string(),
-        "details": z.array(z.string()).nullish(),
-        "message": z.string()})
-  }
 };

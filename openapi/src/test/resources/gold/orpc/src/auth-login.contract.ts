@@ -8,6 +8,8 @@ export const authLoginContract = {
       path: '/auth/login',
       summary: 'Login',
       description: 'Exchange HTTP Basic credentials for a JWT token',
+      operationId: 'login',
+      tags: ['Auth'],
       successStatus: 200,
       inputStructure: 'detailed'
     })
@@ -23,13 +25,13 @@ export const authLoginContract = {
         "id": z.string().uuid(),
         "name": z.string(),
         "role": z.enum(["admin","guest","member"]).describe("User role within the system")})}))
-};
-
-export const authLoginErrors = {
-  post: {
-    401: z.object({
+    .errors({
+      'unauthorized': {
+        status: 401,
+        data: z.object({
         "code": z.string(),
         "details": z.array(z.string()).nullish(),
         "message": z.string()})
-  }
+      }
+    })
 };

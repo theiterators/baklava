@@ -5,7 +5,7 @@ title: Output Formats
 
 # Output Formats
 
-Baklava supports six output formats. You can use one or more simultaneously — each is an independent SBT dependency that produces its own output in `target/baklava/`.
+Baklava supports seven output formats. You can use one or more simultaneously — each is an independent SBT dependency that produces its own output in `target/baklava/`.
 
 ## How It Works
 
@@ -196,7 +196,7 @@ Generates a TypeScript npm package of [oRPC](https://orpc.dev) contracts ([`@orp
 - `src/contracts.ts` — main exports file aggregating all contracts into one router object
 - `src/{name}.contract.ts` — one contract file per route group
 
-File naming follows the same path-derived scheme as the TS-REST format (`/pet/{petId}` → `pet---petId.contract.ts`), and the Zod schema mapping table above applies unchanged.
+File naming follows the same path-derived scheme as the TS-REST format (`/pet/{petId}` → `pet---petId.contract.ts`). The Zod schema mapping table above applies with one deliberate difference: `date-time` fields render as `z.string().datetime({ offset: true })` rather than `z.coerce.date()` — over HTTP a timestamp *is* an ISO string and `OpenAPILink` performs no client-side coercion, so the contract type tells the wire truth.
 
 ### Contract Shape
 
@@ -210,13 +210,21 @@ export const usersUserIdContract = {
       path: '/users/{userId}',
       summary: 'Get user',
       description: 'Fetch a single user by UUID',
+      operationId: 'getUser',
+      tags: ['Users'],
       successStatus: 200,
       inputStructure: 'detailed'
     })
     .input(z.object({
       params: z.object({userId: z.string().uuid()})
     }))
-    .output(z.object({ /* ... */ })),
+    .output(z.object({ /* ... */ }))
+    .errors({
+      'not_found': {
+        status: 404,
+        data: z.object({ /* the captured error body shape */ })
+      }
+    }),
 };
 ```
 
@@ -226,20 +234,24 @@ Mapping decisions:
 - **`inputStructure: 'detailed'`** throughout: the input object has explicit `params` (path), `query`, `headers`, and `body` groups. A query/header group whose parameters are all optional is emitted `.optional()`, so callers may omit it.
 - **One success shape per procedure** (oRPC's model): the lowest captured 2xx status becomes `successStatus`, all captured 2xx bodies union into `.output(...)`, and a bodyless success (e.g. 204) renders `z.void()`.
 - **Multipart bodies** render as `z.object` fields with `z.instanceof(File)` / `z.string()`; oRPC serializes File-bearing bodies as `multipart/form-data` on the wire.
+- **`tags` and `operationId`** are emitted when captured, so OpenAPI specs generated *from* the contract group and name operations like the original.
 
 ### Error Responses
 
-Non-2xx responses are **not** declared via oRPC's `.errors(...)` — that mechanism assumes the server speaks oRPC's own error envelope, which a documented-by-baklava backend does not. Instead each contract exports a per-method, per-status map of the captured error body schemas:
+Backends documented by baklava don't speak oRPC's own error envelope, but most speak a *discriminated* one — RFC 9457 Problem Details' `type`, or a custom `code` field. The generator exploits that: for every non-2xx response it extracts the discriminator value from the **captured example body** (schemas only know the field is a string; the example carries the literal) and declares a typed error keyed by it:
 
 ```typescript
-export const usersUserIdErrors = {
-  get: {
-    404: z.object({ /* the captured error body shape */ })
+.errors({
+  'result:bid-too-low': {
+    status: 409,
+    data: z.object({ /* the captured error body shape */ })
   }
-};
+})
 ```
 
-Pair it with `OpenAPILink`'s [`customErrorResponseBodyDecoder`](https://orpc.dev/docs/openapi/advanced/customizing-error-response) to lift your backend's error format into typed `ORPCError`s, or parse `error.data` at the call site.
+The discriminator field defaults to `type` and is configurable via the `orpc-error-code-field` config key. Error responses whose body carries no extractable discriminator (bodyless 429s, non-JSON payloads) are left undeclared and surface through oRPC's defaults.
+
+On the client, pair this with `OpenAPILink`'s [`customErrorResponseBodyDecoder`](https://orpc.dev/docs/openapi/advanced/customizing-error-response) constructing `ORPCError`s whose `code` is the same discriminator value (and `defined: true`) — then [`isDefinedError`](https://orpc.dev/docs/client/error-handling) narrows errors to the declared union, giving statically typed, exhaustively checkable error handling end to end.
 
 ### Configuration
 
@@ -253,7 +265,9 @@ baklavaGenerateConfigs := Map(
       |  "main": "index.js",
       |  "types": "index.d.ts"
       |}
-      |""".stripMargin
+      |""".stripMargin,
+  // optional: which top-level field of an error body discriminates error kinds (default: "type")
+  "orpc-error-code-field" -> "type"
 )
 ```
 

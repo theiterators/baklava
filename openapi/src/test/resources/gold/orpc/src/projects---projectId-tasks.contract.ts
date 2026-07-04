@@ -8,6 +8,8 @@ export const projectsProjectIdTasksContract = {
       path: '/projects/{projectId}/tasks',
       summary: 'List tasks',
       description: 'List all tasks in a project',
+      operationId: 'listTasks',
+      tags: ['Tasks'],
       successStatus: 200,
       inputStructure: 'detailed'
     })
@@ -26,6 +28,8 @@ export const projectsProjectIdTasksContract = {
       path: '/projects/{projectId}/tasks',
       summary: 'Create task',
       description: 'Create a task in a project',
+      operationId: 'createTask',
+      tags: ['Tasks'],
       successStatus: 201,
       inputStructure: 'detailed'
     })

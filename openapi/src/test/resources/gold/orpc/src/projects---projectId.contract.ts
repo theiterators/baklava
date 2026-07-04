@@ -8,6 +8,8 @@ export const projectsProjectIdContract = {
       path: '/projects/{projectId}',
       summary: 'Patch project',
       description: 'Partially update a project',
+      operationId: 'patchProject',
+      tags: ['Projects'],
       successStatus: 200,
       inputStructure: 'detailed'
     })

@@ -8,6 +8,8 @@ export const webhooksContract = {
       path: '/webhooks',
       summary: 'Deliver webhook',
       description: 'Accept a webhook payload',
+      operationId: 'deliverWebhook',
+      tags: ['Webhooks'],
       successStatus: 202,
       inputStructure: 'detailed'
     })

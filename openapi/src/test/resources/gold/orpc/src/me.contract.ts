@@ -8,6 +8,8 @@ export const meContract = {
       path: '/me',
       summary: 'Who am I',
       description: 'Return the profile of the currently authenticated user',
+      operationId: 'me',
+      tags: ['Auth'],
       successStatus: 200,
       inputStructure: 'detailed'
     })

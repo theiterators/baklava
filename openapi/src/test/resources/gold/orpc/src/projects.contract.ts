@@ -8,6 +8,8 @@ export const projectsContract = {
       path: '/projects',
       summary: 'List projects',
       description: 'List projects, optionally filtered by status',
+      operationId: 'listProjects',
+      tags: ['Projects'],
       successStatus: 200,
       inputStructure: 'detailed'
     })
@@ -27,6 +29,8 @@ export const projectsContract = {
       path: '/projects',
       summary: 'Create project',
       description: 'Create a new project',
+      operationId: 'createProject',
+      tags: ['Projects'],
       successStatus: 201,
       inputStructure: 'detailed'
     })
@@ -43,13 +47,13 @@ export const projectsContract = {
         "name": z.string(),
         "ownerId": z.string().uuid(),
         "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")}))
-};
-
-export const projectsErrors = {
-  post: {
-    400: z.object({
+    .errors({
+      'validation': {
+        status: 400,
+        data: z.object({
         "code": z.string(),
         "details": z.array(z.string()).nullish(),
         "message": z.string()})
-  }
+      }
+    })
 };

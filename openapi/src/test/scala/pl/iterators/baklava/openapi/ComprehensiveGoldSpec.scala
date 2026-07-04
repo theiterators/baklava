@@ -501,6 +501,7 @@ class ComprehensiveGoldSpec
       "openapi-info"                  -> openApiInfo,
       "ts-rest-package-contract-json" -> tsRestPackageJson,
       "orpc-package-contract-json"    -> orpcPackageJson,
+      "orpc-error-code-field"         -> "code",
       "postman.collectionName"        -> "Baklava Comprehensive Gold Spec"
     )
 
