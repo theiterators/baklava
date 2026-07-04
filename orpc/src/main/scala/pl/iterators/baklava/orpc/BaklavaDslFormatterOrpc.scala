@@ -168,11 +168,12 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
          |};
          |""".stripMargin
 
+    // A contract with no schemas at all (e.g. a bare WebSocket upgrade route) uses no `z` —
+    // strict consumer tsconfigs (noUnusedLocals) reject the unused import.
+    val zImport = if (code.contains("z.")) "import { z } from \"zod\";\n" else ""
     writeTo(
       s"$sourcesDirName/$contractName.contract.ts",
-      """import { z } from "zod";
-        |import { oc } from "@orpc/contract";
-        |""".stripMargin + "\n" + code
+      zImport + "import { oc } from \"@orpc/contract\";\n\n" + code
     )
     contractConstName
   }
