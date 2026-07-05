@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
 
-export const webhooksContract = initContract().router({
+export const webhooks = initContract().router({
   post: {
     summary: 'Deliver webhook',
     description: 'Accept a webhook payload',

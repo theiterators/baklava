@@ -122,15 +122,6 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
     }
   }
 
-  describe("contractNameFromSymbolicPath") {
-
-    it("preserves existing non-collision behavior") {
-      generator.contractNameFromSymbolicPath("/pets") shouldBe "pets"
-      generator.contractNameFromSymbolicPath("/pets/{id}") shouldBe "pets---id"
-      generator.contractNameFromSymbolicPath("/") shouldBe "root"
-    }
-  }
-
   describe("toTsRestPath") {
 
     it("converts simple {name} placeholders to :name") {

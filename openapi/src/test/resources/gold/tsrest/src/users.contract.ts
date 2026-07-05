@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
 
-export const usersContract = initContract().router({
+export const users = initContract().router({
   get: {
     summary: 'List users',
     description: 'List users with pagination and optional role filter',
@@ -18,6 +18,74 @@ export const usersContract = initContract().router({
         "id": z.string().uuid(),
         "name": z.string(),
         "role": z.enum(["admin","guest","member"]).describe("User role within the system")}))})
+    }
+  },
+  byUserId: {
+    delete: {
+      summary: 'Delete user',
+      description: 'Delete a user',
+      method: 'DELETE',
+      path: '/users/:userId',
+      pathParams: z.object({userId: z.string().uuid()}),
+      body: z.undefined(),
+      responses: {
+        204: z.undefined()
+      }
+    },
+    get: {
+      summary: 'Get user',
+      description: 'Fetch a single user by UUID',
+      method: 'GET',
+      path: '/users/:userId',
+      pathParams: z.object({userId: z.string().uuid()}),
+      responses: {
+        200: z.object({
+          "email": z.string(),
+          "id": z.string().uuid(),
+          "name": z.string(),
+          "role": z.enum(["admin","guest","member"]).describe("User role within the system")}),
+        404: z.object({
+          "code": z.string(),
+          "details": z.array(z.string()).nullish(),
+          "message": z.string()})
+      }
+    },
+    put: {
+      summary: 'Update user',
+      description: 'Replace a user\'s profile (admin only)',
+      method: 'PUT',
+      path: '/users/:userId',
+      pathParams: z.object({userId: z.string().uuid()}),
+      body: z.object({
+          "name": z.string(),
+          "role": z.enum(["admin","guest","member"]).describe("User role within the system")}),
+      responses: {
+        200: z.object({
+          "email": z.string(),
+          "id": z.string().uuid(),
+          "name": z.string(),
+          "role": z.enum(["admin","guest","member"]).describe("User role within the system")})
+      }
+    },
+    photo: {
+      post: {
+        summary: 'Upload photo',
+        description: 'Upload a profile photo alongside a caption as multipart/form-data',
+        method: 'POST',
+        path: '/users/:userId/photo',
+        pathParams: z.object({userId: z.string().uuid()}),
+        contentType: 'multipart/form-data',
+        body: z.object({caption: z.string(), photo: z.instanceof(File)}),
+        responses: {
+          201: z.object({
+            "id": z.string().uuid(),
+            "variants": z.record(z.string(), z.object({
+            "format": z.string(),
+            "height": z.number().int(),
+            "url": z.string(),
+            "width": z.number().int()}))})
+        }
+      }
     }
   }
 });

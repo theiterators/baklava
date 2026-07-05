@@ -11,9 +11,10 @@ import scala.util.Using
   *   - `package.json` / `tsconfig.json` — minimal npm package shape
   *   - `src/client.ts` — `BaklavaClient` + `BaklavaHttpError`
   *   - `src/index.ts` — re-exports
-  *   - `src/common/types.ts` — types shared by two or more tags (omitted if empty)
-  *   - `src/{tag}/types.ts` — types used only within one tag (omitted if empty)
-  *   - `src/{tag}/endpoints.ts` — one `async function` per endpoint. Untagged operations land in `src/default/endpoints.ts`.
+  *   - `src/common/types.ts` — types shared by two or more route-area modules (omitted if empty)
+  *   - `src/{area}/types.ts` — types used only within one module (omitted if empty)
+  *   - `src/{area}/endpoints.ts` — one `async function` per endpoint. Modules follow the shared path-derived boundaries (`/users/...` →
+  *     `users/`, with a `v<N>` prefix treated as organizational: `/v1/auctions/...` → `v1/auctions/`).
   *
   * Each generated function takes an instance of `BaklavaClient` plus typed path/query/body parameters and returns a `Promise<T>` where `T`
   * is the 2xx response body's TS type (or `void` when no body). Non-2xx responses throw `BaklavaHttpError`.
@@ -24,6 +25,10 @@ class BaklavaDslFormatterTsFetch extends BaklavaDslFormatter {
   private val sourcesDirName = s"$dirName/src"
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
+    // Module folders are named after the current route set; without a wipe, folders from a
+    // previous run (renamed or removed routes) would linger and ship to consumers syncing the
+    // directory.
+    deleteRecursively(new File(sourcesDirName))
     new File(dirName).mkdirs()
     new File(sourcesDirName).mkdirs()
 
@@ -37,12 +42,17 @@ class BaklavaDslFormatterTsFetch extends BaklavaDslFormatter {
 
     val generator = new BaklavaTsFetchGenerator(calls)
     generator.writeClient(s"$sourcesDirName/client.ts")
-    val tagNames = generator.writeTagFolders(sourcesDirName, (relPath, content) => writeFile(s"$sourcesDirName/$relPath", content))
-    generator.writeIndex(s"$sourcesDirName/index.ts", tagNames)
+    generator.writeModuleFolders((relPath, content) => writeFile(s"$sourcesDirName/$relPath", content))
+    generator.writeIndex(s"$sourcesDirName/index.ts")
   }
 
   private def writeFile(path: String, content: String): Unit = {
     new File(path).getParentFile.mkdirs()
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
+  }
+
+  private def deleteRecursively(file: File): Unit = {
+    if (file.isDirectory) Option(file.listFiles()).toSeq.flatten.foreach(deleteRecursively)
+    val _ = file.delete()
   }
 }

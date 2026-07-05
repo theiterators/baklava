@@ -1,16 +1,40 @@
 package pl.iterators.baklava.tsfetch
 
 import pl.iterators.baklava.*
+import pl.iterators.baklava.tscommon.TsPathRouter
+import pl.iterators.baklava.tscommon.TsPathRouter.RouterModule
+import sttp.model.Method
 
 import java.io.{FileWriter, PrintWriter}
 import scala.util.Using
 
-/** Single-use generator: consumes the call list once and drives file writes. Computes a usage map (`className → tags that reference it`)
-  * so a type used by exactly one tag lives in that tag's `types.ts`; types used by two or more tags fall into `common/types.ts`.
+/** Single-use generator: consumes the call list once and drives file writes. Endpoints group into route-area modules (shared
+  * [[TsPathRouter]] boundaries, the same ones the ts-rest and oRPC formats use). Computes a usage map (`className → modules that reference
+  * it`) so a type used by exactly one module lives in that module's `types.ts`; types used by two or more modules fall into
+  * `common/types.ts`.
   */
 private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCall]) {
 
-  private val DefaultTag = "default"
+  private val modules: Seq[RouterModule] = {
+    // Sorted so tree insertion (and thus collision-suffix assignment) is deterministic.
+    val endpoints = calls
+      .groupBy(c => (c.request.method, c.request.symbolicPath))
+      .toList
+      .sortBy { case ((method, path), _) => (path, method.map(_.toString).getOrElse("")) }
+    TsPathRouter.modulesOf(TsPathRouter.buildRouterTree(endpoints))
+  }
+
+  private val moduleIdByEndpoint: Map[(Option[Method], String), String] =
+    modules.flatMap(m => TsPathRouter.endpointsOf(m.node).map(_._1 -> m.constName)).toMap
+
+  private def moduleIdOf(c: BaklavaSerializableCall): String =
+    moduleIdByEndpoint((c.request.method, c.request.symbolicPath))
+
+  private val folderById: Map[String, String] =
+    modules.map(m => m.constName -> m.fileSegments.mkString("/")).toMap
+
+  /** Relative prefix from inside a module folder back to `src/` (module folders can nest, e.g. `v1/auctions`). */
+  private def upPrefix(moduleId: String): String = "../" * (folderById(moduleId).count(_ == '/') + 1)
 
   /** className → rendered TS interface body. First occurrence wins; later schemas with the same `className` are ignored. */
   private val interfaceBody: Map[String, String] = collectInterfaces(calls)
@@ -18,16 +42,16 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
   /** className → directly-referenced other named classes (not recursive). */
   private val directRefs: Map[String, Set[String]] = collectDirectRefs(calls)
 
-  /** className → set of tag names whose endpoints reference this class (directly or transitively). */
-  private val usageByTag: Map[String, Set[String]] = collectUsageByTag(calls)
+  /** className → set of module ids whose endpoints reference this class (directly or transitively). */
+  private val usageByModule: Map[String, Set[String]] = collectUsageByModule(calls)
 
-  /** Classes used by two or more distinct tags → `common/types.ts`. */
+  /** Classes used by two or more distinct modules → `common/types.ts`. */
   private val sharedClasses: Set[String] =
-    usageByTag.collect { case (name, tags) if tags.size >= 2 => name }.toSet
+    usageByModule.collect { case (name, ids) if ids.size >= 2 => name }.toSet
 
-  /** Classes used by exactly one tag → that tag's local `types.ts`. */
-  private val primaryTag: Map[String, String] =
-    usageByTag.collect { case (name, tags) if tags.size == 1 => name -> tags.head }.toMap
+  /** Classes used by exactly one module → that module's local `types.ts`. */
+  private val primaryModule: Map[String, String] =
+    usageByModule.collect { case (name, ids) if ids.size == 1 => name -> ids.head }.toMap
 
   def writeClient(path: String): Unit = {
     val code =
@@ -90,31 +114,30 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
     write(path, code)
   }
 
-  /** Write `common/types.ts` (if any shared types) plus each tag's `types.ts` + `endpoints.ts`. Returns the list of tag-folder names. */
-  def writeTagFolders(@scala.annotation.unused sourcesDir: String, writer: (String, String) => Unit): Seq[String] = {
+  /** Write `common/types.ts` (if any shared types) plus each module's `types.ts` + `endpoints.ts`. */
+  def writeModuleFolders(writer: (String, String) => Unit): Unit = {
     val sharedSorted = sharedClasses.toSeq.sorted
     if (sharedSorted.nonEmpty)
       writer("common/types.ts", renderSharedTypesFile(sharedSorted))
 
-    val byTag = calls.groupBy(c => c.request.operationTags.headOption.getOrElse(DefaultTag))
-    byTag.keys.toSeq.sorted.map { tag =>
-      val safeTag    = fileSafeTagName(tag)
-      val tagClasses = primaryTag.collect { case (name, t) if t == tag => name }.toSeq.sorted
-      if (tagClasses.nonEmpty)
-        writer(s"$safeTag/types.ts", renderTagTypesFile(tagClasses, safeTag))
-      writer(s"$safeTag/endpoints.ts", renderEndpointsFile(tag, byTag(tag), safeTag))
-      safeTag
+    modules.foreach { module =>
+      val folder        = folderById(module.constName)
+      val moduleClasses = primaryModule.collect { case (name, id) if id == module.constName => name }.toSeq.sorted
+      val moduleCalls   = TsPathRouter.endpointsOf(module.node).flatMap(_._2)
+      if (moduleClasses.nonEmpty)
+        writer(s"$folder/types.ts", renderModuleTypesFile(moduleClasses, module.constName))
+      writer(s"$folder/endpoints.ts", renderEndpointsFile(moduleCalls, module.constName))
     }
   }
 
-  def writeIndex(path: String, tagFolders: Seq[String]): Unit = {
+  def writeIndex(path: String): Unit = {
     val lines = new scala.collection.mutable.ListBuffer[String]
     lines += """export * from "./client";"""
     if (sharedClasses.nonEmpty) lines += """export * as Common from "./common/types";"""
-    tagFolders.foreach(t => lines += s"""export * from "./$t/endpoints";""")
-    tagFolders.foreach { t =>
-      val hasLocalTypes = primaryTag.exists { case (_, ownerTag) => fileSafeTagName(ownerTag) == t }
-      if (hasLocalTypes) lines += s"""export * as ${capitalize(tsSafeIdent(t))} from "./$t/types";"""
+    modules.foreach(m => lines += s"""export * from "./${folderById(m.constName)}/endpoints";""")
+    modules.foreach { m =>
+      val hasLocalTypes = primaryModule.exists { case (_, id) => id == m.constName }
+      if (hasLocalTypes) lines += s"""export * as ${capitalize(m.constName)} from "./${folderById(m.constName)}/types";"""
     }
     write(path, lines.mkString("\n") + "\n")
   }
@@ -123,28 +146,29 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
   private def renderSharedTypesFile(classes: Seq[String]): String =
     classes.map(name => s"export interface ${tsSafeIdent(name)} ${interfaceBody(name)}").mkString("\n\n") + "\n"
 
-  /** `<tag>/types.ts` — tag-local types. Emits imports for any shared types or types owned by a different tag that these interfaces
-    * reference.
+  /** `<module>/types.ts` — module-local types. Emits imports for any shared types or types owned by a different module that these
+    * interfaces reference.
     */
-  private def renderTagTypesFile(classes: Seq[String], currentTag: String): String = {
+  private def renderModuleTypesFile(classes: Seq[String], moduleId: String): String = {
     val refs = classes.flatMap(directRefs.getOrElse(_, Set.empty)).distinct
+    val up   = upPrefix(moduleId)
 
-    val fromShared    = refs.filter(sharedClasses.contains).sorted
-    val fromOtherTags = refs
+    val fromShared       = refs.filter(sharedClasses.contains).sorted
+    val fromOtherModules = refs
       .filter(c => !sharedClasses.contains(c))
-      .flatMap(c => primaryTag.get(c).map(t => c -> fileSafeTagName(t)))
-      .filter { case (_, otherTag) => otherTag != currentTag }
+      .flatMap(c => primaryModule.get(c).map(id => c -> id))
+      .filter { case (_, otherId) => otherId != moduleId }
       .distinct
 
     val importLines = new scala.collection.mutable.ListBuffer[String]
     if (fromShared.nonEmpty)
-      importLines += s"""import type { ${fromShared.map(tsSafeIdent).mkString(", ")} } from "../common/types";"""
-    fromOtherTags
+      importLines += s"""import type { ${fromShared.map(tsSafeIdent).mkString(", ")} } from "${up}common/types";"""
+    fromOtherModules
       .groupMap(_._2)(_._1)
       .toSeq
       .sortBy(_._1)
-      .foreach { case (otherTag, cs) =>
-        importLines += s"""import type { ${cs.map(tsSafeIdent).sorted.mkString(", ")} } from "../$otherTag/types";"""
+      .foreach { case (otherId, cs) =>
+        importLines += s"""import type { ${cs.map(tsSafeIdent).sorted.mkString(", ")} } from "$up${folderById(otherId)}/types";"""
       }
 
     val header = if (importLines.isEmpty) "" else importLines.mkString("\n") + "\n\n"
@@ -152,34 +176,33 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
     header + body
   }
 
-  private def renderEndpointsFile(tag: String, tagCalls: Seq[BaklavaSerializableCall], tagFolder: String): String = {
-    val endpoints = tagCalls
+  private def renderEndpointsFile(moduleCalls: Seq[BaklavaSerializableCall], moduleId: String): String = {
+    val endpoints = moduleCalls
       .groupBy(c => (c.request.method.map(_.method).getOrElse("GET"), c.request.symbolicPath))
       .toSeq
       .sortBy { case ((m, p), _) => (p, m) }
       .map { case (_, endpointCalls) => renderEndpoint(endpointCalls) }
 
-    val referencedClasses = tagCalls.flatMap(referencedClassesInCall).distinct
+    val referencedClasses = moduleCalls.flatMap(referencedClassesInCall).distinct
+    val up                = upPrefix(moduleId)
 
     val imports = new scala.collection.mutable.ListBuffer[String]
-    imports += """import { BaklavaClient, BaklavaHttpError } from "../client";"""
+    imports += s"""import { BaklavaClient, BaklavaHttpError } from "${up}client";"""
 
-    val localRefs = referencedClasses.filter(c => primaryTag.get(c).exists(fileSafeTagName(_) == tagFolder)).sorted
+    val localRefs = referencedClasses.filter(c => primaryModule.get(c).contains(moduleId)).sorted
     if (localRefs.nonEmpty) imports += s"""import type { ${localRefs.map(tsSafeIdent).mkString(", ")} } from "./types";"""
 
     val sharedRefs = referencedClasses.filter(sharedClasses.contains).sorted
-    if (sharedRefs.nonEmpty) imports += s"""import type { ${sharedRefs.map(tsSafeIdent).mkString(", ")} } from "../common/types";"""
+    if (sharedRefs.nonEmpty) imports += s"""import type { ${sharedRefs.map(tsSafeIdent).mkString(", ")} } from "${up}common/types";"""
 
-    val otherTagRefs = referencedClasses
-      .filter(c => !sharedClasses.contains(c) && primaryTag.get(c).exists(fileSafeTagName(_) != tagFolder))
-      .flatMap(c => primaryTag.get(c).map(ot => c -> fileSafeTagName(ot)))
+    val otherModuleRefs = referencedClasses
+      .filter(c => !sharedClasses.contains(c) && primaryModule.get(c).exists(_ != moduleId))
+      .flatMap(c => primaryModule.get(c).map(otherId => c -> otherId))
       .groupMap(_._2)(_._1)
-    otherTagRefs.toSeq.sortBy(_._1).foreach { case (otherTag, cs) =>
-      imports += s"""import type { ${cs.map(tsSafeIdent).sorted.mkString(", ")} } from "../$otherTag/types";"""
+    otherModuleRefs.toSeq.sortBy(_._1).foreach { case (otherId, cs) =>
+      imports += s"""import type { ${cs.map(tsSafeIdent).sorted.mkString(", ")} } from "$up${folderById(otherId)}/types";"""
     }
 
-    // Suppress "unused `tag`" warning on the unused parameter (left in for future use).
-    locally(tag)
     imports.mkString("\n") + "\n\n" + endpoints.mkString("\n\n") + "\n"
   }
 
@@ -358,20 +381,20 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
     case _                     => Set.empty
   }
 
-  private def collectUsageByTag(calls: Seq[BaklavaSerializableCall]): Map[String, Set[String]] = {
+  private def collectUsageByModule(calls: Seq[BaklavaSerializableCall]): Map[String, Set[String]] = {
     val usage = scala.collection.mutable.Map.empty[String, Set[String]].withDefaultValue(Set.empty)
     calls.foreach { c =>
-      val tag  = c.request.operationTags.headOption.getOrElse(DefaultTag)
-      val refs = referencedClassesInCall(c)
-      refs.foreach(cls => usage.update(cls, usage(cls) + tag))
+      val moduleId = moduleIdOf(c)
+      val refs     = referencedClassesInCall(c)
+      refs.foreach(cls => usage.update(cls, usage(cls) + moduleId))
     }
-    // Also: if A is used by tag X and A contains B, B is also (transitively) used by tag X.
+    // Also: if A is used by module X and A contains B, B is also (transitively) used by module X.
     var changed = true
     while (changed) {
       changed = false
-      usage.toMap.foreach { case (cls, tags) =>
+      usage.toMap.foreach { case (cls, ids) =>
         directRefs.getOrElse(cls, Set.empty).foreach { child =>
-          val next = usage(child) ++ tags
+          val next = usage(child) ++ ids
           if (next != usage(child)) {
             usage.update(child, next)
             changed = true
@@ -528,28 +551,6 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
       case (true, false)  => s"""$base?.["$escaped"]"""
     }
   }
-
-  /** Pre-computed tag → folder-name map. Collisions after case-folding and non-alnum collapsing get stable numeric suffixes. */
-  private val tagFolderName: Map[String, String] = {
-    val allTags = (calls.map(_.request.operationTags.headOption.getOrElse(DefaultTag)) :+ DefaultTag).distinct.sorted
-    val used    = scala.collection.mutable.Set.empty[String]
-    allTags.map { tag =>
-      val base      = rawTagName(tag)
-      var candidate = base
-      var n         = 2
-      while (used.contains(candidate)) { candidate = s"$base-$n"; n += 1 }
-      used += candidate
-      tag -> candidate
-    }.toMap
-  }
-
-  private def rawTagName(tag: String): String =
-    tag.toLowerCase.replaceAll("[^a-z0-9]+", "-").stripPrefix("-").stripSuffix("-") match {
-      case ""    => DefaultTag
-      case clean => clean
-    }
-
-  private def fileSafeTagName(tag: String): String = tagFolderName.getOrElse(tag, rawTagName(tag))
 
   private def write(path: String, content: String): Unit =
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))

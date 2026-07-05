@@ -1,5 +1,5 @@
 import { BaklavaClient, BaklavaHttpError } from "../client";
-import type { CreateProjectRequest, PatchProjectRequest, Project } from "./types";
+import type { CreateProjectRequest, CreateTaskRequest, PatchProjectRequest, Project, Task } from "./types";
 import type { ErrorResponse } from "../common/types";
 
 /** List projects — List projects, optionally filtered by status */
@@ -56,6 +56,51 @@ export async function patchProject(client: BaklavaClient, params: {
   let __ret!: Project;
   const res = await client.fetch(url.toString(), {
     method: "PATCH",
+    headers: {
+    ...client.authHeaders(),
+    "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params.body),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new BaklavaHttpError(res.status, text);
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  }
+  return text as unknown as typeof __ret;
+}
+
+/** List tasks — List all tasks in a project */
+export async function listTasks(client: BaklavaClient, params: {
+  projectId: number;
+}): Promise<Task[]> {
+  const url = new URL(`${client.baseUrl}/projects/${encodeURIComponent(String(params.projectId))}/tasks`);
+  let __ret!: Task[];
+  const res = await client.fetch(url.toString(), {
+    method: "GET",
+    headers: {
+    ...client.authHeaders(),
+    },
+  });
+  const text = await res.text();
+  if (!res.ok) throw new BaklavaHttpError(res.status, text);
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (text ? JSON.parse(text) : undefined) as typeof __ret;
+  }
+  return text as unknown as typeof __ret;
+}
+
+/** Create task — Create a task in a project */
+export async function createTask(client: BaklavaClient, params: {
+  projectId: number;
+  body: CreateTaskRequest;
+}): Promise<Task> {
+  const url = new URL(`${client.baseUrl}/projects/${encodeURIComponent(String(params.projectId))}/tasks`);
+  let __ret!: Task;
+  const res = await client.fetch(url.toString(), {
+    method: "POST",
     headers: {
     ...client.authHeaders(),
     "Content-Type": "application/json",

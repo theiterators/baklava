@@ -1,13 +1,15 @@
 package pl.iterators.baklava.tsrest
 
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsNaming, TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsPathRouter, TsZodDialect, TsZodRenderer}
 import sttp.model.Method
 
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Using
 
 class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
+  import TsPathRouter.*
+
   private val renderer = new TsZodRenderer(TsZodDialect.tsRest)
 
   private val dirName                 = "target/baklava/tsrest"
@@ -17,6 +19,9 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private val contractTsPath = s"$sourcesDirName/contracts.ts"
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
+    // Module files are named after the current route set; without a wipe, files from a previous
+    // run (renamed or removed routes) would linger and ship to consumers syncing the directory.
+    deleteRecursively(new File(sourcesDirName))
     // Create all target directories upfront so downstream writes don't depend on ordering.
     new File(dirName).mkdirs()
     new File(sourcesDirName).mkdirs()
@@ -29,62 +34,85 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       .get("ts-rest-package-contract-json")
       .foreach(packageContractJson => writeTo(packageContractJsonPath, packageContractJson))
 
-    val groupedByBaseName = calls
+    // Sorted so tree insertion (and thus collision-suffix assignment) is deterministic.
+    val endpoints: Seq[Endpoint] = calls
       .groupBy(c => (c.request.method, c.request.symbolicPath))
       .toList
-      .groupBy(c => contractNameFromSymbolicPath(c._1._2))
-      .toList
-      .sortBy(_._1)
+      .sortBy { case ((method, path), _) => (path, method.map(_.toString).getOrElse("")) }
 
-    // Disambiguate contract-name collisions: if two distinct symbolicPaths map to the same derived
-    // name (e.g. "/a/b" and "/a-b" both collapse to "a-b"), split each into its own contract with
-    // a short deterministic hash suffix. Non-colliding names pass through unchanged.
-    val callsGroupedBySymbolicPathIntoContractName = groupedByBaseName.flatMap { case (baseName, endpoints) =>
-      val distinctPaths = endpoints.map(_._1._2).distinct
-      if (distinctPaths.size <= 1) Seq((baseName, endpoints))
-      else {
-        endpoints.groupBy(_._1._2).toList.sortBy(_._1).map { case (symbolicPath, eps) =>
-          val suffix = f"${symbolicPath.hashCode.abs}%x".take(4)
-          (s"$baseName-$suffix", eps)
-        }
-      }
-    }
+    val modules = modulesOf(buildRouterTree(endpoints))
+    modules.foreach(writeModuleFile)
+    writeContractsFile(modules)
+  }
 
-    val contractNames = callsGroupedBySymbolicPathIntoContractName
-      .map { case (name, endpoints) =>
-        val constName = createContractForGroup(name, endpoints)
-        (name, constName)
-      }
+  private def moduleFilePath(module: RouterModule): String =
+    module.fileSegments.mkString("/") + ".contract.ts"
 
-    val importStmts = contractNames
-      .map { case (name, constName) =>
-        s"""import { $constName } from "./$name.contract";"""
-      }
+  private def writeModuleFile(module: RouterModule): Unit = {
+    val body = TsPathRouter.render(
+      module.node,
+      0,
+      renderer.tsObjectKey,
+      (endpoint, key) => createContractForEndpoint(endpoint, keyOverride = Some(key))
+    )
+    val code =
+      s"""export const ${module.constName} = initContract().router({
+         |$body
+         |});
+         |""".stripMargin
+    val path = s"$sourcesDirName/${moduleFilePath(module)}"
+    new File(path).getParentFile.mkdirs()
+    writeTo(
+      path,
+      """import { z } from "zod";
+        |import { initContract } from "@ts-rest/core";
+        |""".stripMargin + "\n" + code
+    )
+  }
+
+  private def writeContractsFile(modules: Seq[RouterModule]): Unit = {
+    val imports = modules
+      .map(m => s"""import { ${m.constName} } from "./${moduleFilePath(m).stripSuffix(".ts")}";""")
       .mkString("\n")
 
-    val contractsMap = contractNames
-      .map { case (name, constName) => s"""  "$name": $constName""" }
-      .mkString(",\n")
+    val (rootModules, mounted) = modules.partition(_.mountPath.isEmpty)
+    val mountedByTop           =
+      mounted.map(_.mountPath.head).distinct.map(top => top -> mounted.filter(_.mountPath.head == top))
 
-    val typeMap = contractNames
-      .map { case (name, constName) => s"""  "$name": typeof $constName""" }
-      .mkString(";\n")
+    val entries = rootModules.map(m => s"  ...${m.constName}") ++
+      mountedByTop.map {
+        case (top, Seq(single)) if single.mountPath.sizeIs == 1 =>
+          if (single.constName == top) s"  $top"
+          else s"  ${renderer.tsObjectKey(top)}: ${single.constName}"
+        case (top, group) =>
+          val inner = group
+            .map { m =>
+              if (m.spread) s"    ...${m.constName}"
+              else s"    ${renderer.tsObjectKey(m.mountPath.last)}: ${m.constName}"
+            }
+            .mkString(",\n")
+          s"  ${renderer.tsObjectKey(top)}: {\n$inner\n  }"
+      }
 
     writeTo(
       contractTsPath,
-      s"""$importStmts
-
-         |export const contracts: {
-         |$typeMap
-         |} = {
-         |$contractsMap
-         |};
-         |\n""".stripMargin
+      s"""import { initContract } from "@ts-rest/core";
+         |$imports
+         |
+         |export const contracts = initContract().router({
+         |${entries.mkString(",\n")}
+         |});
+         |""".stripMargin
     )
   }
 
   private def writeTo(path: String, content: String): Unit =
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
+
+  private def deleteRecursively(file: File): Unit = {
+    if (file.isDirectory) Option(file.listFiles()).toSeq.flatten.foreach(deleteRecursively)
+    val _ = file.delete()
+  }
 
   private[tsrest] def buildParamsZod[P](
       paramsPerCall: Seq[Seq[P]],
@@ -108,31 +136,10 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private[tsrest] def toTsRestPath(symbolicPath: String): String =
     symbolicPath.replaceAll("""\{([^{}/]+)\}""", ":$1")
 
-  private[tsrest] def contractNameFromSymbolicPath(path: String): String =
-    TsNaming.contractNameFromSymbolicPath(path)
-
-  private def createContractForGroup(
-      contractName: String,
-      endpointsWithCalls: Seq[((Option[Method], String), Seq[BaklavaSerializableCall])]
-  ): String = {
-    val contractConstName = toCamelCase(contractName) + "Contract"
-    val code              =
-      s"""export const $contractConstName = initContract().router({
-         |${endpointsWithCalls.sortBy(_._1._1.map(_.toString).getOrElse("")).map(createContractForEndpoint).mkString(",\n")}
-         |});
-         |""".stripMargin
-    writeTo(
-      s"$sourcesDirName/$contractName.contract.ts",
-      """import { z } from "zod";
-        |import { initContract } from "@ts-rest/core";
-        |""".stripMargin + "\n" + code
-    )
-    contractConstName
-  }
-
   // Contract endpoint generator
   private[tsrest] def createContractForEndpoint(
-      endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall])
+      endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall]),
+      keyOverride: Option[String] = None
   ): String = {
     val ((httpMethodOpt, _), calls) = endpoint
     require(
@@ -140,6 +147,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       s"createContractForEndpoint called with empty calls for method=${httpMethodOpt.map(_.method)}"
     )
     val httpMethod = httpMethodOpt.map(_.method).getOrElse("ANY").toLowerCase
+    val entryKey   = keyOverride.getOrElse(httpMethod)
 
     val firstCall   = calls.head
     val req         = firstCall.request
@@ -211,7 +219,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
 
     // Compose contract entry
     val lines = List(
-      s"  $httpMethod: {",
+      s"  $entryKey: {",
       s"    summary: '${summary}',",
       s"    description: '${description}',",
       s"    method: '${httpMethod.toUpperCase()}',",
@@ -234,8 +242,6 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
 
   private def isEmptyBodyInstance(schema: BaklavaSchemaSerializable): Boolean =
     renderer.isEmptyBodyInstance(schema)
-
-  private def toCamelCase(s: String): String = TsNaming.toCamelCase(s)
 
   private def escapeTsSingleQuoted(s: String): String = renderer.escapeTsSingleQuoted(s)
 

@@ -106,20 +106,12 @@ Generates a complete TypeScript npm package using [ts-rest](https://ts-rest.com/
 
 - `package.json` — npm package with build scripts, peer dependencies on `@ts-rest/core` and `zod`
 - `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
-- `src/contracts.ts` — main exports file re-exporting all contracts
-- `src/{name}.contract.ts` — one contract file per route group
+- `src/contracts.ts` — main exports file assembling the module routers into one nested `ts-rest` router
+- `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`); a version prefix is treated as organizational, so `/v1/auctions/...` lands in `src/v1/auctions.contract.ts`
 
 ### Contract Organization
 
-Each unique path becomes its own contract file. The path is converted to a filename:
-- `/` → `root.contract.ts`
-- `/user/login` → `user-login.contract.ts`
-- `/pet/{petId}` → `pet---petId.contract.ts`
-- `/user/{id}/profile` → `user---id-profile.contract.ts`
-
-Path parameters `{param}` are replaced with `--param`, dots with `---`, and segments are joined with `-`.
-
-Endpoints sharing the same path but with different HTTP methods are grouped into one contract file. Each contract file exports a `ts-rest` router with typed endpoints.
+Contracts nest by path segment, so `/users/{userId}/photo` is reached as `contracts.users.byUserId.photo.<method>`. A path parameter reads as `by<Param>` (`{userId}` → `byUserId`) — the router-tree spelling of the `getUsersByUserId` convention the TS-Fetch format uses for function names; static segments are camelized (`feature-flags` → `featureFlags`). Endpoints sharing a path with different HTTP methods are sibling entries on the same node. Each module file exports an `initContract().router(...)` subtree; `contracts.ts` mounts them.
 
 ### Zod Schema Mapping
 
@@ -556,19 +548,19 @@ Generates a plain-TypeScript client library that uses the browser/Node `fetch` A
 
 - `package.json` / `tsconfig.json` — minimal npm package with a single `typescript` dev dep
 - `src/client.ts` — `BaklavaClient` class with `baseUrl`, pluggable `fetch`, optional bearer/basic/API-key credentials; plus `BaklavaHttpError` for failed responses
-- `src/common/types.ts` — interfaces for types used by two or more tags
-- `src/{tag}/types.ts` — interfaces for types used only within that tag
-- `src/{tag}/endpoints.ts` — one `async function` per endpoint in that tag. Untagged operations go into `src/default/endpoints.ts`.
-- `src/index.ts` — re-exports every tag's endpoints. Per-tag types are re-exported under a namespace (`Users`, `Projects`, …) to avoid collisions; shared types appear under `Common`.
+- `src/common/types.ts` — interfaces for types used by two or more route-area modules
+- `src/{area}/types.ts` — interfaces for types used only within that module
+- `src/{area}/endpoints.ts` — one `async function` per endpoint in that module. Modules follow the same path-derived boundaries as the TS-REST and oRPC formats (`/users/...` → `users/`; a version prefix is organizational, so `/v1/auctions/...` → `v1/auctions/`).
+- `src/index.ts` — re-exports every module's endpoints. Per-module types are re-exported under a namespace (`Users`, `V1Auctions`, …) to avoid collisions; shared types appear under `Common`.
 
 ### Type Distribution
 
-Each named schema is routed based on which tags' endpoints reference it:
+Each named schema is routed based on which modules' endpoints reference it:
 
-- Used by **one tag** → `src/{tag}/types.ts`
-- Used by **two or more tags** → `src/common/types.ts`
+- Used by **one module** → `src/{area}/types.ts`
+- Used by **two or more modules** → `src/common/types.ts`
 
-Endpoint files import types from the appropriate location (`./types`, `../common/types`, or `../{other-tag}/types`). Interface references inside other interfaces follow the same rule, so the output never duplicates a type.
+Endpoint files import types from the appropriate location (`./types`, the shared `common/types`, or the owning module's `types`). Interface references inside other interfaces follow the same rule, so the output never duplicates a type.
 
 ### Schema Type Mapping
 
@@ -580,7 +572,7 @@ Endpoint files import types from the appropriate location (`./types`, `../common
 | `Boolean` | `boolean` |
 | `Null` | `null` |
 | `Seq[T]`, `List[T]`, `Vector[T]`, `Set[T]`, `Array[T]` | `InnerType[]` |
-| Case class with properties | Named `interface` (re-exported per-tag as `Users.ClassName` / shared as `Common.ClassName`) |
+| Case class with properties | Named `interface` (re-exported per-module as `Users.ClassName` / shared as `Common.ClassName`) |
 | `Map[K, V]` | `Record<string, V>` |
 | `Option[T]` | Field becomes optional (`field?: T`) |
 

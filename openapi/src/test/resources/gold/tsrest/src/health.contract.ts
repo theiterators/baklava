@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
 
-export const healthContract = initContract().router({
+export const health = initContract().router({
   get: {
     summary: 'Liveness probe',
     description: 'Return service liveness — no authentication required',

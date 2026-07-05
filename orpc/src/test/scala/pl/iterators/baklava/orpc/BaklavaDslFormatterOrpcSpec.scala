@@ -3,7 +3,7 @@ package pl.iterators.baklava.orpc
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsNaming, TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsNaming, TsPathRouter, TsZodDialect, TsZodRenderer}
 import sttp.model.{Method, StatusCode}
 
 class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
@@ -355,7 +355,7 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       ((Some(Method(method)), path), Seq(call(path, method = method)))
 
     it("nests endpoints by path segment with by<Param> keys") {
-      val tree = generator.buildRouterTree(
+      val tree = TsPathRouter.buildRouterTree(
         Seq(ep("GET", "/v1/auctions"), ep("GET", "/v1/auctions/{auctionId}"), ep("POST", "/v1/auctions/{auctionId}/bids"))
       )
       val auctions = tree.children("v1").node.children("auctions").node
@@ -366,7 +366,7 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
     }
 
     it("hash-suffixes a segment key when two distinct raw segments collapse to it") {
-      val tree = generator.buildRouterTree(Seq(ep("GET", "/users/by-id"), ep("GET", "/users/{id}")))
+      val tree = TsPathRouter.buildRouterTree(Seq(ep("GET", "/users/by-id"), ep("GET", "/users/{id}")))
       val keys = tree.children("users").node.children.keySet
       keys should have size 2
       keys should contain("byId")
@@ -374,18 +374,18 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
     }
 
     it("treats a version prefix as organizational: one module file per area below it") {
-      val modules = generator.modulesOf(generator.buildRouterTree(Seq(ep("GET", "/v1/auctions"), ep("GET", "/v1/feature-flags"))))
-      modules.map(m => (m.constName, m.filePath, m.contractsKeyPath)) shouldBe Seq(
-        ("v1Auctions", "v1/auctions.contract.ts", List("v1", "auctions")),
-        ("v1FeatureFlags", "v1/featureFlags.contract.ts", List("v1", "featureFlags"))
+      val modules = TsPathRouter.modulesOf(TsPathRouter.buildRouterTree(Seq(ep("GET", "/v1/auctions"), ep("GET", "/v1/feature-flags"))))
+      modules.map(m => (m.constName, m.fileSegments, m.mountPath)) shouldBe Seq(
+        ("v1Auctions", List("v1", "auctions"), List("v1", "auctions")),
+        ("v1FeatureFlags", List("v1", "featureFlags"), List("v1", "featureFlags"))
       )
     }
 
     it("gives a non-versioned API one module file per top-level area") {
-      val modules = generator.modulesOf(generator.buildRouterTree(Seq(ep("GET", "/health"), ep("GET", "/users/{userId}"))))
-      modules.map(m => (m.constName, m.filePath, m.contractsKeyPath)) shouldBe Seq(
-        ("health", "health.contract.ts", List("health")),
-        ("users", "users.contract.ts", List("users"))
+      val modules = TsPathRouter.modulesOf(TsPathRouter.buildRouterTree(Seq(ep("GET", "/health"), ep("GET", "/users/{userId}"))))
+      modules.map(m => (m.constName, m.fileSegments, m.mountPath)) shouldBe Seq(
+        ("health", List("health"), List("health")),
+        ("users", List("users"), List("users"))
       )
     }
   }

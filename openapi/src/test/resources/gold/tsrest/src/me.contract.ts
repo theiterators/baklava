@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
 
-export const meContract = initContract().router({
+export const me = initContract().router({
   get: {
     summary: 'Who am I',
     description: 'Return the profile of the currently authenticated user',
