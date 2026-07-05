@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
+import { webhookPayloadSchema } from "./schemas";
 
 export const webhooksContract = {
   post: oc
@@ -14,9 +15,7 @@ export const webhooksContract = {
       inputStructure: 'detailed'
     })
     .input(z.object({
-      body: z.object({
-        "data": z.string(),
-        "event": z.string()})
+      body: webhookPayloadSchema
     }))
     .output(z.union([z.object({
         "received": z.boolean()}), z.string()]))

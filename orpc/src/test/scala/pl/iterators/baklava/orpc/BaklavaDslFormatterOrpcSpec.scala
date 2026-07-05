@@ -3,11 +3,13 @@ package pl.iterators.baklava.orpc
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
+import pl.iterators.baklava.tscommon.{TsZodDialect, TsZodRenderer}
 import sttp.model.{Method, StatusCode}
 
 class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
 
-  private val generator = new BaklavaDslFormatterOrpc
+  private val generator   = new BaklavaDslFormatterOrpc
+  private val zodRenderer = new TsZodRenderer(TsZodDialect.orpc)
 
   describe("createContractForEndpoint(): route block") {
 
@@ -34,14 +36,17 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       (entry should not).include(":user-id")
     }
 
-    it("picks the lowest captured 2xx as successStatus") {
+    it("switches to detailed output when several distinct 2xx statuses were captured") {
       val entry = endpoint(
         "POST",
         "/v1/things",
-        call("/v1/things", method = "POST", status = 201),
+        call("/v1/things", method = "POST", status = 201, responseSchema = Some(objectSchema(Map("id" -> stringSchema())))),
         call("/v1/things", method = "POST", status = 200)
       )
-      entry should include("      successStatus: 200")
+      (entry should not).include("successStatus")
+      entry should include("      outputStructure: 'detailed'")
+      entry should include("z.object({status: z.literal(200)})")
+      entry should include("z.object({status: z.literal(201), body: z.object(")
     }
   }
 
@@ -53,7 +58,7 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
         "/v1/auctions/{auctionId}",
         call("/v1/auctions/{auctionId}", pathParams = Seq("auctionId" -> uuidSchema(required = true)))
       )
-      entry should include("      params: z.object({auctionId: z.string().uuid()})")
+      entry should include("      params: z.object({auctionId: z.uuid()})")
     }
 
     it("marks a query group .optional() when every parameter is optional") {
@@ -81,7 +86,7 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
         "/v1/auctions",
         call("/v1/auctions", queryParams = Seq("after-id" -> uuidSchema(required = false)))
       )
-      entry should include(""""after-id": z.string().uuid().nullish()""")
+      entry should include(""""after-id": z.uuid().nullish()""")
     }
 
     it("omits .input entirely when there are no parameters and no body") {
@@ -110,7 +115,7 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
           multipartParts = Some(Seq(BaklavaMultipartPartSerializable("file", isFile = true)))
         )
       )
-      entry should include("      body: z.object({file: z.instanceof(File)})")
+      entry should include("      body: z.object({file: z.file()})")
     }
   }
 
@@ -235,6 +240,81 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
     }
   }
 
+  describe("literal discriminators in declared error data") {
+
+    it("narrows the discriminator property to the declared code") {
+      val problem = objectSchema(Map("type" -> stringSchema(), "title" -> stringSchema()))
+      val entry   = endpoint(
+        "POST",
+        "/v1/things",
+        call("/v1/things", method = "POST", status = 201),
+        call(
+          "/v1/things",
+          method = "POST",
+          status = 409,
+          responseSchema = Some(problem),
+          responseBodyString = """{"type":"result:bid-too-low","status":409}"""
+        )
+      )
+      entry should include(""""type": z.enum(["result:bid-too-low"])""")
+      (entry should not).include(""""type": z.string()""")
+    }
+  }
+
+  describe("named schema hoisting (buildSchemaRefs)") {
+
+    def dtoSchema(marker: String): BaklavaSchemaSerializable =
+      objectSchema(Map(marker -> stringSchema())).copy(className = "AuctionDto")
+
+    it("hoists an object schema that occurs more than once, named from its className") {
+      val dto  = dtoSchema("a")
+      val refs = generator.buildSchemaRefs(
+        Seq(
+          ((Some(Method("GET")), "/a"), Seq(call("/a", responseSchema = Some(dto)))),
+          ((Some(Method("GET")), "/b"), Seq(call("/b", responseSchema = Some(dto))))
+        ),
+        "type"
+      )
+      refs.get(dto) shouldBe Some("auctionDtoSchema")
+    }
+
+    it("leaves single-occurrence schemas inline") {
+      val dto  = dtoSchema("a")
+      val refs = generator.buildSchemaRefs(
+        Seq(((Some(Method("GET")), "/a"), Seq(call("/a", responseSchema = Some(dto))))),
+        "type"
+      )
+      refs shouldBe empty
+    }
+
+    it("suffixes colliding names deterministically") {
+      val dto1 = dtoSchema("a")
+      val dto2 = dtoSchema("b")
+      val refs = generator.buildSchemaRefs(
+        Seq(
+          ((Some(Method("GET")), "/a"), Seq(call("/a", responseSchema = Some(dto1)), call("/a", responseSchema = Some(dto1)))),
+          ((Some(Method("GET")), "/b"), Seq(call("/b", responseSchema = Some(dto2)), call("/b", responseSchema = Some(dto2))))
+        ),
+        "type"
+      )
+      refs.values.toSet should have size 2
+      refs.values.count(_ == "auctionDtoSchema") shouldBe 1
+      refs.values.filterNot(_ == "auctionDtoSchema").head should startWith("auctionDtoSchema")
+    }
+
+    it("skips schemas with generic classNames") {
+      val obj  = objectSchema(Map("a" -> stringSchema()))
+      val refs = generator.buildSchemaRefs(
+        Seq(
+          ((Some(Method("GET")), "/a"), Seq(call("/a", responseSchema = Some(obj)))),
+          ((Some(Method("GET")), "/b"), Seq(call("/b", responseSchema = Some(obj))))
+        ),
+        "type"
+      )
+      refs shouldBe empty
+    }
+  }
+
   describe("route metadata") {
 
     it("emits sorted distinct tags and the operationId") {
@@ -266,14 +346,14 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
   describe("zod()") {
 
     it("renders uuid, date-time and enum formats") {
-      generator.zod(uuidSchema(required = true)) shouldBe "z.string().uuid()"
-      generator.zod(stringSchema(format = Some("date-time"))) shouldBe "z.string().datetime({ offset: true })"
-      generator.zod(stringSchema(enumValues = Some(Set("b", "a")))) shouldBe """z.enum(["a","b"])"""
+      zodRenderer.zod(uuidSchema(required = true)) shouldBe "z.uuid()"
+      zodRenderer.zod(stringSchema(format = Some("date-time"))) shouldBe "z.iso.datetime({ offset: true })"
+      zodRenderer.zod(stringSchema(enumValues = Some(Set("b", "a")))) shouldBe """z.enum(["a","b"])"""
     }
 
     it("sorts object properties for deterministic output") {
-      val a = generator.zod(objectSchema(Map("b" -> stringSchema(), "a" -> stringSchema())))
-      val b = generator.zod(objectSchema(Map("a" -> stringSchema(), "b" -> stringSchema())))
+      val a = zodRenderer.zod(objectSchema(Map("b" -> stringSchema(), "a" -> stringSchema())))
+      val b = zodRenderer.zod(objectSchema(Map("a" -> stringSchema(), "b" -> stringSchema())))
       a shouldBe b
     }
   }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
+import { loginFormSchema, userSchema } from "./schemas";
 
 export const authLoginContract = {
   post: oc
@@ -14,22 +15,16 @@ export const authLoginContract = {
       inputStructure: 'detailed'
     })
     .input(z.object({
-      body: z.object({
-        "client_id": z.string(),
-        "grant_type": z.string()})
+      body: loginFormSchema
     }))
     .output(z.object({
         "token": z.string(),
-        "user": z.object({
-        "email": z.string(),
-        "id": z.string().uuid(),
-        "name": z.string(),
-        "role": z.enum(["admin","guest","member"]).describe("User role within the system")})}))
+        "user": userSchema}))
     .errors({
       'unauthorized': {
         status: 401,
         data: z.object({
-        "code": z.string(),
+        "code": z.enum(["unauthorized"]),
         "details": z.array(z.string()).nullish(),
         "message": z.string()})
       }

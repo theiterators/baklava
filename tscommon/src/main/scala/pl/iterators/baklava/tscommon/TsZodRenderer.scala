@@ -23,12 +23,13 @@ object TsZodDialect {
       emptyUnion = "z.undefined()"
     )
 
+  // zod 4 vocabulary: top-level string formats and the dedicated file schema.
   val orpc: TsZodDialect =
     TsZodDialect(
-      dateTime = "z.string().datetime({ offset: true })",
-      email = "z.string().email()",
-      uuid = "z.string().uuid()",
-      filePart = "z.instanceof(File)",
+      dateTime = "z.iso.datetime({ offset: true })",
+      email = "z.email()",
+      uuid = "z.uuid()",
+      filePart = "z.file()",
       emptyUnion = "z.void()"
     )
 }
@@ -64,7 +65,11 @@ object TsNaming {
   }
 }
 
-class TsZodRenderer(dialect: TsZodDialect) {
+class TsZodRenderer(dialect: TsZodDialect, refs: BaklavaSchemaSerializable => Option[String] = _ => None) {
+
+  /** Render a hoisted schema's defining expression: the node itself inlines, nested schemas may still resolve through `refs`.
+    */
+  def zodDefinition(schema: BaklavaSchemaSerializable): String = zodInline(schema)
 
   private val jsIdentifier = "[A-Za-z_$][A-Za-z0-9_$]*".r
 
@@ -121,7 +126,10 @@ class TsZodRenderer(dialect: TsZodDialect) {
     s"z.object({${fields.mkString(", ")}})"
   }
 
-  def zod(schema: BaklavaSchemaSerializable): String = {
+  def zod(schema: BaklavaSchemaSerializable): String =
+    refs(schema).getOrElse(zodInline(schema))
+
+  private def zodInline(schema: BaklavaSchemaSerializable): String = {
     val desc = schema.description.map(d => s""".describe("${escapeTsDoubleQuoted(d)}")""").getOrElse("")
     schema.`type` match {
       case SchemaType.StringType =>

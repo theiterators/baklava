@@ -191,12 +191,14 @@ Generates a TypeScript npm package of [oRPC](https://orpc.dev) contracts ([`@orp
 
 ### Generated Files
 
-- `package.json` — npm package with build scripts, peer dependencies on `@orpc/contract` and `zod`
+- `package.json` — npm package with build scripts, peer dependencies on `@orpc/contract`, `@orpc/client`, `@orpc/openapi-client` and `zod` (**v4**)
 - `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
 - `src/contracts.ts` — main exports file aggregating all contracts into one router object
 - `src/{name}.contract.ts` — one contract file per route group
+- `src/schemas.ts` — named, deduplicated schemas: any object schema occurring more than once anywhere in the output is hoisted under a name derived from its Scala case-class name (`AuctionDto` → `auctionDtoSchema`), giving consumers `z.infer`-able named types
+- `src/client.ts` — a ready-made client factory (`createContractsClient(url)`): an `OpenAPILink` whose error decoder lifts the backend's discriminated error bodies into defined `ORPCError`s under the declared codes
 
-File naming follows the same path-derived scheme as the TS-REST format (`/pet/{petId}` → `pet---petId.contract.ts`). The Zod schema mapping table above applies with one deliberate difference: `date-time` fields render as `z.string().datetime({ offset: true })` rather than `z.coerce.date()` — over HTTP a timestamp *is* an ISO string and `OpenAPILink` performs no client-side coercion, so the contract type tells the wire truth.
+File naming follows the same path-derived scheme as the TS-REST format (`/pet/{petId}` → `pet---petId.contract.ts`). Schemas use the **zod 4** vocabulary and deliberately tell the wire truth: `date-time` fields render `z.iso.datetime({ offset: true })` (over HTTP a timestamp *is* an ISO string and `OpenAPILink` performs no client-side coercion), `uuid` → `z.uuid()`, `email` → `z.email()`, multipart file parts → `z.file()`. The rest of the Zod mapping table above applies unchanged.
 
 ### Contract Shape
 
@@ -232,7 +234,7 @@ Mapping decisions:
 
 - **Paths keep `{param}` placeholders** — oRPC's native syntax, no conversion.
 - **`inputStructure: 'detailed'`** throughout: the input object has explicit `params` (path), `query`, `headers`, and `body` groups. A query/header group whose parameters are all optional is emitted `.optional()`, so callers may omit it.
-- **One success shape per procedure** (oRPC's model): the lowest captured 2xx status becomes `successStatus`, all captured 2xx bodies union into `.output(...)`, and a bodyless success (e.g. 204) renders `z.void()`.
+- **Success statuses are preserved truthfully**: with one captured 2xx status it becomes `successStatus` and the body is the compact `.output(...)` (bodyless success renders `z.void()`). With *several* distinct 2xx statuses the procedure switches to `outputStructure: 'detailed'` and the output is a union of `{ status: z.literal(s), body }` objects — which-status is real information the API returns, and a flat body union would destroy it.
 - **Multipart bodies** render as `z.object` fields with `z.instanceof(File)` / `z.string()`; oRPC serializes File-bearing bodies as `multipart/form-data` on the wire.
 - **`tags` and `operationId`** are emitted when captured, so OpenAPI specs generated *from* the contract group and name operations like the original.
 
@@ -249,9 +251,9 @@ Backends documented by baklava don't speak oRPC's own error envelope, but most s
 })
 ```
 
-The discriminator field defaults to `type` and is configurable via the `orpc-error-code-field` config key. Error responses whose body carries no extractable discriminator (bodyless 429s, non-JSON payloads) are left undeclared and surface through oRPC's defaults.
+The discriminator field defaults to `type` and is configurable via the `orpc-error-code-field` config key. Inside each declared error's `data` schema the discriminator property is narrowed to `z.enum(["<the code>"])`, so payloads are self-discriminating. Error responses whose body carries no extractable discriminator (bodyless 429s, non-JSON payloads) are left undeclared and surface through oRPC's defaults.
 
-On the client, pair this with `OpenAPILink`'s [`customErrorResponseBodyDecoder`](https://orpc.dev/docs/openapi/advanced/customizing-error-response) constructing `ORPCError`s whose `code` is the same discriminator value (and `defined: true`) — then [`isDefinedError`](https://orpc.dev/docs/client/error-handling) narrows errors to the declared union, giving statically typed, exhaustively checkable error handling end to end.
+The generated `src/client.ts` completes the loop: its `createContractsClient(url)` wires an `OpenAPILink` with a [`customErrorResponseBodyDecoder`](https://orpc.dev/docs/openapi/advanced/customizing-error-response) that lifts error bodies into `ORPCError`s whose `code` is the same discriminator value (and `defined: true`) — so [`isDefinedError`](https://orpc.dev/docs/client/error-handling) narrows errors to the declared union, giving statically typed, exhaustively checkable error handling end to end, out of the box.
 
 ### Configuration
 
@@ -274,21 +276,24 @@ baklavaGenerateConfigs := Map(
 ### Usage in Frontend
 
 ```typescript
-import { createORPCClient } from "@orpc/client";
-import { OpenAPILink } from "@orpc/openapi-client/fetch";
-import type { JsonifiedClient } from "@orpc/openapi-client";
-import type { ContractRouterClient } from "@orpc/contract";
-import { contracts } from "@company/backend-orpc-contracts";
+import { createContractsClient } from "@company/backend-orpc-contracts/client";
+import { isDefinedError } from "@orpc/client";
 
-const link = new OpenAPILink(contracts, { url: "https://api.example.com" });
-const client: JsonifiedClient<ContractRouterClient<typeof contracts>> =
-  createORPCClient(link);
+const client = createContractsClient("https://api.example.com");
 
-// Full type safety; JsonifiedClient types are wire-true (dates are ISO strings)
+// Full type safety; types are wire-true (dates are ISO strings)
 const user = await client["users---userId"].get({ params: { userId } });
+
+try {
+  await client["users---userId"].get({ params: { userId: missing } });
+} catch (error) {
+  if (isDefinedError(error)) {
+    // narrowed to the declared union; error.data is the typed error body
+  }
+}
 ```
 
-For TanStack Query, wrap the client with `createTanstackQueryUtils` from `@orpc/tanstack-query`.
+For TanStack Query, wrap the client with `createTanstackQueryUtils` from `@orpc/tanstack-query`. To customize the link (auth-aware fetch, headers), pass `{ fetch, headers }` to `createContractsClient`, or build your own `OpenAPILink` — the generated `client.ts` shows the error-decoder recipe.
 
 ## Postman Collection Format
 
