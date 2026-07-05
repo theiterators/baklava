@@ -305,8 +305,6 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
 
   private def escapeTsSingleQuoted(s: String): String = renderer.escapeTsSingleQuoted(s)
 
-  private def escapeTsDoubleQuoted(s: String): String = renderer.escapeTsDoubleQuoted(s)
-
   private[orpc] def zod(schema: BaklavaSchemaSerializable): String = renderer.zod(schema)
 
   private[orpc] def collapseZodUnion(zods: Seq[String]): String = renderer.collapseZodUnion(zods)

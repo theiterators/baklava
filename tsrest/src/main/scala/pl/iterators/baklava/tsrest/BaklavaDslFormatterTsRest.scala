@@ -239,8 +239,6 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
 
   private def escapeTsSingleQuoted(s: String): String = renderer.escapeTsSingleQuoted(s)
 
-  private def escapeTsDoubleQuoted(s: String): String = renderer.escapeTsDoubleQuoted(s)
-
   private[tsrest] def zod(schema: BaklavaSchemaSerializable): String = renderer.zod(schema)
 
   private[tsrest] def collapseZodUnion(zods: Seq[String]): String = renderer.collapseZodUnion(zods)
