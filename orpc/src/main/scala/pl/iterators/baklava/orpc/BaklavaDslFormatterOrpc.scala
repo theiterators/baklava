@@ -48,6 +48,9 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
   private val clientTsPath   = s"$sourcesDirName/client.ts"
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
+    // Module files are named after the current route set; without a wipe, files from a previous
+    // run (renamed or removed routes) would linger and ship to consumers syncing the directory.
+    deleteRecursively(new File(sourcesDirName))
     // Create all target directories upfront so downstream writes don't depend on ordering.
     new File(dirName).mkdirs()
     new File(sourcesDirName).mkdirs()
@@ -151,6 +154,11 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
 
   private def writeTo(path: String, content: String): Unit =
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
+
+  private def deleteRecursively(file: File): Unit = {
+    if (file.isDirectory) Option(file.listFiles()).toSeq.flatten.foreach(deleteRecursively)
+    val _ = file.delete()
+  }
 
   private[orpc] def buildParamsZod[P](
       paramsPerCall: Seq[Seq[P]],
