@@ -438,9 +438,15 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
     }
   }
 
-  private def isEmptyBodyInstance(schema: BaklavaSchemaSerializable): Boolean =
-    plainRenderer.isEmptyBodyInstance(schema)
-
   private def toCamelCase(s: String): String = TsNaming.toCamelCase(s)
 
+  <<<<<<< HEAD
+    =======
+  private def escapeTsSingleQuoted(s: String): String = renderer.escapeTsSingleQuoted(s)
+
+  private[orpc] def zod(schema: BaklavaSchemaSerializable): String = renderer.zod(schema)
+
+  private[orpc] def collapseZodUnion(zods: Seq[String]): String = renderer.collapseZodUnion(zods)
+
+  >>>>>>> feat / tscommon
 }
