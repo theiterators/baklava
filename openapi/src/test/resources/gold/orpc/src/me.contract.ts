@@ -1,7 +1,7 @@
 import { oc } from "@orpc/contract";
 import { userSchema } from "./schemas";
 
-export const meContract = {
+export const me = {
   get: oc
     .route({
       method: 'GET',
