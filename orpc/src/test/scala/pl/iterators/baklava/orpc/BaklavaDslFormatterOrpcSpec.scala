@@ -302,6 +302,52 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       refs.values.filterNot(_ == "auctionDtoSchema").head should startWith("auctionDtoSchema")
     }
 
+    it("hoists ONE shared base for error data declared under several codes") {
+      val problem               = objectSchema(Map("type" -> stringSchema(), "title" -> stringSchema())).copy(className = "Error")
+      def errCall(code: String) =
+        call(
+          "/a",
+          method = "POST",
+          status = 409,
+          responseSchema = Some(problem),
+          responseBodyString = s"""{"type":"$code","title":"t"}"""
+        )
+      val refs = generator.buildSchemaRefs(
+        Seq(
+          (
+            (Some(Method("POST")), "/a"),
+            Seq(call("/a", method = "POST", status = 201), errCall("result:bid-too-low"), errCall("result:auction-not-open"))
+          )
+        ),
+        "type"
+      )
+      refs.keySet shouldBe Set(problem)
+      refs(problem) shouldBe "errorSchema"
+    }
+
+    it("narrows a hoisted error base at the use site via .extend") {
+      val problem  = objectSchema(Map("type" -> stringSchema(), "title" -> stringSchema())).copy(className = "Error")
+      val refs     = Map(problem -> "errorSchema")
+      val renderer = new TsZodRenderer(TsZodDialect.orpc, refs.get)
+      val entry    = generator.declaredErrors(
+        Seq(
+          call("/a", method = "POST", status = 201),
+          call(
+            "/a",
+            method = "POST",
+            status = 409,
+            responseSchema = Some(problem),
+            responseBodyString = """{"type":"result:bid-too-low","title":"t"}"""
+          )
+        ),
+        errorCodeField = "type",
+        renderer = renderer,
+        refs = refs
+      )
+      entry.get should include("""data: errorSchema.extend({type: z.enum(["result:bid-too-low"])})""")
+      (entry.get should not).include("z.object(")
+    }
+
     it("skips schemas with generic classNames") {
       val obj  = objectSchema(Map("a" -> stringSchema()))
       val refs = generator.buildSchemaRefs(

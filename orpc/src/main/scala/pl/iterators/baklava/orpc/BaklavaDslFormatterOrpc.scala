@@ -1,7 +1,7 @@
 package pl.iterators.baklava.orpc
 
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsPathRouter, TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsPathRouter, TsSchemaRefs, TsZodDialect, TsZodRenderer}
 import sttp.model.Method
 
 import java.io.{File, FileWriter, PrintWriter}
@@ -78,26 +78,9 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
 
   // --- Named, deduplicated schemas -----------------------------------------------------------
 
-  private def collectObjectNodes(schema: BaklavaSchemaSerializable): Seq[BaklavaSchemaSerializable] = {
-    val children =
-      schema.properties.values.toSeq ++ schema.items.toSeq ++ schema.additionalPropertiesSchema.toSeq
-    val self =
-      if (schema.`type` == SchemaType.ObjectType && schema.properties.nonEmpty) Seq(schema) else Seq.empty
-    self ++ children.flatMap(collectObjectNodes)
-  }
-
-  private val genericClassNames = Set("Object", "Map", "Option", "Some", "None", "List", "Seq", "Vector", "Set")
-
-  private def hoistableName(schema: BaklavaSchemaSerializable): Option[String] =
-    Option(schema.className)
-      .filter(_.matches("[A-Za-z][A-Za-z0-9]*"))
-      .filterNot(genericClassNames.contains)
-      .map(n => n.head.toLower.toString + n.tail + "Schema")
-
-  // Object schemas that occur more than once anywhere in the rendered output (bodies, success
-  // outputs, declared error data — including nested occurrences) are hoisted into schemas.ts
-  // under a name derived from the captured case-class name. Same derived name with a different
-  // structure gets a deterministic hash suffix.
+  // Error data schemas count un-narrowed: the per-code literal is applied at the use site
+  // (`errorSchema.extend({type: z.enum(["<code>"])})`), so one shared base hoists instead of
+  // one narrowed copy per declared code.
   private[orpc] def buildSchemaRefs(
       endpoints: Seq[((Option[Method], String), Seq[BaklavaSerializableCall])],
       errorCodeField: String
@@ -107,44 +90,11 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       calls.flatMap(_.request.bodySchema).filterNot(plainRenderer.isEmptyBodyInstance) ++
         calls.filter(c => c.response.status.code >= 200 && c.response.status.code < 300).flatMap(_.response.bodySchema) ++
         endpoints.flatMap { case (_, epCalls) => errorDataSchemas(epCalls, errorCodeField).map(_._2).flatten }
-    val counts    = rendered.flatMap(collectObjectNodes).groupBy(identity).view.mapValues(_.size).toMap
-    val hoistable = counts.collect { case (schema, n) if n >= 2 => schema }.toSeq
-    val named     = hoistable.flatMap(s => hoistableName(s).map(_ -> s))
-    named
-      .groupBy(_._1)
-      .toSeq
-      .flatMap { case (name, entries) =>
-        val schemas = entries.map(_._2).sortBy(plainRenderer.zodDefinition)
-        schemas.zipWithIndex.map { case (schema, i) =>
-          val finalName = if (i == 0) name else s"$name${f"${plainRenderer.zodDefinition(schema).hashCode.abs}%x".take(4)}"
-          schema -> finalName
-        }
-      }
-      .toMap
+    TsSchemaRefs.buildRefs(rendered, plainRenderer.zodDefinition)
   }
 
-  private def writeSchemasFile(refs: Map[BaklavaSchemaSerializable, String]): Unit = {
-    // Definition order: dependencies before dependents (a hoisted schema may reference another).
-    val remaining = scala.collection.mutable.LinkedHashMap.from(refs.toSeq.sortBy(_._2))
-    val ordered   = scala.collection.mutable.ListBuffer.empty[(BaklavaSchemaSerializable, String)]
-    while (remaining.nonEmpty) {
-      val ready = remaining.filter { case (schema, _) =>
-        collectObjectNodes(schema).filterNot(_ == schema).forall(n => !remaining.contains(n))
-      }
-      ready.foreach { entry =>
-        ordered += entry
-        remaining -= entry._1
-      }
-    }
-    val renderer = rendererWith(refs, _ => ())
-    val defs     = ordered
-      .map { case (schema, name) =>
-        val body = renderer.zodDefinition(schema)
-        s"export const $name = $body;"
-      }
-      .mkString("\n\n")
-    writeTo(schemasTsPath, "import { z } from \"zod\";\n\n" + defs + "\n")
-  }
+  private def writeSchemasFile(refs: Map[BaklavaSchemaSerializable, String]): Unit =
+    writeTo(schemasTsPath, TsSchemaRefs.schemasFileContent(refs, rendererWith(refs, _ => ()).zodDefinition))
 
   private def rendererWith(
       refs: Map[BaklavaSchemaSerializable, String],
@@ -168,7 +118,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       module.node,
       0,
       plainRenderer.tsObjectKey,
-      (endpoint, key) => createContractForEndpoint(endpoint, errorCodeField, renderer, keyOverride = Some(key))
+      (endpoint, key) => createContractForEndpoint(endpoint, errorCodeField, renderer, keyOverride = Some(key), refs = refs)
     )
     val code =
       s"""export const ${module.constName} = {
@@ -235,7 +185,8 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall]),
       errorCodeField: String = "type",
       renderer: TsZodRenderer = plainRenderer,
-      keyOverride: Option[String] = None
+      keyOverride: Option[String] = None,
+      refs: Map[BaklavaSchemaSerializable, String] = Map.empty
   ): String = {
     val ((httpMethodOpt, _), calls) = endpoint
     require(
@@ -363,7 +314,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
            s"    }))"
          )) ++
       outputZodOpt.toList.map(z => s"    .output($z)") ++
-      declaredErrors(calls, errorCodeField, renderer).toList
+      declaredErrors(calls, errorCodeField, renderer, refs).toList
 
     lines.mkString("\n")
   }
@@ -406,7 +357,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       .toList
       .sortBy(_._1)
       .map { case (code, codeCalls) =>
-        code -> codeCalls.flatMap(_._2.response.bodySchema).distinct.map(withLiteralDiscriminator(_, errorCodeField, code))
+        code -> codeCalls.flatMap(_._2.response.bodySchema).distinct
       }
   }
 
@@ -414,10 +365,27 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
   // bodies. Codes match what a client-side error decoder should set on its ORPCErrors, making
   // `isDefinedError` narrowing work end to end. Calls whose body carries no extractable code
   // (bodyless 429s, non-JSON payloads) are left undeclared and surface via oRPC's defaults.
+  // A hoisted base with a plain-string discriminator narrows at the use site via `.extend`,
+  // keeping one shared schema; anything else inlines a narrowed copy.
+  private def errorDataZod(
+      schema: BaklavaSchemaSerializable,
+      field: String,
+      code: String,
+      renderer: TsZodRenderer,
+      refs: Map[BaklavaSchemaSerializable, String]
+  ): String =
+    schema.properties.get(field) match {
+      case Some(prop) if prop.`type` == SchemaType.StringType && prop.`enum`.isEmpty && refs.contains(schema) =>
+        val narrowedProp = prop.copy(format = None, `enum` = Some(Set(code)))
+        s"${renderer.zod(schema)}.extend({${renderer.tsObjectKey(field)}: ${renderer.zod(narrowedProp)}})"
+      case _ => renderer.zod(withLiteralDiscriminator(schema, field, code))
+    }
+
   private[orpc] def declaredErrors(
       calls: Seq[BaklavaSerializableCall],
       errorCodeField: String,
-      renderer: TsZodRenderer = plainRenderer
+      renderer: TsZodRenderer = plainRenderer,
+      refs: Map[BaklavaSchemaSerializable, String] = Map.empty
   ): Option[String] = {
     val errorCalls = calls.filter(c => c.response.status.code < 200 || c.response.status.code >= 300)
     val byCode     = errorDataSchemas(calls, errorCodeField)
@@ -431,8 +399,10 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
         .toMap
       val entries = byCode.map { case (code, schemas) =>
         val status  = statusByCode(code)
-        val dataOpt = if (schemas.isEmpty) None else Some(s"        data: ${renderer.collapseZodUnion(schemas.map(renderer.zod))}")
-        val fields  = List(Some(s"        status: $status"), dataOpt).flatten.mkString(",\n")
+        val dataOpt =
+          if (schemas.isEmpty) None
+          else Some(s"        data: ${renderer.collapseZodUnion(schemas.map(errorDataZod(_, errorCodeField, code, renderer, refs)))}")
+        val fields = List(Some(s"        status: $status"), dataOpt).flatten.mkString(",\n")
         s"      '${renderer.escapeTsSingleQuoted(code)}': {\n$fields\n      }"
       }
       Some(s"    .errors({\n${entries.mkString(",\n")}\n    })")

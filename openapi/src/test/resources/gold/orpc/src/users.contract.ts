@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
-import { userSchema } from "./schemas";
+import { errorResponseSchema, userSchema } from "./schemas";
 
 export const users = {
   get: oc
@@ -56,10 +56,7 @@ export const users = {
       .errors({
         'not_found': {
           status: 404,
-          data: z.object({
-          "code": z.enum(["not_found"]),
-          "details": z.array(z.string()).nullish(),
-          "message": z.string()})
+          data: errorResponseSchema.extend({code: z.enum(["not_found"])})
         }
       }),
     put: oc

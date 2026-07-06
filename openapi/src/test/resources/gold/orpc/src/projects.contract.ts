@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
-import { createProjectRequestSchema, projectSchema, taskSchema } from "./schemas";
+import { createProjectRequestSchema, errorResponseSchema, projectSchema, taskSchema } from "./schemas";
 
 export const projects = {
   get: oc
@@ -36,10 +36,7 @@ export const projects = {
     .errors({
       'validation': {
         status: 400,
-        data: z.object({
-        "code": z.enum(["validation"]),
-        "details": z.array(z.string()).nullish(),
-        "message": z.string()})
+        data: errorResponseSchema.extend({code: z.enum(["validation"])})
       }
     }),
   byProjectId: {

@@ -19,7 +19,7 @@ export const projectSchema = z.object({
         "description": z.string().nullish(),
         "id": z.number().int(),
         "name": z.string(),
-        "ownerId": z.uuid(),
+        "ownerId": z.string().uuid(),
         "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")});
 
 export const taskSchema = z.object({
@@ -31,7 +31,7 @@ export const taskSchema = z.object({
 
 export const userSchema = z.object({
         "email": z.string(),
-        "id": z.uuid(),
+        "id": z.string().uuid(),
         "name": z.string(),
         "role": z.enum(["admin","guest","member"]).describe("User role within the system")});
 

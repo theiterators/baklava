@@ -365,6 +365,32 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       )
     )
 
+  describe("named schema hoisting (buildSchemaRefs)") {
+
+    def callWithResponse(path: String, schema: BaklavaSchemaSerializable): BaklavaSerializableCall = {
+      val base = getCall(path)
+      base.copy(response = base.response.copy(bodySchema = Some(schema)))
+    }
+
+    it("hoists an object schema that occurs more than once, named from its className") {
+      val dto  = objectSchema(Map("a" -> stringSchema())).copy(className = "UserDto")
+      val refs = generator.buildSchemaRefs(
+        Seq(
+          ((Some(Method("GET")), "/a"), Seq(callWithResponse("/a", dto))),
+          ((Some(Method("GET")), "/b"), Seq(callWithResponse("/b", dto)))
+        )
+      )
+      refs.get(dto) shouldBe Some("userDtoSchema")
+    }
+
+    it("leaves single-occurrence schemas inline") {
+      val dto = objectSchema(Map("a" -> stringSchema())).copy(className = "UserDto")
+      generator.buildSchemaRefs(
+        Seq(((Some(Method("GET")), "/a"), Seq(callWithResponse("/a", dto))))
+      ) shouldBe empty
+    }
+  }
+
   // The contract entry (`get: { ... }` / `post: { ... }` block) the generator emits for one
   // (method, path) endpoint group — exercised directly so the tests don't touch the filesystem.
   private def endpoint(method: String, path: String, calls: BaklavaSerializableCall*): String =

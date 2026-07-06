@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
-import { loginFormSchema, userSchema } from "./schemas";
+import { errorResponseSchema, loginFormSchema, userSchema } from "./schemas";
 
 export const auth = {
   login: {
@@ -24,10 +24,7 @@ export const auth = {
       .errors({
         'unauthorized': {
           status: 401,
-          data: z.object({
-          "code": z.enum(["unauthorized"]),
-          "details": z.array(z.string()).nullish(),
-          "message": z.string()})
+          data: errorResponseSchema.extend({code: z.enum(["unauthorized"])})
         }
       })
   }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
+import { errorResponseSchema, userSchema } from "./schemas";
 
 export const users = initContract().router({
   get: {
@@ -13,11 +14,7 @@ export const users = initContract().router({
         "limit": z.number().int(),
         "page": z.number().int(),
         "total": z.number().int(),
-        "users": z.array(z.object({
-        "email": z.string(),
-        "id": z.string().uuid(),
-        "name": z.string(),
-        "role": z.enum(["admin","guest","member"]).describe("User role within the system")}))})
+        "users": z.array(userSchema)})
     }
   },
   byUserId: {
@@ -39,15 +36,8 @@ export const users = initContract().router({
       path: '/users/:userId',
       pathParams: z.object({userId: z.string().uuid()}),
       responses: {
-        200: z.object({
-          "email": z.string(),
-          "id": z.string().uuid(),
-          "name": z.string(),
-          "role": z.enum(["admin","guest","member"]).describe("User role within the system")}),
-        404: z.object({
-          "code": z.string(),
-          "details": z.array(z.string()).nullish(),
-          "message": z.string()})
+        200: userSchema,
+        404: errorResponseSchema
       }
     },
     put: {
@@ -60,11 +50,7 @@ export const users = initContract().router({
           "name": z.string(),
           "role": z.enum(["admin","guest","member"]).describe("User role within the system")}),
       responses: {
-        200: z.object({
-          "email": z.string(),
-          "id": z.string().uuid(),
-          "name": z.string(),
-          "role": z.enum(["admin","guest","member"]).describe("User role within the system")})
+        200: userSchema
       }
     },
     photo: {

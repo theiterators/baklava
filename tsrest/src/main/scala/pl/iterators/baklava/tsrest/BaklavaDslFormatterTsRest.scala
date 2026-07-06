@@ -1,7 +1,7 @@
 package pl.iterators.baklava.tsrest
 
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsPathRouter, TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsPathRouter, TsSchemaRefs, TsZodDialect, TsZodRenderer}
 import sttp.model.Method
 
 import java.io.{File, FileWriter, PrintWriter}
@@ -10,13 +10,14 @@ import scala.util.Using
 class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   import TsPathRouter.*
 
-  private val renderer = new TsZodRenderer(TsZodDialect.tsRest)
+  private val plainRenderer = new TsZodRenderer(TsZodDialect.tsRest)
 
   private val dirName                 = "target/baklava/tsrest"
   private val sourcesDirName          = "target/baklava/tsrest/src"
   private val packageContractJsonPath = s"$dirName/package-contracts.json"
 
   private val contractTsPath = s"$sourcesDirName/contracts.ts"
+  private val schemasTsPath  = s"$sourcesDirName/schemas.ts"
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
     // Module files are named after the current route set; without a wipe, files from a previous
@@ -40,33 +41,64 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       .toList
       .sortBy { case ((method, path), _) => (path, method.map(_.toString).getOrElse("")) }
 
+    val refs = buildSchemaRefs(endpoints)
+    if (refs.nonEmpty) writeTo(schemasTsPath, TsSchemaRefs.schemasFileContent(refs, rendererWith(refs, _ => ()).zodDefinition))
+
     val modules = modulesOf(buildRouterTree(endpoints))
-    modules.foreach(writeModuleFile)
+    modules.foreach(writeModuleFile(_, refs))
     writeContractsFile(modules)
   }
+
+  private[tsrest] def buildSchemaRefs(endpoints: Seq[Endpoint]): Map[BaklavaSchemaSerializable, String] = {
+    val calls    = endpoints.flatMap(_._2)
+    val rendered =
+      calls.flatMap(_.request.bodySchema).filterNot(plainRenderer.isEmptyBodyInstance) ++
+        calls.flatMap(_.response.bodySchema)
+    TsSchemaRefs.buildRefs(rendered, plainRenderer.zodDefinition)
+  }
+
+  private def rendererWith(
+      refs: Map[BaklavaSchemaSerializable, String],
+      record: String => Unit
+  ): TsZodRenderer =
+    new TsZodRenderer(
+      TsZodDialect.tsRest,
+      schema =>
+        refs.get(schema).map { name =>
+          record(name)
+          name
+        }
+    )
 
   private def moduleFilePath(module: RouterModule): String =
     module.fileSegments.mkString("/") + ".contract.ts"
 
-  private def writeModuleFile(module: RouterModule): Unit = {
-    val body = TsPathRouter.render(
+  private def writeModuleFile(module: RouterModule, refs: Map[BaklavaSchemaSerializable, String]): Unit = {
+    val usedRefs = scala.collection.mutable.SortedSet.empty[String]
+    val renderer = rendererWith(refs, usedRefs += _)
+    val body     = TsPathRouter.render(
       module.node,
       0,
-      renderer.tsObjectKey,
-      (endpoint, key) => createContractForEndpoint(endpoint, keyOverride = Some(key))
+      plainRenderer.tsObjectKey,
+      (endpoint, key) => createContractForEndpoint(endpoint, keyOverride = Some(key), renderer = renderer)
     )
     val code =
       s"""export const ${module.constName} = initContract().router({
          |$body
          |});
          |""".stripMargin
-    val path = s"$sourcesDirName/${moduleFilePath(module)}"
+    val filePath     = moduleFilePath(module)
+    val schemasFrom  = if (filePath.contains('/')) "../schemas" else "./schemas"
+    val schemaImport =
+      if (usedRefs.isEmpty) ""
+      else s"import { ${usedRefs.mkString(", ")} } from \"$schemasFrom\";\n"
+    val path = s"$sourcesDirName/$filePath"
     new File(path).getParentFile.mkdirs()
     writeTo(
       path,
       """import { z } from "zod";
         |import { initContract } from "@ts-rest/core";
-        |""".stripMargin + "\n" + code
+        |""".stripMargin + schemaImport + "\n" + code
     )
   }
 
@@ -83,15 +115,15 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       mountedByTop.map {
         case (top, Seq(single)) if single.mountPath.sizeIs == 1 =>
           if (single.constName == top) s"  $top"
-          else s"  ${renderer.tsObjectKey(top)}: ${single.constName}"
+          else s"  ${plainRenderer.tsObjectKey(top)}: ${single.constName}"
         case (top, group) =>
           val inner = group
             .map { m =>
               if (m.spread) s"    ...${m.constName}"
-              else s"    ${renderer.tsObjectKey(m.mountPath.last)}: ${m.constName}"
+              else s"    ${plainRenderer.tsObjectKey(m.mountPath.last)}: ${m.constName}"
             }
             .mkString(",\n")
-          s"  ${renderer.tsObjectKey(top)}: {\n$inner\n  }"
+          s"  ${plainRenderer.tsObjectKey(top)}: {\n$inner\n  }"
       }
 
     writeTo(
@@ -118,9 +150,9 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       paramsPerCall: Seq[Seq[P]],
       nameOf: P => String,
       schemaOf: P => BaklavaSchemaSerializable
-  ): Option[String] = renderer.buildParamsZod(paramsPerCall, nameOf, schemaOf)
+  ): Option[String] = plainRenderer.buildParamsZod(paramsPerCall, nameOf, schemaOf)
 
-  private[tsrest] def tsObjectKey(name: String): String = renderer.tsObjectKey(name)
+  private[tsrest] def tsObjectKey(name: String): String = plainRenderer.tsObjectKey(name)
 
   // Render one captured `Multipart` value as a ts-rest body schema (see
   // https://ts-rest.com/docs/core/multi-part): a `z.object` keyed by part name, `FilePart` ->
@@ -128,7 +160,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   // field) becomes a `z.array(...)`; a name that mixes file and text parts unions the element
   // schemas. Names and element schemas are sorted so output is deterministic.
   private[tsrest] def renderMultipartBody(parts: Seq[BaklavaMultipartPartSerializable]): String =
-    renderer.renderMultipartBody(parts)
+    plainRenderer.renderMultipartBody(parts)
 
   /** Convert a Baklava `{name}` placeholder path to the ts-rest `:name` syntax. Non-placeholder braces (i.e. anything containing `/` or
     * nested braces) are left alone. Param names can contain any character except `{`, `}`, or `/` — so hyphens and dots survive.
@@ -139,7 +171,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   // Contract endpoint generator
   private[tsrest] def createContractForEndpoint(
       endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall]),
-      keyOverride: Option[String] = None
+      keyOverride: Option[String] = None,
+      renderer: TsZodRenderer = plainRenderer
   ): String = {
     val ((httpMethodOpt, _), calls) = endpoint
     require(
@@ -155,17 +188,17 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     val description = escapeTsSingleQuoted(calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n"))
     val path        = toTsRestPath(req.symbolicPath)
 
-    val pathParamsZodOpt = buildParamsZod(
+    val pathParamsZodOpt = renderer.buildParamsZod(
       calls.map(_.request.pathParametersSeq),
       (p: BaklavaPathParamSerializable) => p.name,
       (p: BaklavaPathParamSerializable) => p.schema
     )
-    val queryParamsZodOpt = buildParamsZod(
+    val queryParamsZodOpt = renderer.buildParamsZod(
       calls.map(_.request.queryParametersSeq),
       (p: BaklavaQueryParamSerializable) => p.name,
       (p: BaklavaQueryParamSerializable) => p.schema
     )
-    val headersZodOpt = buildParamsZod(
+    val headersZodOpt = renderer.buildParamsZod(
       calls.map(_.request.headersSeq),
       (h: BaklavaHeaderSerializable) => h.name,
       (h: BaklavaHeaderSerializable) => h.schema
@@ -188,7 +221,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       }
     val (contentTypeLineOpt, bodyZod) =
       if (multipartPartSets.nonEmpty)
-        (Some("    contentType: 'multipart/form-data',"), collapseZodUnion(multipartPartSets.map(renderMultipartBody)))
+        (Some("    contentType: 'multipart/form-data',"), renderer.collapseZodUnion(multipartPartSets.map(renderer.renderMultipartBody)))
       else {
         val bodySchemas = calls.flatMap(_.request.bodySchema).distinct
         val bodyZods    =
@@ -196,9 +229,9 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
           else if (bodySchemas.size == 1 && isEmptyBodyInstance(bodySchemas.head)) Seq("z.undefined()")
           else {
             val notEmptyBodies = bodySchemas.filterNot(isEmptyBodyInstance)
-            if (notEmptyBodies.isEmpty) Seq("z.undefined()") else notEmptyBodies.map(zod)
+            if (notEmptyBodies.isEmpty) Seq("z.undefined()") else notEmptyBodies.map(renderer.zod)
           }
-        (None, collapseZodUnion(bodyZods))
+        (None, renderer.collapseZodUnion(bodyZods))
       }
 
     // --- Responses ---
@@ -207,8 +240,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       .toList
       .sortBy(_._1)
       .map { case (status, respCalls) =>
-        val schemas = respCalls.flatMap(_.response.bodySchema).distinct.map(zod)
-        val zodStr  = collapseZodUnion(schemas)
+        val schemas = respCalls.flatMap(_.response.bodySchema).distinct.map(renderer.zod)
+        val zodStr  = renderer.collapseZodUnion(schemas)
         s"      $status: $zodStr"
       }
       .mkString(",\n")
@@ -241,12 +274,12 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   }
 
   private def isEmptyBodyInstance(schema: BaklavaSchemaSerializable): Boolean =
-    renderer.isEmptyBodyInstance(schema)
+    plainRenderer.isEmptyBodyInstance(schema)
 
-  private def escapeTsSingleQuoted(s: String): String = renderer.escapeTsSingleQuoted(s)
+  private def escapeTsSingleQuoted(s: String): String = plainRenderer.escapeTsSingleQuoted(s)
 
-  private[tsrest] def zod(schema: BaklavaSchemaSerializable): String = renderer.zod(schema)
+  private[tsrest] def zod(schema: BaklavaSchemaSerializable): String = plainRenderer.zod(schema)
 
-  private[tsrest] def collapseZodUnion(zods: Seq[String]): String = renderer.collapseZodUnion(zods)
+  private[tsrest] def collapseZodUnion(zods: Seq[String]): String = plainRenderer.collapseZodUnion(zods)
 
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
+import { createProjectRequestSchema, errorResponseSchema, projectSchema, taskSchema } from "./schemas";
 
 export const projects = initContract().router({
   get: {
@@ -9,13 +10,7 @@ export const projects = initContract().router({
     path: '/projects',
     query: z.object({status: z.enum(["active","archived","draft"]).describe("Lifecycle state of a project").nullish()}),
     responses: {
-      200: z.array(z.object({
-        "createdAt": z.string(),
-        "description": z.string().nullish(),
-        "id": z.number().int(),
-        "name": z.string(),
-        "ownerId": z.string().uuid(),
-        "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")}))
+      200: z.array(projectSchema)
     }
   },
   post: {
@@ -23,22 +18,10 @@ export const projects = initContract().router({
     description: 'Create a new project',
     method: 'POST',
     path: '/projects',
-    body: z.object({
-        "description": z.string().nullish(),
-        "name": z.string(),
-        "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")}),
+    body: createProjectRequestSchema,
     responses: {
-      201: z.object({
-        "createdAt": z.string(),
-        "description": z.string().nullish(),
-        "id": z.number().int(),
-        "name": z.string(),
-        "ownerId": z.string().uuid(),
-        "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")}),
-      400: z.object({
-        "code": z.string(),
-        "details": z.array(z.string()).nullish(),
-        "message": z.string()})
+      201: projectSchema,
+      400: errorResponseSchema
     }
   },
   byProjectId: {
@@ -53,13 +36,7 @@ export const projects = initContract().router({
           "name": z.string().nullish(),
           "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project").nullish()}),
       responses: {
-        200: z.object({
-          "createdAt": z.string(),
-          "description": z.string().nullish(),
-          "id": z.number().int(),
-          "name": z.string(),
-          "ownerId": z.string().uuid(),
-          "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")})
+        200: projectSchema
       }
     },
     tasks: {
@@ -70,12 +47,7 @@ export const projects = initContract().router({
         path: '/projects/:projectId/tasks',
         pathParams: z.object({projectId: z.number().int()}),
         responses: {
-          200: z.array(z.object({
-            "description": z.string().nullish(),
-            "done": z.boolean(),
-            "id": z.number().int(),
-            "priority": z.enum(["high","low","medium"]).describe("Task priority level"),
-            "title": z.string()}))
+          200: z.array(taskSchema)
         }
       },
       post: {
@@ -89,12 +61,7 @@ export const projects = initContract().router({
             "priority": z.enum(["high","low","medium"]).describe("Task priority level"),
             "title": z.string()}),
         responses: {
-          201: z.object({
-            "description": z.string().nullish(),
-            "done": z.boolean(),
-            "id": z.number().int(),
-            "priority": z.enum(["high","low","medium"]).describe("Task priority level"),
-            "title": z.string()})
+          201: taskSchema
         }
       }
     }

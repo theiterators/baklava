@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
+import { userSchema } from "./schemas";
 
 export const me = initContract().router({
   get: {
@@ -8,11 +9,7 @@ export const me = initContract().router({
     method: 'GET',
     path: '/me',
     responses: {
-      200: z.object({
-        "email": z.string(),
-        "id": z.string().uuid(),
-        "name": z.string(),
-        "role": z.enum(["admin","guest","member"]).describe("User role within the system")})
+      200: userSchema
     }
   }
 });
