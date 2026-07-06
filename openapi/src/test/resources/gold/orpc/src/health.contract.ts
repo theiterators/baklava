@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { oc } from "@orpc/contract";
+import { healthResponseSchema } from "./health.schemas";
 
 export const health = {
   get: oc
@@ -13,7 +13,5 @@ export const health = {
       successStatus: 200,
       inputStructure: 'detailed'
     })
-    .output(z.object({
-        "status": z.string(),
-        "uptimeSeconds": z.number().int()}))
+    .output(healthResponseSchema)
 };

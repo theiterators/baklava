@@ -383,11 +383,11 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       refs.get(dto) shouldBe Some("userDtoSchema")
     }
 
-    it("leaves single-occurrence schemas inline") {
+    it("hoists single-occurrence named schemas too") {
       val dto = objectSchema(Map("a" -> stringSchema())).copy(className = "UserDto")
-      generator.buildSchemaRefs(
-        Seq(((Some(Method("GET")), "/a"), Seq(callWithResponse("/a", dto))))
-      ) shouldBe empty
+      generator
+        .buildSchemaRefs(Seq(((Some(Method("GET")), "/a"), Seq(callWithResponse("/a", dto)))))
+        .get(dto) shouldBe Some("userDtoSchema")
     }
   }
 

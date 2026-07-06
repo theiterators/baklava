@@ -278,13 +278,13 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       refs.get(dto) shouldBe Some("auctionDtoSchema")
     }
 
-    it("leaves single-occurrence schemas inline") {
+    it("hoists single-occurrence named schemas too (every case class gets a schema + type)") {
       val dto  = dtoSchema("a")
       val refs = generator.buildSchemaRefs(
         Seq(((Some(Method("GET")), "/a"), Seq(call("/a", responseSchema = Some(dto))))),
         "type"
       )
-      refs shouldBe empty
+      refs.get(dto) shouldBe Some("auctionDtoSchema")
     }
 
     it("suffixes colliding names deterministically") {

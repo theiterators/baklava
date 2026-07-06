@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
 import { errorResponseSchema } from "./schemas";
-import { createProjectRequestSchema, projectSchema, taskSchema } from "./projects.schemas";
+import { createProjectRequestSchema, createTaskRequestSchema, patchProjectRequestSchema, projectSchema, taskSchema } from "./projects.schemas";
 
 export const projects = initContract().router({
   get: {
@@ -32,10 +32,7 @@ export const projects = initContract().router({
       method: 'PATCH',
       path: '/projects/:projectId',
       pathParams: z.object({projectId: z.number().int()}),
-      body: z.object({
-          "description": z.string().nullish(),
-          "name": z.string().nullish(),
-          "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project").nullish()}),
+      body: patchProjectRequestSchema,
       responses: {
         200: projectSchema
       }
@@ -57,10 +54,7 @@ export const projects = initContract().router({
         method: 'POST',
         path: '/projects/:projectId/tasks',
         pathParams: z.object({projectId: z.number().int()}),
-        body: z.object({
-            "description": z.string().nullish(),
-            "priority": z.enum(["high","low","medium"]).describe("Task priority level"),
-            "title": z.string()}),
+        body: createTaskRequestSchema,
         responses: {
           201: taskSchema
         }

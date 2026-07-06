@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
+import { healthResponseSchema } from "./health.schemas";
 
 export const health = initContract().router({
   get: {
@@ -8,9 +9,7 @@ export const health = initContract().router({
     method: 'GET',
     path: '/health',
     responses: {
-      200: z.object({
-        "status": z.string(),
-        "uptimeSeconds": z.number().int()})
+      200: healthResponseSchema
     }
   }
 });

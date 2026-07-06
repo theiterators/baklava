@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
-import { webhookPayloadSchema } from "./webhooks.schemas";
+import { webhookAckSchema, webhookPayloadSchema } from "./webhooks.schemas";
 
 export const webhooks = initContract().router({
   post: {
@@ -10,8 +10,7 @@ export const webhooks = initContract().router({
     path: '/webhooks',
     body: webhookPayloadSchema,
     responses: {
-      202: z.union([z.object({
-        "received": z.boolean()}), z.string()])
+      202: z.union([webhookAckSchema, z.string()])
     }
   }
 });

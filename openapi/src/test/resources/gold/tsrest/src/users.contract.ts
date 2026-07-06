@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
 import { errorResponseSchema, userSchema } from "./schemas";
+import { paginatedUsersSchema, photoUploadSchema, updateUserRequestSchema } from "./users.schemas";
 
 export const users = initContract().router({
   get: {
@@ -10,11 +11,7 @@ export const users = initContract().router({
     path: '/users',
     query: z.object({page: z.number().int().nullish(), limit: z.number().int().nullish(), role: z.enum(["admin","guest","member"]).describe("User role within the system").nullish()}),
     responses: {
-      200: z.object({
-        "limit": z.number().int(),
-        "page": z.number().int(),
-        "total": z.number().int(),
-        "users": z.array(userSchema)})
+      200: paginatedUsersSchema
     }
   },
   byUserId: {
@@ -46,9 +43,7 @@ export const users = initContract().router({
       method: 'PUT',
       path: '/users/:userId',
       pathParams: z.object({userId: z.string().uuid()}),
-      body: z.object({
-          "name": z.string(),
-          "role": z.enum(["admin","guest","member"]).describe("User role within the system")}),
+      body: updateUserRequestSchema,
       responses: {
         200: userSchema
       }
@@ -63,13 +58,7 @@ export const users = initContract().router({
         contentType: 'multipart/form-data',
         body: z.object({caption: z.string(), photo: z.instanceof(File)}),
         responses: {
-          201: z.object({
-            "id": z.string().uuid(),
-            "variants": z.record(z.string(), z.object({
-            "format": z.string(),
-            "height": z.number().int(),
-            "url": z.string(),
-            "width": z.number().int()}))})
+          201: photoUploadSchema
         }
       }
     }

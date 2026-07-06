@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
-import { errorResponseSchema, userSchema } from "./schemas";
-import { loginFormSchema } from "./auth.schemas";
+import { errorResponseSchema } from "./schemas";
+import { loginFormSchema, loginResponseSchema } from "./auth.schemas";
 
 export const auth = {
   login: {
@@ -19,9 +19,7 @@ export const auth = {
       .input(z.object({
         body: loginFormSchema
       }))
-      .output(z.object({
-          "token": z.string(),
-          "user": userSchema}))
+      .output(loginResponseSchema)
       .errors({
         'unauthorized': {
           status: 401,

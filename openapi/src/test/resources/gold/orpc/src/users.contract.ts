@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
 import { errorResponseSchema, userSchema } from "./schemas";
+import { paginatedUsersSchema, photoUploadSchema, updateUserRequestSchema } from "./users.schemas";
 
 export const users = {
   get: oc
@@ -17,11 +18,7 @@ export const users = {
     .input(z.object({
       query: z.object({page: z.number().int().nullish(), limit: z.number().int().nullish(), role: z.enum(["admin","guest","member"]).describe("User role within the system").nullish()}).optional()
     }))
-    .output(z.object({
-        "limit": z.number().int(),
-        "page": z.number().int(),
-        "total": z.number().int(),
-        "users": z.array(userSchema)})),
+    .output(paginatedUsersSchema),
   byUserId: {
     delete: oc
       .route({
@@ -72,9 +69,7 @@ export const users = {
       })
       .input(z.object({
         params: z.object({userId: z.uuid()}),
-        body: z.object({
-          "name": z.string(),
-          "role": z.enum(["admin","guest","member"]).describe("User role within the system")})
+        body: updateUserRequestSchema
       }))
       .output(userSchema),
     photo: {
@@ -93,13 +88,7 @@ export const users = {
           params: z.object({userId: z.uuid()}),
           body: z.object({caption: z.string(), photo: z.file()})
         }))
-        .output(z.object({
-            "id": z.uuid(),
-            "variants": z.record(z.string(), z.object({
-            "format": z.string(),
-            "height": z.number().int(),
-            "url": z.string(),
-            "width": z.number().int()}))}))
+        .output(photoUploadSchema)
     }
   }
 };

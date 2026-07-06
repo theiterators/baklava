@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
-import { errorResponseSchema, userSchema } from "./schemas";
-import { loginFormSchema } from "./auth.schemas";
+import { errorResponseSchema } from "./schemas";
+import { loginFormSchema, loginResponseSchema } from "./auth.schemas";
 
 export const auth = initContract().router({
   login: {
@@ -12,9 +12,7 @@ export const auth = initContract().router({
       path: '/auth/login',
       body: loginFormSchema,
       responses: {
-        200: z.object({
-          "token": z.string(),
-          "user": userSchema}),
+        200: loginResponseSchema,
         401: errorResponseSchema
       }
     }

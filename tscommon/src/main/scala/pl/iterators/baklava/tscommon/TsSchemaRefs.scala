@@ -2,10 +2,10 @@ package pl.iterators.baklava.tscommon
 
 import pl.iterators.baklava.*
 
-/** Named, deduplicated schema hoisting shared by the zod-emitting formatters: object schemas occurring more than once anywhere in the
-  * rendered output are hoisted into `schemas.ts` under a name derived from the captured case-class name (`AuctionDto` →
-  * `auctionDtoSchema`), giving consumers `z.infer`-able named types. The same derived name with a different structure gets a deterministic
-  * hash suffix.
+/** Named schema hoisting shared by the zod-emitting formatters: every object schema with a usable captured case-class name is hoisted into
+  * a schemas file under a derived name (`AuctionDto` → `auctionDtoSchema`) and paired with its inferred type, so contracts read as wiring
+  * and the schemas files as the domain vocabulary. The same derived name with a different structure gets a deterministic hash suffix;
+  * anonymous shapes (params/query groups, `Map`s) stay inline.
   */
 object TsSchemaRefs {
 
@@ -25,15 +25,14 @@ object TsSchemaRefs {
       .filterNot(genericClassNames.contains)
       .map(n => n.head.toLower.toString + n.tail + "Schema")
 
-  /** `rendered` is every schema the formatter will emit (bodies, responses, error data — nested occurrences count too). `definitionOf`
+  /** `rendered` is every schema the formatter will emit (bodies, responses, error data — nested occurrences included). `definitionOf`
     * renders a schema standalone and is used only for deterministic collision ordering and hash suffixes.
     */
   def buildRefs(
       rendered: Seq[BaklavaSchemaSerializable],
       definitionOf: BaklavaSchemaSerializable => String
   ): Map[BaklavaSchemaSerializable, String] = {
-    val counts    = rendered.flatMap(collectObjectNodes).groupBy(identity).view.mapValues(_.size).toMap
-    val hoistable = counts.collect { case (schema, n) if n >= 2 => schema }.toSeq
+    val hoistable = rendered.flatMap(collectObjectNodes).distinct
     val named     = hoistable.flatMap(s => hoistableName(s).map(_ -> s))
     named
       .groupBy(_._1)

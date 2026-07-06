@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
 import { errorResponseSchema } from "./schemas";
-import { createProjectRequestSchema, projectSchema, taskSchema } from "./projects.schemas";
+import { createProjectRequestSchema, createTaskRequestSchema, patchProjectRequestSchema, projectSchema, taskSchema } from "./projects.schemas";
 
 export const projects = {
   get: oc
@@ -54,10 +54,7 @@ export const projects = {
       })
       .input(z.object({
         params: z.object({projectId: z.number().int()}),
-        body: z.object({
-          "description": z.string().nullish(),
-          "name": z.string().nullish(),
-          "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project").nullish()})
+        body: patchProjectRequestSchema
       }))
       .output(projectSchema),
     tasks: {
@@ -89,10 +86,7 @@ export const projects = {
         })
         .input(z.object({
           params: z.object({projectId: z.number().int()}),
-          body: z.object({
-            "description": z.string().nullish(),
-            "priority": z.enum(["high","low","medium"]).describe("Task priority level"),
-            "title": z.string()})
+          body: createTaskRequestSchema
         }))
         .output(taskSchema)
     }

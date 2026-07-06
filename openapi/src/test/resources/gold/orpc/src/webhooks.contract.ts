@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
-import { webhookPayloadSchema } from "./webhooks.schemas";
+import { webhookAckSchema, webhookPayloadSchema } from "./webhooks.schemas";
 
 export const webhooks = {
   post: oc
@@ -17,6 +17,5 @@ export const webhooks = {
     .input(z.object({
       body: webhookPayloadSchema
     }))
-    .output(z.union([z.object({
-        "received": z.boolean()}), z.string()]))
+    .output(z.union([webhookAckSchema, z.string()]))
 };
