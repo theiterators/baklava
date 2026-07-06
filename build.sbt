@@ -224,6 +224,10 @@ lazy val openapi = project
   )
   .settings(
     name := "baklava-openapi",
+    // Formatters write to fixed target/baklava/<format> paths; suites that invoke them
+    // (ComprehensiveGoldSpec, BaklavaDslFormatterOpenAPIConfigSpec) corrupt each other's
+    // output when run in parallel threads.
+    Test / parallelExecution := false,
     scalacOptions ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((3, _)) => Seq("-Xmax-inlines:64")
