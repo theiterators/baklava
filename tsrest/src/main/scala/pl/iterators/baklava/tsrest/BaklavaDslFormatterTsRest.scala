@@ -41,11 +41,35 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       .toList
       .sortBy { case ((method, path), _) => (path, method.map(_.toString).getOrElse("")) }
 
-    val refs = buildSchemaRefs(endpoints)
-    if (refs.nonEmpty) writeTo(schemasTsPath, TsSchemaRefs.schemasFileContent(refs, rendererWith(refs, _ => ()).zodDefinition))
-
+    val refs    = buildSchemaRefs(endpoints)
     val modules = modulesOf(buildRouterTree(endpoints))
-    modules.foreach(writeModuleFile(_, refs))
+
+    val rendered = modules.map { module =>
+      val usedRefs = scala.collection.mutable.SortedSet.empty[String]
+      val renderer = rendererWith(refs, usedRefs += _)
+      val body     = TsPathRouter.render(
+        module.node,
+        0,
+        plainRenderer.tsObjectKey,
+        (endpoint, key) => createContractForEndpoint(endpoint, keyOverride = Some(key), renderer = renderer)
+      )
+      (module, body, usedRefs.toSet)
+    }
+
+    // A schema used by exactly one module lives in that module's sibling `<module>.schemas.ts`;
+    // anything shared (or referenced by a shared definition) stays in the common schemas.ts.
+    val defUses     = TsSchemaRefs.definitionUses(refs, (schema, record) => rendererWith(refs, record).zodDefinition(schema))
+    val assignment  = TsSchemaRefs.moduleAssignment(rendered.map { case (m, _, used) => m.constName -> used }, defUses)
+    val commonNames = refs.values.toSet.filter(name => assignment.getOrElse(name, Set.empty).sizeIs != 1)
+
+    if (commonNames.nonEmpty) {
+      val commonRefs = refs.filter { case (_, name) => commonNames(name) }
+      writeTo(schemasTsPath, TsSchemaRefs.schemasFileContent(commonRefs, rendererWith(refs, _ => ()).zodDefinition))
+    }
+
+    rendered.foreach { case (module, body, usedRefs) =>
+      writeModuleFile(module, body, usedRefs, assignment, commonNames, refs, defUses)
+    }
     writeContractsFile(modules)
   }
 
@@ -73,25 +97,43 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private def moduleFilePath(module: RouterModule): String =
     module.fileSegments.mkString("/") + ".contract.ts"
 
-  private def writeModuleFile(module: RouterModule, refs: Map[BaklavaSchemaSerializable, String]): Unit = {
-    val usedRefs = scala.collection.mutable.SortedSet.empty[String]
-    val renderer = rendererWith(refs, usedRefs += _)
-    val body     = TsPathRouter.render(
-      module.node,
-      0,
-      plainRenderer.tsObjectKey,
-      (endpoint, key) => createContractForEndpoint(endpoint, keyOverride = Some(key), renderer = renderer)
-    )
+  private def writeModuleFile(
+      module: RouterModule,
+      body: String,
+      usedRefs: Set[String],
+      assignment: Map[String, Set[String]],
+      commonNames: Set[String],
+      refs: Map[BaklavaSchemaSerializable, String],
+      defUses: Map[String, Set[String]]
+  ): Unit = {
     val code =
       s"""export const ${module.constName} = initContract().router({
          |$body
          |});
          |""".stripMargin
-    val filePath     = moduleFilePath(module)
-    val schemasFrom  = if (filePath.contains('/')) "../schemas" else "./schemas"
+    val filePath    = moduleFilePath(module)
+    val schemasFrom = if (filePath.contains('/')) "../schemas" else "./schemas"
+    val localBase   = module.fileSegments.last + ".schemas"
+
+    val localNames = refs.values.toSet.filter(name => assignment.get(name).contains(Set(module.constName)))
+    if (localNames.nonEmpty) {
+      val localRefs      = refs.filter { case (_, name) => localNames(name) }
+      val commonImported = localNames.flatMap(defUses.getOrElse(_, Set.empty)).intersect(commonNames).toSeq.sorted
+      val importLines    =
+        if (commonImported.isEmpty) Seq.empty
+        else Seq(s"import { ${commonImported.mkString(", ")} } from \"$schemasFrom\";")
+      val localPath     = (module.fileSegments.dropRight(1) :+ localBase).mkString("/") + ".ts"
+      val content       = TsSchemaRefs.schemasFileContent(localRefs, rendererWith(refs, _ => ()).zodDefinition, importLines)
+      val fullLocalPath = s"$sourcesDirName/$localPath"
+      new File(fullLocalPath).getParentFile.mkdirs()
+      writeTo(fullLocalPath, content)
+    }
+
+    val commonUsed   = usedRefs.intersect(commonNames).toSeq.sorted
+    val localUsed    = usedRefs.intersect(localNames).toSeq.sorted
     val schemaImport =
-      if (usedRefs.isEmpty) ""
-      else s"import { ${usedRefs.mkString(", ")} } from \"$schemasFrom\";\n"
+      (if (commonUsed.isEmpty) "" else s"import { ${commonUsed.mkString(", ")} } from \"$schemasFrom\";\n") +
+        (if (localUsed.isEmpty) "" else s"import { ${localUsed.mkString(", ")} } from \"./$localBase\";\n")
     val path = s"$sourcesDirName/$filePath"
     new File(path).getParentFile.mkdirs()
     writeTo(

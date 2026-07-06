@@ -108,6 +108,7 @@ Generates a complete TypeScript npm package using [ts-rest](https://ts-rest.com/
 - `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
 - `src/contracts.ts` — main exports file assembling the module routers into one nested `ts-rest` router
 - `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`); a version prefix is treated as organizational, so `/v1/auctions/...` lands in `src/v1/auctions.contract.ts`
+- `src/{area}.schemas.ts` / `src/schemas.ts` — named, deduplicated zod schemas (hoisted from any shape occurring more than once): module-local ones sit next to their contract, shapes shared by two or more modules land in the common `schemas.ts`
 
 ### Contract Organization
 
@@ -187,7 +188,8 @@ Generates a TypeScript npm package of [oRPC](https://orpc.dev) contracts ([`@orp
 - `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
 - `src/contracts.ts` — main exports file assembling the module files into one nested router object
 - `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`); a version prefix is treated as organizational, so `/v1/auctions/...` lands in `src/v1/auctions.contract.ts`
-- `src/schemas.ts` — named, deduplicated schemas: any object schema occurring more than once anywhere in the output is hoisted under a name derived from its Scala case-class name (`AuctionDto` → `auctionDtoSchema`), giving consumers `z.infer`-able named types
+- `src/{area}.schemas.ts` — named, deduplicated schemas used only by that module: any object schema occurring more than once anywhere in the output is hoisted under a name derived from its Scala case-class name (`AuctionDto` → `auctionDtoSchema`), giving consumers `z.infer`-able named types
+- `src/schemas.ts` — hoisted schemas shared by two or more modules (`errorSchema`, common DTOs)
 - `src/client.ts` — a ready-made client factory (`createContractsClient(url)`): an `OpenAPILink` whose error decoder lifts the backend's discriminated error bodies into defined `ORPCError`s under the declared codes
 
 Contracts nest by path segment — oRPC's native router shape — so `/v1/auctions/{auctionId}/bids` is reached as `contracts.v1.auctions.byAuctionId.bids.<method>`. A path parameter reads as `by<Param>` (`{auctionId}` → `byAuctionId`), the router-tree spelling of the `getUsersByUserId` convention the TS-Fetch format uses for function names; static segments are camelized (`feature-flags` → `featureFlags`). Schemas use the **zod 4** vocabulary and deliberately tell the wire truth: `date-time` fields render `z.iso.datetime({ offset: true })` (over HTTP a timestamp *is* an ISO string and `OpenAPILink` performs no client-side coercion), `uuid` → `z.uuid()`, `email` → `z.email()`, multipart file parts → `z.file()`. The rest of the Zod mapping table above applies unchanged.
@@ -247,7 +249,7 @@ Backends documented by baklava don't speak oRPC's own error envelope, but most s
 })
 ```
 
-The discriminator field defaults to `type` and is configurable via the `orpc-error-code-field` config key. Inside each declared error's `data` schema the discriminator property is narrowed to `z.enum(["<the code>"])`, so payloads are self-discriminating. Error responses whose body carries no extractable discriminator (bodyless 429s, non-JSON payloads) are left undeclared and surface through oRPC's defaults.
+The discriminator field defaults to `type` and is configurable via the `orpc-error-code-field` config key. Inside each declared error's `data` schema the discriminator property is narrowed to `z.enum(["<the code>"])`, so payloads are self-discriminating; when the error body shape is hoisted, the narrowing happens at the use site (`errorSchema.extend({type: z.enum(["<the code>"])})`) so one shared schema serves every declared code. Error responses whose body carries no extractable discriminator (bodyless 429s, non-JSON payloads) are left undeclared and surface through oRPC's defaults.
 
 The generated `src/client.ts` completes the loop: its `createContractsClient(url)` wires an `OpenAPILink` with a [`customErrorResponseBodyDecoder`](https://orpc.dev/docs/openapi/advanced/customizing-error-response) that lifts error bodies into `ORPCError`s whose `code` is the same discriminator value (and `defined: true`) — so [`isDefinedError`](https://orpc.dev/docs/client/error-handling) narrows errors to the declared union, giving statically typed, exhaustively checkable error handling end to end, out of the box.
 

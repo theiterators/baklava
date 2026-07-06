@@ -48,12 +48,52 @@ object TsSchemaRefs {
       .toMap
   }
 
-  /** The `schemas.ts` body: definitions ordered dependencies-first (a hoisted schema may reference another). `definitionWithRefs` must
-    * render the schema itself inline while resolving nested hoisted schemas through the refs map.
+  /** name → hoisted names its definition references directly. `definitionWithRefs` must render the schema while reporting each refs-map
+    * hit to the callback (the formatters' recording renderer does exactly this).
+    */
+  def definitionUses(
+      refs: Map[BaklavaSchemaSerializable, String],
+      definitionWithRefs: (BaklavaSchemaSerializable, String => Unit) => String
+  ): Map[String, Set[String]] =
+    refs.map { case (schema, name) =>
+      val used = scala.collection.mutable.Set.empty[String]
+      val _    = definitionWithRefs(schema, used += _)
+      name -> (used.toSet - name)
+    }
+
+  /** Which modules (transitively) use each hoisted name: a module using A also uses everything A's definition references. A name used by
+    * exactly one module can live in that module's local schema file; anything else belongs in the shared one.
+    */
+  def moduleAssignment(
+      directUsage: Seq[(String, Set[String])],
+      defUses: Map[String, Set[String]]
+  ): Map[String, Set[String]] = {
+    val perModule = directUsage.map { case (moduleId, direct) =>
+      val acc      = scala.collection.mutable.Set.from(direct)
+      var frontier = direct
+      while (frontier.nonEmpty) {
+        val next = frontier.flatMap(defUses.getOrElse(_, Set.empty)).diff(acc)
+        acc ++= next
+        frontier = next
+      }
+      moduleId -> acc.toSet
+    }
+    perModule
+      .flatMap { case (moduleId, names) => names.map(_ -> moduleId) }
+      .groupBy(_._1)
+      .view
+      .mapValues(_.map(_._2).toSet)
+      .toMap
+  }
+
+  /** A schema file's body: definitions ordered dependencies-first (a hoisted schema may reference another). `definitionWithRefs` must
+    * render the schema itself inline while resolving nested hoisted schemas through the refs map. `importLines` lets a module-local file
+    * import the shared names its definitions reference.
     */
   def schemasFileContent(
       refs: Map[BaklavaSchemaSerializable, String],
-      definitionWithRefs: BaklavaSchemaSerializable => String
+      definitionWithRefs: BaklavaSchemaSerializable => String,
+      importLines: Seq[String] = Seq.empty
   ): String = {
     val remaining = scala.collection.mutable.LinkedHashMap.from(refs.toSeq.sortBy(_._2))
     val ordered   = scala.collection.mutable.ListBuffer.empty[(BaklavaSchemaSerializable, String)]
@@ -69,6 +109,7 @@ object TsSchemaRefs {
     val defs = ordered
       .map { case (schema, name) => s"export const $name = ${definitionWithRefs(schema)};" }
       .mkString("\n\n")
-    "import { z } from \"zod\";\n\n" + defs + "\n"
+    val imports = ("import { z } from \"zod\";" +: importLines).mkString("\n")
+    imports + "\n\n" + defs + "\n"
   }
 }

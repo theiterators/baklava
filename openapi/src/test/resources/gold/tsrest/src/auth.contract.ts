@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
-import { errorResponseSchema, loginFormSchema, userSchema } from "./schemas";
+import { errorResponseSchema, userSchema } from "./schemas";
+import { loginFormSchema } from "./auth.schemas";
 
 export const auth = initContract().router({
   login: {

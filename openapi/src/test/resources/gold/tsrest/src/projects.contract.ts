@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
-import { createProjectRequestSchema, errorResponseSchema, projectSchema, taskSchema } from "./schemas";
+import { errorResponseSchema } from "./schemas";
+import { createProjectRequestSchema, projectSchema, taskSchema } from "./projects.schemas";
 
 export const projects = initContract().router({
   get: {

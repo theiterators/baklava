@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
-import { webhookPayloadSchema } from "./schemas";
+import { webhookPayloadSchema } from "./webhooks.schemas";
 
 export const webhooks = initContract().router({
   post: {

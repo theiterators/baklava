@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
-import { webhookPayloadSchema } from "./schemas";
+import { webhookPayloadSchema } from "./webhooks.schemas";
 
 export const webhooks = {
   post: oc

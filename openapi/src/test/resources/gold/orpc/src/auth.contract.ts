@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
-import { errorResponseSchema, loginFormSchema, userSchema } from "./schemas";
+import { errorResponseSchema, userSchema } from "./schemas";
+import { loginFormSchema } from "./auth.schemas";
 
 export const auth = {
   login: {
