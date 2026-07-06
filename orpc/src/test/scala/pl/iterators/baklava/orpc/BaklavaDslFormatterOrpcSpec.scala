@@ -3,7 +3,7 @@ package pl.iterators.baklava.orpc
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsNaming, TsPathRouter, TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsNaming, TsPathRouter, TsSchemaRefs, TsZodDialect, TsZodRenderer}
 import sttp.model.{Method, StatusCode}
 
 class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
@@ -358,6 +358,21 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
         "type"
       )
       refs shouldBe empty
+    }
+  }
+
+  describe("schema type exports") {
+
+    it("pairs every hoisted schema with an inferred type export") {
+      val dto     = objectSchema(Map("a" -> stringSchema())).copy(className = "AuctionDto")
+      val content = TsSchemaRefs.schemasFileContent(Map(dto -> "auctionDtoSchema"), zodRenderer.zodDefinition)
+      content should include("export type AuctionDto = z.infer<typeof auctionDtoSchema>;")
+    }
+
+    it("suffixes type names that would shadow TS globals") {
+      val err     = objectSchema(Map("type" -> stringSchema())).copy(className = "Error")
+      val content = TsSchemaRefs.schemasFileContent(Map(err -> "errorSchema"), zodRenderer.zodDefinition)
+      content should include("export type ErrorType = z.infer<typeof errorSchema>;")
     }
   }
 

@@ -107,9 +107,48 @@ object TsSchemaRefs {
       }
     }
     val defs = ordered
-      .map { case (schema, name) => s"export const $name = ${definitionWithRefs(schema)};" }
+      .map { case (schema, name) =>
+        s"export const $name = ${definitionWithRefs(schema)};\nexport type ${typeNameOf(name)} = z.infer<typeof $name>;"
+      }
       .mkString("\n\n")
     val imports = ("import { z } from \"zod\";" +: importLines).mkString("\n")
     imports + "\n\n" + defs + "\n"
+  }
+
+  // Importing a type named like a TS/DOM global (`Error`, `Date`, …) shadows it in the consuming
+  // module — a silent behavior change, not an error — so those get an explicit suffix.
+  private val shadowableGlobals = Set(
+    "Error",
+    "Date",
+    "File",
+    "Blob",
+    "Object",
+    "Array",
+    "Map",
+    "Set",
+    "Promise",
+    "Function",
+    "Symbol",
+    "Request",
+    "Response",
+    "Event",
+    "Node",
+    "Text",
+    "Comment",
+    "Record",
+    "Partial",
+    "Readonly",
+    "Pick",
+    "Omit"
+  )
+
+  /** `auctionDtoSchema` → `AuctionDto`, `errorSchema` → `ErrorType` (shadowable global), collision hashes carry over
+    * (`auctionDtoSchema4496` → `AuctionDto4496`).
+    */
+  private[tscommon] def typeNameOf(constName: String): String = {
+    val idx      = constName.lastIndexOf("Schema")
+    val stripped = if (idx >= 0) constName.substring(0, idx) + constName.substring(idx + "Schema".length) else constName
+    val base     = TsNaming.capitalize(stripped)
+    if (shadowableGlobals.contains(base)) base + "Type" else base
   }
 }

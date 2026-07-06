@@ -4,6 +4,7 @@ export const createProjectRequestSchema = z.object({
         "description": z.string().nullish(),
         "name": z.string(),
         "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")});
+export type CreateProjectRequest = z.infer<typeof createProjectRequestSchema>;
 
 export const projectSchema = z.object({
         "createdAt": z.string(),
@@ -12,6 +13,7 @@ export const projectSchema = z.object({
         "name": z.string(),
         "ownerId": z.uuid(),
         "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")});
+export type Project = z.infer<typeof projectSchema>;
 
 export const taskSchema = z.object({
         "description": z.string().nullish(),
@@ -19,3 +21,4 @@ export const taskSchema = z.object({
         "id": z.number().int(),
         "priority": z.enum(["high","low","medium"]).describe("Task priority level"),
         "title": z.string()});
+export type Task = z.infer<typeof taskSchema>;
