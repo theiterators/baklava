@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
+import { createProjectRequestSchema, projectSchema } from "./schemas";
 
 export const projectsContract = {
   get: oc
@@ -16,13 +17,7 @@ export const projectsContract = {
     .input(z.object({
       query: z.object({status: z.enum(["active","archived","draft"]).describe("Lifecycle state of a project").nullish()}).optional()
     }))
-    .output(z.array(z.object({
-        "createdAt": z.string(),
-        "description": z.string().nullish(),
-        "id": z.number().int(),
-        "name": z.string(),
-        "ownerId": z.string().uuid(),
-        "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")}))),
+    .output(z.array(projectSchema)),
   post: oc
     .route({
       method: 'POST',
@@ -35,23 +30,14 @@ export const projectsContract = {
       inputStructure: 'detailed'
     })
     .input(z.object({
-      body: z.object({
-        "description": z.string().nullish(),
-        "name": z.string(),
-        "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")})
+      body: createProjectRequestSchema
     }))
-    .output(z.object({
-        "createdAt": z.string(),
-        "description": z.string().nullish(),
-        "id": z.number().int(),
-        "name": z.string(),
-        "ownerId": z.string().uuid(),
-        "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")}))
+    .output(projectSchema)
     .errors({
       'validation': {
         status: 400,
         data: z.object({
-        "code": z.string(),
+        "code": z.enum(["validation"]),
         "details": z.array(z.string()).nullish(),
         "message": z.string()})
       }

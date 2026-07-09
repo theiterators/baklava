@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
+import { userSchema } from "./schemas";
 
 export const usersContract = {
   get: oc
@@ -20,9 +21,5 @@ export const usersContract = {
         "limit": z.number().int(),
         "page": z.number().int(),
         "total": z.number().int(),
-        "users": z.array(z.object({
-        "email": z.string(),
-        "id": z.string().uuid(),
-        "name": z.string(),
-        "role": z.enum(["admin","guest","member"]).describe("User role within the system")}))}))
+        "users": z.array(userSchema)}))
 };

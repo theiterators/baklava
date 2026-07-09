@@ -14,11 +14,11 @@ export const usersUserIdPhotoContract = {
       inputStructure: 'detailed'
     })
     .input(z.object({
-      params: z.object({userId: z.string().uuid()}),
-      body: z.object({caption: z.string(), photo: z.instanceof(File)})
+      params: z.object({userId: z.uuid()}),
+      body: z.object({caption: z.string(), photo: z.file()})
     }))
     .output(z.object({
-        "id": z.string().uuid(),
+        "id": z.uuid(),
         "variants": z.record(z.string(), z.object({
         "format": z.string(),
         "height": z.number().int(),

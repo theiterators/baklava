@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
+import { projectSchema } from "./schemas";
 
 export const projectsProjectIdContract = {
   patch: oc
@@ -20,11 +21,5 @@ export const projectsProjectIdContract = {
         "name": z.string().nullish(),
         "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project").nullish()})
     }))
-    .output(z.object({
-        "createdAt": z.string(),
-        "description": z.string().nullish(),
-        "id": z.number().int(),
-        "name": z.string(),
-        "ownerId": z.string().uuid(),
-        "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project")}))
+    .output(projectSchema)
 };

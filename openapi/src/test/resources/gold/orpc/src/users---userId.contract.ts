@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
+import { userSchema } from "./schemas";
 
 export const usersUserIdContract = {
   delete: oc
@@ -14,7 +15,7 @@ export const usersUserIdContract = {
       inputStructure: 'detailed'
     })
     .input(z.object({
-      params: z.object({userId: z.string().uuid()})
+      params: z.object({userId: z.uuid()})
     }))
     .output(z.void()),
   get: oc
@@ -29,18 +30,14 @@ export const usersUserIdContract = {
       inputStructure: 'detailed'
     })
     .input(z.object({
-      params: z.object({userId: z.string().uuid()})
+      params: z.object({userId: z.uuid()})
     }))
-    .output(z.object({
-        "email": z.string(),
-        "id": z.string().uuid(),
-        "name": z.string(),
-        "role": z.enum(["admin","guest","member"]).describe("User role within the system")}))
+    .output(userSchema)
     .errors({
       'not_found': {
         status: 404,
         data: z.object({
-        "code": z.string(),
+        "code": z.enum(["not_found"]),
         "details": z.array(z.string()).nullish(),
         "message": z.string()})
       }
@@ -57,14 +54,10 @@ export const usersUserIdContract = {
       inputStructure: 'detailed'
     })
     .input(z.object({
-      params: z.object({userId: z.string().uuid()}),
+      params: z.object({userId: z.uuid()}),
       body: z.object({
         "name": z.string(),
         "role": z.enum(["admin","guest","member"]).describe("User role within the system")})
     }))
-    .output(z.object({
-        "email": z.string(),
-        "id": z.string().uuid(),
-        "name": z.string(),
-        "role": z.enum(["admin","guest","member"]).describe("User role within the system")}))
+    .output(userSchema)
 };

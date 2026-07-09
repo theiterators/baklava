@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
+import { taskSchema } from "./schemas";
 
 export const projectsProjectIdTasksContract = {
   get: oc
@@ -16,12 +17,7 @@ export const projectsProjectIdTasksContract = {
     .input(z.object({
       params: z.object({projectId: z.number().int()})
     }))
-    .output(z.array(z.object({
-        "description": z.string().nullish(),
-        "done": z.boolean(),
-        "id": z.number().int(),
-        "priority": z.enum(["high","low","medium"]).describe("Task priority level"),
-        "title": z.string()}))),
+    .output(z.array(taskSchema)),
   post: oc
     .route({
       method: 'POST',
@@ -40,10 +36,5 @@ export const projectsProjectIdTasksContract = {
         "priority": z.enum(["high","low","medium"]).describe("Task priority level"),
         "title": z.string()})
     }))
-    .output(z.object({
-        "description": z.string().nullish(),
-        "done": z.boolean(),
-        "id": z.number().int(),
-        "priority": z.enum(["high","low","medium"]).describe("Task priority level"),
-        "title": z.string()}))
+    .output(taskSchema)
 };

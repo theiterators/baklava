@@ -223,3 +223,29 @@ jobs:
           apps: scala-steward
 
       - run: scala-steward validate-repo-config .scala-steward.conf
+
+  tsc-gold:
+    name: Compile gold TypeScript output
+    strategy:
+      matrix:
+        os: [ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout current branch (fast)
+        uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 'tsc: orpc gold'
+        run: |
+          cd openapi/src/test/resources/gold/orpc
+          npm install --no-save typescript@5.9 "zod@^4" "@orpc/contract@^1.14.6" "@orpc/client@^1.14.6" "@orpc/openapi-client@^1.14.6"
+          npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler src/*.ts
+
+      - name: 'tsc: tsrest gold'
+        run: |
+          cd openapi/src/test/resources/gold/tsrest
+          npm install --no-save typescript@5.9 "zod@^3.25" "@ts-rest/core@^3.52"
+          npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler src/*.ts
