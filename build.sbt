@@ -49,6 +49,7 @@ lazy val perScalaVersionTestSources = Test / unmanagedSourceDirectories ++= {
 lazy val baklava =
   tlCrossRootProject.aggregate(
     core,
+    tscommon,
     simple,
     openapi,
     tsrest,
@@ -134,16 +135,23 @@ lazy val postman = project
     )
   )
 
+lazy val tscommon = project
+  .in(file("tscommon"))
+  .dependsOn(core)
+  .settings(
+    name := "baklava-tscommon"
+  )
+
 lazy val tsrest = project
   .in(file("tsrest"))
-  .dependsOn(core, scalatest % "test")
+  .dependsOn(core, tscommon, scalatest % "test")
   .settings(
     name := "baklava-tsrest"
   )
 
 lazy val orpc = project
   .in(file("orpc"))
-  .dependsOn(core, scalatest % "test")
+  .dependsOn(core, tscommon, scalatest % "test")
   .settings(
     name := "baklava-orpc"
   )

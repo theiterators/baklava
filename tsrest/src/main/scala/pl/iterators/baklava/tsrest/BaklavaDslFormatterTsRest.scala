@@ -1,12 +1,15 @@
 package pl.iterators.baklava.tsrest
 
 import pl.iterators.baklava.*
+import pl.iterators.baklava.tscommon.{TsNaming, TsZodDialect, TsZodRenderer}
 import sttp.model.Method
 
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Using
 
 class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
+  private val renderer = new TsZodRenderer(TsZodDialect.tsRest)
+
   private val dirName                 = "target/baklava/tsrest"
   private val sourcesDirName          = "target/baklava/tsrest/src"
   private val packageContractJsonPath = s"$dirName/package-contracts.json"
@@ -87,47 +90,17 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       paramsPerCall: Seq[Seq[P]],
       nameOf: P => String,
       schemaOf: P => BaklavaSchemaSerializable
-  ): Option[String] = {
-    val distinctSets = paramsPerCall.distinct
-    if (!distinctSets.exists(_.nonEmpty)) None
-    else {
-      val zds = distinctSets.map { params =>
-        val fields = params.map { p =>
-          val nullishMaybe = if (!schemaOf(p).required) ".nullish()" else ""
-          s"${tsObjectKey(nameOf(p))}: ${zod(schemaOf(p))}$nullishMaybe"
-        }
-        "z.object({" + fields.mkString(", ") + "})"
-      }
-      Some(collapseZodUnion(zds))
-    }
-  }
+  ): Option[String] = renderer.buildParamsZod(paramsPerCall, nameOf, schemaOf)
 
-  private val jsIdentifier = "[A-Za-z_$][A-Za-z0-9_$]*".r
-
-  // An object key may be written bare only if it's a valid JS identifier; query/header/path-param
-  // names can be kebab-case (`seller-id`, `X-Forwarded-For`) or start with a digit, which would
-  // otherwise produce uncompilable TypeScript — so quote anything that isn't identifier-shaped.
-  private[tsrest] def tsObjectKey(name: String): String =
-    if (jsIdentifier.matches(name)) name
-    else s""""${escapeTsDoubleQuoted(name)}""""
+  private[tsrest] def tsObjectKey(name: String): String = renderer.tsObjectKey(name)
 
   // Render one captured `Multipart` value as a ts-rest body schema (see
   // https://ts-rest.com/docs/core/multi-part): a `z.object` keyed by part name, `FilePart` ->
   // `z.instanceof(File)`, `TextPart` -> `z.string()`. A repeated part name (a multi-value form
   // field) becomes a `z.array(...)`; a name that mixes file and text parts unions the element
   // schemas. Names and element schemas are sorted so output is deterministic.
-  private[tsrest] def renderMultipartBody(parts: Seq[BaklavaMultipartPartSerializable]): String = {
-    val fields = parts
-      .groupBy(_.name)
-      .toSeq
-      .sortBy(_._1)
-      .map { case (name, ps) =>
-        val element = collapseZodUnion(ps.map(p => if (p.isFile) "z.instanceof(File)" else "z.string()").sorted)
-        val schema  = if (ps.size > 1) s"z.array($element)" else element
-        s"${tsObjectKey(name)}: $schema"
-      }
-    s"z.object({${fields.mkString(", ")}})"
-  }
+  private[tsrest] def renderMultipartBody(parts: Seq[BaklavaMultipartPartSerializable]): String =
+    renderer.renderMultipartBody(parts)
 
   /** Convert a Baklava `{name}` placeholder path to the ts-rest `:name` syntax. Non-placeholder braces (i.e. anything containing `/` or
     * nested braces) are left alone. Param names can contain any character except `{`, `}`, or `/` — so hyphens and dots survive.
@@ -135,21 +108,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private[tsrest] def toTsRestPath(symbolicPath: String): String =
     symbolicPath.replaceAll("""\{([^{}/]+)\}""", ":$1")
 
-  private[tsrest] def contractNameFromSymbolicPath(path: String): String = {
-    val cleaned = path.stripPrefix("/").stripSuffix("/")
-    if (cleaned.isEmpty) "root"
-    else {
-      cleaned
-        .split("/")
-        .map {
-          case p if p.startsWith("{") && p.endsWith("}") => "--" + p.substring(1, p.length - 1)
-          case p if p.startsWith(":")                    => "--" + p.substring(1)
-          case p                                         => p
-        }
-        .mkString("-")
-        .replace(".", "---")
-    }
-  }
+  private[tsrest] def contractNameFromSymbolicPath(path: String): String =
+    TsNaming.contractNameFromSymbolicPath(path)
 
   private def createContractForGroup(
       contractName: String,
@@ -273,72 +233,14 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   }
 
   private def isEmptyBodyInstance(schema: BaklavaSchemaSerializable): Boolean =
-    schema.`type` == SchemaType.StringType &&
-      schema.`enum`.exists(enums => enums.contains("EmptyBodyInstance") && enums.size == 1)
+    renderer.isEmptyBodyInstance(schema)
 
-  private def toCamelCase(s: String): String = {
-    val base = s.replaceAll("--", "-")
-    base
-      .split("-")
-      .filter(_.nonEmpty)
-      .zipWithIndex
-      .map { case (s, i) =>
-        if (i == 0) s.toLowerCase else s.capitalize
-      }
-      .mkString
-  }
+  private def toCamelCase(s: String): String = TsNaming.toCamelCase(s)
 
-  private def escapeTsSingleQuoted(s: String): String =
-    s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r")
+  private def escapeTsSingleQuoted(s: String): String = renderer.escapeTsSingleQuoted(s)
 
-  private def escapeTsDoubleQuoted(s: String): String =
-    s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
+  private[tsrest] def zod(schema: BaklavaSchemaSerializable): String = renderer.zod(schema)
 
-  private[tsrest] def zod(schema: BaklavaSchemaSerializable): String = {
-    val desc = schema.description.map(d => s""".describe("${escapeTsDoubleQuoted(d)}")""").getOrElse("")
-    schema.`type` match {
-      case SchemaType.StringType =>
-        if (schema.`enum`.exists(_.nonEmpty)) {
-          // Sort for deterministic output; escape for double-quoted TS string context.
-          val e = schema.`enum`.get.toList.sorted.map(s => "\"" + escapeTsDoubleQuoted(s) + "\"").mkString(",")
-          s"z.enum([$e])$desc"
-        } else if (schema.format.contains("email")) s"z.string().email()$desc"
-        else if (schema.format.contains("uuid")) s"z.string().uuid()$desc"
-        else if (schema.format.contains("date-time")) s"z.coerce.date()$desc"
-        else s"z.string()$desc"
-      case SchemaType.BooleanType => s"z.boolean()$desc"
-      case SchemaType.IntegerType => s"z.number().int()$desc"
-      case SchemaType.NumberType  => s"z.number()$desc"
-      case SchemaType.ArrayType   =>
-        val item = schema.items.map(zod).getOrElse("z.any()")
-        s"z.array($item)$desc"
-      case SchemaType.ObjectType =>
-        val objectBody =
-          if (schema.properties.isEmpty) "z.object({})"
-          else {
-            val props = schema.properties.toSeq
-              .sortBy(_._1)
-              .map { case (k, v) =>
-                s""""${escapeTsDoubleQuoted(k)}": ${zod(v)}${if (!v.required) ".nullish()" else ""}"""
-              }
-              .mkString("\n        ", ",\n        ", "")
-            s"z.object({$props})"
-          }
-        schema.additionalPropertiesSchema match {
-          // A map-like object: all values conform to one schema -> z.record (keys are strings in JSON).
-          case Some(v) if schema.properties.isEmpty => s"z.record(z.string(), ${zod(v)})$desc"
-          case Some(v)                              => s"$objectBody.catchall(${zod(v)})$desc"
-          case None                                 => s"$objectBody$desc"
-        }
-      case SchemaType.NullType => s"z.null()$desc"
-    }
-  }
-
-  private[tsrest] def collapseZodUnion(zods: Seq[String]): String = {
-    val distinct = zods.distinct
-    if (distinct.isEmpty) "z.undefined()"
-    else if (distinct.size == 1) distinct.head
-    else s"z.union([${distinct.mkString(", ")}])"
-  }
+  private[tsrest] def collapseZodUnion(zods: Seq[String]): String = renderer.collapseZodUnion(zods)
 
 }
