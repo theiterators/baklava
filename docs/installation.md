@@ -65,6 +65,9 @@ libraryDependencies += "pl.iterators" %% "baklava-openapi" % "VERSION" % Test
 
 // TS-REST format (requires additional configuration - see below)
 libraryDependencies += "pl.iterators" %% "baklava-tsrest" % "VERSION" % Test
+
+// oRPC contract format
+libraryDependencies += "pl.iterators" %% "baklava-orpc" % "VERSION" % Test
 ```
 
 #### Optional: SwaggerUI Support
@@ -245,6 +248,7 @@ libraryDependencies ++= Seq(
   "pl.iterators" %% "baklava-simple" % "VERSION" % Test,
   "pl.iterators" %% "baklava-openapi" % "VERSION" % Test,
   "pl.iterators" %% "baklava-tsrest" % "VERSION" % Test,
+  "pl.iterators" %% "baklava-orpc" % "VERSION" % Test,
   "pl.iterators" %% "baklava-pekko-http-routes" % "VERSION" // For SwaggerUI
 )
 
@@ -287,6 +291,7 @@ The documentation will be generated in `target/baklava/` directory after running
 - Simple format: `target/baklava/simple/`
 - OpenAPI format: `target/baklava/openapi/openapi.yml`
 - TS-REST format: `target/baklava/tsrest/`
+- oRPC contract format: `target/baklava/orpc/`
 
 ## Runtime Configuration
 

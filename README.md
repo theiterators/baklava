@@ -53,6 +53,7 @@ libraryDependencies ++= Seq(
   "pl.iterators" %% "baklava-openapi"    % "1.4.0" % Test,
   "pl.iterators" %% "baklava-simple"     % "1.4.0" % Test,
   // "pl.iterators" %% "baklava-tsrest"    % "1.4.0" % Test,
+  // "pl.iterators" %% "baklava-orpc"      % "1.4.0" % Test,
   // "pl.iterators" %% "baklava-tsfetch"   % "1.4.0" % Test,
   // "pl.iterators" %% "baklava-postman"   % "1.4.0" % Test,
   // "pl.iterators" %% "baklava-sttpclient" % "1.4.0" % Test,
@@ -124,6 +125,8 @@ sbt test
 **Simple HTML** generates self-contained, browsable HTML pages with no external dependencies.
 
 **TS-REST** generates a TypeScript npm package with [ts-rest](https://ts-rest.com/) contracts and [Zod](https://zod.dev/) schemas for type-safe frontend API clients.
+
+**oRPC** generates a TypeScript npm package with [oRPC](https://orpc.dev) contracts (`@orpc/contract` + Zod), consumable from any frontend via `OpenAPILink` with first-class TanStack Query support.
 
 All formatters are auto-discovered from the classpath. Just add the dependency and it works.
 

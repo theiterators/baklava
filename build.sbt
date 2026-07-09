@@ -22,6 +22,36 @@ ThisBuild / publishTo          := {
 ThisBuild / tlMimaPreviousVersions     := Set.empty
 ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("17"))
 
+// The gold files are checked byte-for-byte by ComprehensiveGoldSpec, but byte-identical output
+// can still be uncompilable TypeScript — so CI also compiles the TS-emitting formats' gold
+// output with tsc against their declared peer dependencies.
+ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
+  id = "tsc-gold",
+  name = "Compile gold TypeScript output",
+  scalas = List.empty,
+  javas = List.empty,
+  steps = List(
+    WorkflowStep.Checkout,
+    WorkflowStep.Use(UseRef.Public("actions", "setup-node", "v4"), params = Map("node-version" -> "22")),
+    WorkflowStep.Run(
+      name = Some("tsc: orpc gold"),
+      commands = List(
+        "cd openapi/src/test/resources/gold/orpc",
+        "npm install --no-save typescript@5.9 \"zod@^4\" \"@orpc/contract@^1.14.6\" \"@orpc/client@^1.14.6\" \"@orpc/openapi-client@^1.14.6\"",
+        "npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler $(find src -name '*.ts' | sort)"
+      )
+    ),
+    WorkflowStep.Run(
+      name = Some("tsc: tsrest gold"),
+      commands = List(
+        "cd openapi/src/test/resources/gold/tsrest",
+        "npm install --no-save typescript@5.9 \"zod@^3.25\" \"@ts-rest/core@^3.52\"",
+        "npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler src/*.ts"
+      )
+    )
+  )
+)
+
 scalacOptions += "-Xmax-inlines:64"
 // Suppress magnolia macro type parameter shadowing warning (magnolia 1.1.x generates shadowed type params)
 ThisBuild / scalacOptions ++= {
@@ -49,9 +79,11 @@ lazy val perScalaVersionTestSources = Test / unmanagedSourceDirectories ++= {
 lazy val baklava =
   tlCrossRootProject.aggregate(
     core,
+    tscommon,
     simple,
     openapi,
     tsrest,
+    orpc,
     postman,
     sttpclient,
     tsfetch,
@@ -133,11 +165,25 @@ lazy val postman = project
     )
   )
 
+lazy val tscommon = project
+  .in(file("tscommon"))
+  .dependsOn(core)
+  .settings(
+    name := "baklava-tscommon"
+  )
+
 lazy val tsrest = project
   .in(file("tsrest"))
-  .dependsOn(core, scalatest % "test")
+  .dependsOn(core, tscommon, scalatest % "test")
   .settings(
     name := "baklava-tsrest"
+  )
+
+lazy val orpc = project
+  .in(file("orpc"))
+  .dependsOn(core, tscommon, scalatest % "test")
+  .settings(
+    name := "baklava-orpc"
   )
 
 lazy val sttpclient = project
@@ -163,6 +209,7 @@ lazy val openapi = project
     scalatest  % "test",
     simple     % "test",
     tsrest     % "test",
+    orpc       % "test",
     postman    % "test",
     sttpclient % "test",
     tsfetch    % "test"
