@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
 
-export const healthContract = {
+export const health = {
   get: oc
     .route({
       method: 'GET',

@@ -57,7 +57,7 @@ object BaklavaOrpcFiles {
         |    "baseUrl": "./src",
         |    "outDir": "dist"
         |  },
-        |  "include": ["src/*.ts"]
+        |  "include": ["src/**/*.ts"]
         |}
         |""".stripMargin
     )

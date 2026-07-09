@@ -63,6 +63,33 @@ object TsNaming {
         .replace(".", "---")
     }
   }
+
+  def capitalize(s: String): String = if (s.isEmpty) s else s"${s.head.toUpper}${s.tail}"
+
+  /** Camelize one raw path segment into a router-object key: runs of non-alphanumerics are word boundaries (`feature-flags` ->
+    * `featureFlags`, `file.txt` -> `fileTxt`); an already-camelCase segment passes through.
+    */
+  def segmentCamel(seg: String): String = {
+    val parts = seg.split("[^A-Za-z0-9]+").filter(_.nonEmpty).toList
+    parts match {
+      case Nil          => "root"
+      case head :: tail => (decapitalize(head) :: tail.map(capitalize)).mkString
+    }
+  }
+
+  private def decapitalize(s: String): String = if (s.isEmpty) s else s"${s.head.toLower}${s.tail}"
+
+  def isPathParamSegment(seg: String): Boolean =
+    (seg.startsWith("{") && seg.endsWith("}")) || seg.startsWith(":")
+
+  /** Router-object key for a path segment. A path parameter reads as `by<Param>` (`{auctionId}` -> `byAuctionId`) — the same convention
+    * tsfetch uses in function names (`getUsersByUserId`); static segments are camelized.
+    */
+  def segmentKey(seg: String): String =
+    if (isPathParamSegment(seg)) {
+      val raw = if (seg.startsWith("{")) seg.substring(1, seg.length - 1) else seg.stripPrefix(":")
+      "by" + capitalize(segmentCamel(raw))
+    } else segmentCamel(seg)
 }
 
 class TsZodRenderer(dialect: TsZodDialect, refs: BaklavaSchemaSerializable => Option[String] = _ => None) {

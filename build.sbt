@@ -38,7 +38,7 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
       commands = List(
         "cd openapi/src/test/resources/gold/orpc",
         "npm install --no-save typescript@5.9 \"zod@^4\" \"@orpc/contract@^1.14.6\" \"@orpc/client@^1.14.6\" \"@orpc/openapi-client@^1.14.6\"",
-        "npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler src/*.ts"
+        "npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler $(find src -name '*.ts' | sort)"
       )
     ),
     WorkflowStep.Run(

@@ -193,40 +193,44 @@ Generates a TypeScript npm package of [oRPC](https://orpc.dev) contracts ([`@orp
 
 - `package.json` — npm package with build scripts, peer dependencies on `@orpc/contract`, `@orpc/client`, `@orpc/openapi-client` and `zod` (**v4**)
 - `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
-- `src/contracts.ts` — main exports file aggregating all contracts into one router object
-- `src/{name}.contract.ts` — one contract file per route group
+- `src/contracts.ts` — main exports file assembling the module files into one nested router object
+- `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`); a version prefix is treated as organizational, so `/v1/auctions/...` lands in `src/v1/auctions.contract.ts`
 - `src/schemas.ts` — named, deduplicated schemas: any object schema occurring more than once anywhere in the output is hoisted under a name derived from its Scala case-class name (`AuctionDto` → `auctionDtoSchema`), giving consumers `z.infer`-able named types
 - `src/client.ts` — a ready-made client factory (`createContractsClient(url)`): an `OpenAPILink` whose error decoder lifts the backend's discriminated error bodies into defined `ORPCError`s under the declared codes
 
-File naming follows the same path-derived scheme as the TS-REST format (`/pet/{petId}` → `pet---petId.contract.ts`). Schemas use the **zod 4** vocabulary and deliberately tell the wire truth: `date-time` fields render `z.iso.datetime({ offset: true })` (over HTTP a timestamp *is* an ISO string and `OpenAPILink` performs no client-side coercion), `uuid` → `z.uuid()`, `email` → `z.email()`, multipart file parts → `z.file()`. The rest of the Zod mapping table above applies unchanged.
+Contracts nest by path segment — oRPC's native router shape — so `/v1/auctions/{auctionId}/bids` is reached as `contracts.v1.auctions.byAuctionId.bids.<method>`. A path parameter reads as `by<Param>` (`{auctionId}` → `byAuctionId`), the router-tree spelling of the `getUsersByUserId` convention the TS-Fetch format uses for function names; static segments are camelized (`feature-flags` → `featureFlags`). Schemas use the **zod 4** vocabulary and deliberately tell the wire truth: `date-time` fields render `z.iso.datetime({ offset: true })` (over HTTP a timestamp *is* an ISO string and `OpenAPILink` performs no client-side coercion), `uuid` → `z.uuid()`, `email` → `z.email()`, multipart file parts → `z.file()`. The rest of the Zod mapping table above applies unchanged.
 
 ### Contract Shape
 
-Each path group exports an object of procedures keyed by lowercase HTTP method, built with `oc.route(...)`:
+Each module file exports a nested router: procedures keyed by lowercase HTTP method, child path segments as sub-objects, built with `oc.route(...)`:
 
 ```typescript
-export const usersUserIdContract = {
+export const users = {
   get: oc
-    .route({
-      method: 'GET',
-      path: '/users/{userId}',
-      summary: 'Get user',
-      description: 'Fetch a single user by UUID',
-      operationId: 'getUser',
-      tags: ['Users'],
-      successStatus: 200,
-      inputStructure: 'detailed'
-    })
-    .input(z.object({
-      params: z.object({userId: z.string().uuid()})
-    }))
-    .output(z.object({ /* ... */ }))
-    .errors({
-      'not_found': {
-        status: 404,
-        data: z.object({ /* the captured error body shape */ })
-      }
-    }),
+    .route({ method: 'GET', path: '/users', /* ... */ }),
+  byUserId: {
+    get: oc
+      .route({
+        method: 'GET',
+        path: '/users/{userId}',
+        summary: 'Get user',
+        description: 'Fetch a single user by UUID',
+        operationId: 'getUser',
+        tags: ['Users'],
+        successStatus: 200,
+        inputStructure: 'detailed'
+      })
+      .input(z.object({
+        params: z.object({userId: z.uuid()})
+      }))
+      .output(z.object({ /* ... */ }))
+      .errors({
+        'not_found': {
+          status: 404,
+          data: z.object({ /* the captured error body shape */ })
+        }
+      }),
+  },
 };
 ```
 
@@ -282,10 +286,10 @@ import { isDefinedError } from "@orpc/client";
 const client = createContractsClient("https://api.example.com");
 
 // Full type safety; types are wire-true (dates are ISO strings)
-const user = await client["users---userId"].get({ params: { userId } });
+const user = await client.users.byUserId.get({ params: { userId } });
 
 try {
-  await client["users---userId"].get({ params: { userId: missing } });
+  await client.users.byUserId.get({ params: { userId: missing } });
 } catch (error) {
   if (isDefinedError(error)) {
     // narrowed to the declared union; error.data is the typed error body

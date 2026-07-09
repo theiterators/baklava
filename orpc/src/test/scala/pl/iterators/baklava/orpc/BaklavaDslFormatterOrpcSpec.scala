@@ -3,7 +3,7 @@ package pl.iterators.baklava.orpc
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsNaming, TsZodDialect, TsZodRenderer}
 import sttp.model.{Method, StatusCode}
 
 class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
@@ -334,12 +334,59 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
     }
   }
 
-  describe("contractNameFromSymbolicPath()") {
+  describe("segment naming") {
 
-    it("derives names identically to the ts-rest formatter") {
-      generator.contractNameFromSymbolicPath("/v1/auctions/{auctionId}/bids") shouldBe "v1-auctions---auctionId-bids"
-      generator.contractNameFromSymbolicPath("/") shouldBe "root"
-      generator.contractNameFromSymbolicPath("/v1/file.txt") shouldBe "v1-file---txt"
+    it("path parameters read as by<Param>, matching tsfetch's function names") {
+      TsNaming.segmentKey("{auctionId}") shouldBe "byAuctionId"
+      TsNaming.segmentKey(":userId") shouldBe "byUserId"
+      TsNaming.segmentKey("{after-id}") shouldBe "byAfterId"
+    }
+
+    it("camelizes static segments on non-alphanumeric boundaries") {
+      TsNaming.segmentKey("feature-flags") shouldBe "featureFlags"
+      TsNaming.segmentKey("file.txt") shouldBe "fileTxt"
+      TsNaming.segmentKey("auctions") shouldBe "auctions"
+    }
+  }
+
+  describe("buildRouterTree() / modulesOf()") {
+
+    def ep(method: String, path: String): ((Option[Method], String), Seq[BaklavaSerializableCall]) =
+      ((Some(Method(method)), path), Seq(call(path, method = method)))
+
+    it("nests endpoints by path segment with by<Param> keys") {
+      val tree = generator.buildRouterTree(
+        Seq(ep("GET", "/v1/auctions"), ep("GET", "/v1/auctions/{auctionId}"), ep("POST", "/v1/auctions/{auctionId}/bids"))
+      )
+      val auctions = tree.children("v1").node.children("auctions").node
+      auctions.procedures.keySet shouldBe Set("get")
+      val byAuctionId = auctions.children("byAuctionId").node
+      byAuctionId.procedures.keySet shouldBe Set("get")
+      byAuctionId.children("bids").node.procedures.keySet shouldBe Set("post")
+    }
+
+    it("hash-suffixes a segment key when two distinct raw segments collapse to it") {
+      val tree = generator.buildRouterTree(Seq(ep("GET", "/users/by-id"), ep("GET", "/users/{id}")))
+      val keys = tree.children("users").node.children.keySet
+      keys should have size 2
+      keys should contain("byId")
+      keys.filterNot(_ == "byId").head should startWith("byId")
+    }
+
+    it("treats a version prefix as organizational: one module file per area below it") {
+      val modules = generator.modulesOf(generator.buildRouterTree(Seq(ep("GET", "/v1/auctions"), ep("GET", "/v1/feature-flags"))))
+      modules.map(m => (m.constName, m.filePath, m.contractsKeyPath)) shouldBe Seq(
+        ("v1Auctions", "v1/auctions.contract.ts", List("v1", "auctions")),
+        ("v1FeatureFlags", "v1/featureFlags.contract.ts", List("v1", "featureFlags"))
+      )
+    }
+
+    it("gives a non-versioned API one module file per top-level area") {
+      val modules = generator.modulesOf(generator.buildRouterTree(Seq(ep("GET", "/health"), ep("GET", "/users/{userId}"))))
+      modules.map(m => (m.constName, m.filePath, m.contractsKeyPath)) shouldBe Seq(
+        ("health", "health.contract.ts", List("health")),
+        ("users", "users.contract.ts", List("users"))
+      )
     }
   }
 

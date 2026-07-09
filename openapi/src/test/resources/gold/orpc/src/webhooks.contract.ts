@@ -2,7 +2,7 @@ import { z } from "zod";
 import { oc } from "@orpc/contract";
 import { webhookPayloadSchema } from "./schemas";
 
-export const webhooksContract = {
+export const webhooks = {
   post: oc
     .route({
       method: 'POST',
