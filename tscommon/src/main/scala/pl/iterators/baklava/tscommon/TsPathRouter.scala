@@ -64,13 +64,25 @@ object TsPathRouter {
 
   private def versionLike(segment: String): Boolean = segment.matches("v[0-9]+")
 
+  /** Named (non-parameter) sub-resources directly under this node. `/admin/config` and `/admin/loggers` count; `/auctions/{id}` does not.
+    */
+  private def namedChildCount(node: RouterNode): Int =
+    node.children.values.count(child => !TsNaming.isPathParamSegment(child.rawSegment))
+
+  // A top-level segment is exploded into a folder-of-files when it's a grouping rather than a
+  // single resource: a version prefix (`/v1/...`), or any segment fronting two or more named
+  // sub-resources (`/admin/config`, `/admin/loggers`, ...). A single-resource area (`/users` +
+  // `/users/{id}`) stays one flat file.
+  private def isNamespace(child: RouterChild): Boolean =
+    child.node.children.nonEmpty && (versionLike(child.rawSegment) || namedChildCount(child.node) >= 2)
+
   private def constNameOf(name: String): String = {
     val cleaned = name.filter(c => c.isLetterOrDigit || c == '_' || c == '$')
     if (cleaned.isEmpty || cleaned.head.isDigit) "_" + cleaned else cleaned
   }
 
-  /** A version prefix (`/v1/...`) is organizational, not a resource: modules live one level below it (module per `/v1/<area>`), while
-    * non-versioned APIs get a module per top-level area.
+  /** A namespace segment (a version prefix, or any grouping of ≥2 named sub-resources) becomes a folder with one module file per
+    * sub-resource; a single-resource area becomes one flat module file.
     */
   def modulesOf(tree: RouterNode): Seq[RouterModule] = {
     val rootModule =
@@ -78,8 +90,10 @@ object TsPathRouter {
       else Seq(RouterModule("root", List("root"), Nil, spread = true, tree.copy(children = Map.empty)))
 
     val areaModules = tree.children.toSeq.sortBy(_._1).flatMap { case (key, child) =>
-      if (versionLike(child.rawSegment) && child.node.children.nonEmpty) {
-        val versionRoot =
+      if (isNamespace(child)) {
+        // Procedures declared directly on the namespace itself (e.g. `GET /v1`) go in an index
+        // module, merged into the mount point via spread.
+        val indexModule =
           if (child.node.procedures.isEmpty) Seq.empty
           else
             Seq(
@@ -100,7 +114,7 @@ object TsPathRouter {
             subChild.node
           )
         }
-        versionRoot ++ subModules
+        indexModule ++ subModules
       } else {
         Seq(RouterModule(constNameOf(key), List(key), List(key), spread = false, child.node))
       }

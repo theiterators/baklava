@@ -1,5 +1,5 @@
 import { oc } from "@orpc/contract";
-import { healthResponseSchema } from "./health.schemas";
+import { healthResponseSchema } from "./schemas";
 
 export const health = {
   get: oc

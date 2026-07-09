@@ -6,6 +6,84 @@ info:
 servers:
 - url: /
 paths:
+  /admin/config:
+    summary: Admin config
+    description: Runtime configuration
+    get:
+      tags:
+      - Admin
+      summary: Get config
+      description: Read the effective runtime configuration
+      operationId: adminGetConfig
+      responses:
+        "200":
+          description: Current configuration
+          content:
+            application/json:
+              schema:
+                required:
+                - status
+                - uptimeSeconds
+                type: object
+                properties:
+                  status:
+                    type: string
+                  uptimeSeconds:
+                    type: integer
+                    format: int64
+                x-class: HealthResponse
+              examples:
+                Current configuration:
+                  value: |-
+                    {
+                      "status" : "ok",
+                      "uptimeSeconds" : 1
+                    }
+      security:
+      - basicAuth: []
+  /admin/loggers/{name}:
+    summary: Admin loggers
+    description: Inspect a logger's level
+    get:
+      tags:
+      - Admin
+      summary: Get logger level
+      description: Read a logger's effective level
+      operationId: adminGetLogger
+      parameters:
+      - name: name
+        in: path
+        description: Logger name
+        required: true
+        schema:
+          type: string
+        example: ROOT
+      responses:
+        "200":
+          description: Logger level
+          content:
+            application/json:
+              schema:
+                required:
+                - status
+                - uptimeSeconds
+                type: object
+                properties:
+                  status:
+                    type: string
+                  uptimeSeconds:
+                    type: integer
+                    format: int64
+                x-class: HealthResponse
+              examples:
+                Logger level:
+                  value: |-
+                    {
+                      "status" : "DEBUG",
+                      "uptimeSeconds" : 1
+                    }
+      security:
+      - basicAuth: []
   /auth/login:
     summary: Authentication
     description: Authenticate against the API

@@ -1,5 +1,7 @@
 export * from "./client";
 export * as Common from "./common/types";
+export * from "./admin/config/endpoints";
+export * from "./admin/loggers/endpoints";
 export * from "./auth/endpoints";
 export * from "./health/endpoints";
 export * from "./me/endpoints";
@@ -7,7 +9,6 @@ export * from "./projects/endpoints";
 export * from "./users/endpoints";
 export * from "./webhooks/endpoints";
 export * as Auth from "./auth/types";
-export * as Health from "./health/types";
 export * as Projects from "./projects/types";
 export * as Users from "./users/types";
 export * as Webhooks from "./webhooks/types";

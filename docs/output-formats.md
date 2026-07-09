@@ -107,7 +107,7 @@ Generates a complete TypeScript npm package using [ts-rest](https://ts-rest.com/
 - `package.json` — npm package with build scripts, peer dependencies on `@ts-rest/core` and `zod`
 - `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
 - `src/contracts.ts` — main exports file assembling the module routers into one nested `ts-rest` router
-- `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`); a version prefix is treated as organizational, so `/v1/auctions/...` lands in `src/v1/auctions.contract.ts`
+- `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`). A **namespace** — a version prefix (`/v1/...`) or any segment fronting two or more named sub-resources (`/admin/config`, `/admin/loggers`, …) — becomes a folder with a file per sub-resource (`src/v1/auctions.contract.ts`, `src/admin/loggers.contract.ts`); a single-resource area (`/users` + `/users/{id}`) stays one flat file
 - `src/{area}.schemas.ts` / `src/schemas.ts` — named zod schemas (one per captured case class, deduplicated), each paired with its inferred type export (`auctionDtoSchema` + `export type AuctionDto`): module-local ones sit next to their contract, shapes shared by two or more modules land in the common `schemas.ts`
 
 ### Contract Organization
@@ -187,7 +187,7 @@ Generates a TypeScript npm package of [oRPC](https://orpc.dev) contracts ([`@orp
 - `package.json` — npm package with build scripts, peer dependencies on `@orpc/contract`, `@orpc/client`, `@orpc/openapi-client` and `zod` (**v4**)
 - `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
 - `src/contracts.ts` — main exports file assembling the module files into one nested router object
-- `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`); a version prefix is treated as organizational, so `/v1/auctions/...` lands in `src/v1/auctions.contract.ts`
+- `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`). A **namespace** — a version prefix (`/v1/...`) or any segment fronting two or more named sub-resources (`/admin/config`, `/admin/loggers`, …) — becomes a folder with a file per sub-resource (`src/v1/auctions.contract.ts`, `src/admin/loggers.contract.ts`); a single-resource area (`/users` + `/users/{id}`) stays one flat file
 - `src/{area}.schemas.ts` — named, deduplicated schemas used only by that module: every object schema with a captured case-class name is hoisted under a derived name and paired with its inferred type (`AuctionDto` → `auctionDtoSchema` + `export type AuctionDto`); a type name that would shadow a TS global gets a `Type` suffix (`Error` → `ErrorType`)
 - `src/schemas.ts` — hoisted schemas shared by two or more modules (`errorSchema`, common DTOs)
 - `src/client.ts` — a ready-made client factory (`createContractsClient(url)`): an `OpenAPILink` whose error decoder lifts the backend's discriminated error bodies into defined `ORPCError`s under the declared codes
@@ -552,7 +552,7 @@ Generates a plain-TypeScript client library that uses the browser/Node `fetch` A
 - `src/client.ts` — `BaklavaClient` class with `baseUrl`, pluggable `fetch`, optional bearer/basic/API-key credentials; plus `BaklavaHttpError` for failed responses
 - `src/common/types.ts` — interfaces for types used by two or more route-area modules
 - `src/{area}/types.ts` — interfaces for types used only within that module
-- `src/{area}/endpoints.ts` — one `async function` per endpoint in that module. Modules follow the same path-derived boundaries as the TS-REST and oRPC formats (`/users/...` → `users/`; a version prefix is organizational, so `/v1/auctions/...` → `v1/auctions/`).
+- `src/{area}/endpoints.ts` — one `async function` per endpoint in that module. Modules follow the same path-derived boundaries as the TS-REST and oRPC formats (`/users/...` → `users/`; a namespace — a version prefix or a grouping of ≥2 named sub-resources like `/admin/*` — becomes a folder-per-sub-resource: `/v1/auctions/...` → `v1/auctions/`, `/admin/loggers` → `admin/loggers/`).
 - `src/index.ts` — re-exports every module's endpoints. Per-module types are re-exported under a namespace (`Users`, `V1Auctions`, …) to avoid collisions; shared types appear under `Common`.
 
 ### Type Distribution

@@ -1,13 +1,16 @@
-import { BaklavaClient, BaklavaHttpError } from "../client";
-import type { HealthResponse } from "../common/types";
+import { BaklavaClient, BaklavaHttpError } from "../../client";
+import type { HealthResponse } from "../../common/types";
 
-/** Liveness probe — Return service liveness — no authentication required */
-export async function health(client: BaklavaClient): Promise<HealthResponse> {
-  const url = new URL(`${client.baseUrl}/health`);
+/** Get logger level — Read a logger's effective level */
+export async function adminGetLogger(client: BaklavaClient, params: {
+  name: string;
+}): Promise<HealthResponse> {
+  const url = new URL(`${client.baseUrl}/admin/loggers/${encodeURIComponent(String(params.name))}`);
   let __ret!: HealthResponse;
   const res = await client.fetch(url.toString(), {
     method: "GET",
     headers: {
+    ...client.authHeaders(),
     },
   });
   const text = await res.text();

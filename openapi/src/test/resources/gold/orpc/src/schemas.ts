@@ -6,6 +6,11 @@ export const errorResponseSchema = z.object({
         "message": z.string()});
 export type ErrorResponse = z.infer<typeof errorResponseSchema>;
 
+export const healthResponseSchema = z.object({
+        "status": z.string(),
+        "uptimeSeconds": z.number().int()});
+export type HealthResponse = z.infer<typeof healthResponseSchema>;
+
 export const userSchema = z.object({
         "email": z.string(),
         "id": z.uuid(),

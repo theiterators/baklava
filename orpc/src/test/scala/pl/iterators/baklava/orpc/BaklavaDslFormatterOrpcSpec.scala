@@ -442,12 +442,29 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       )
     }
 
-    it("gives a non-versioned API one module file per top-level area") {
+    it("gives a single-resource area one flat module file (only param children)") {
       val modules = TsPathRouter.modulesOf(TsPathRouter.buildRouterTree(Seq(ep("GET", "/health"), ep("GET", "/users/{userId}"))))
       modules.map(m => (m.constName, m.fileSegments, m.mountPath)) shouldBe Seq(
         ("health", List("health"), List("health")),
         ("users", List("users"), List("users"))
       )
+    }
+
+    it("explodes a non-version namespace (>=2 named sub-resources) into a folder, like admin") {
+      val modules = TsPathRouter.modulesOf(
+        TsPathRouter.buildRouterTree(
+          Seq(ep("GET", "/admin/config"), ep("GET", "/admin/loggers/{name}"), ep("POST", "/admin/loggers/{name}"))
+        )
+      )
+      modules.map(m => (m.constName, m.fileSegments, m.mountPath)) shouldBe Seq(
+        ("adminConfig", List("admin", "config"), List("admin", "config")),
+        ("adminLoggers", List("admin", "loggers"), List("admin", "loggers"))
+      )
+    }
+
+    it("keeps a single named sub-resource flat (not a namespace)") {
+      val modules = TsPathRouter.modulesOf(TsPathRouter.buildRouterTree(Seq(ep("POST", "/auth/login"))))
+      modules.map(m => (m.constName, m.fileSegments)) shouldBe Seq(("auth", List("auth")))
     }
   }
 
