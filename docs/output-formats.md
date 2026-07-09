@@ -106,20 +106,13 @@ Generates a complete TypeScript npm package using [ts-rest](https://ts-rest.com/
 
 - `package.json` — npm package with build scripts, peer dependencies on `@ts-rest/core` and `zod`
 - `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
-- `src/contracts.ts` — main exports file re-exporting all contracts
-- `src/{name}.contract.ts` — one contract file per route group
+- `src/contracts.ts` — main exports file assembling the module routers into one nested `ts-rest` router
+- `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`). A **namespace** — a version prefix (`/v1/...`) or any segment fronting two or more named sub-resources (`/admin/config`, `/admin/loggers`, …) — becomes a folder with a file per sub-resource (`src/v1/auctions.contract.ts`, `src/admin/loggers.contract.ts`); a single-resource area (`/users` + `/users/{id}`) stays one flat file
+- `src/{area}.schemas.ts` / `src/schemas.ts` — named zod schemas (one per captured case class, deduplicated), each paired with its inferred type export (`auctionDtoSchema` + `export type AuctionDto`): module-local ones sit next to their contract, shapes shared by two or more modules land in the common `schemas.ts`
 
 ### Contract Organization
 
-Each unique path becomes its own contract file. The path is converted to a filename:
-- `/` → `root.contract.ts`
-- `/user/login` → `user-login.contract.ts`
-- `/pet/{petId}` → `pet---petId.contract.ts`
-- `/user/{id}/profile` → `user---id-profile.contract.ts`
-
-Path parameters `{param}` are replaced with `--param`, dots with `---`, and segments are joined with `-`.
-
-Endpoints sharing the same path but with different HTTP methods are grouped into one contract file. Each contract file exports a `ts-rest` router with typed endpoints.
+Contracts nest by path segment, so `/users/{userId}/photo` is reached as `contracts.users.byUserId.photo.<method>`. A path parameter reads as `by<Param>` (`{userId}` → `byUserId`) — the router-tree spelling of the `getUsersByUserId` convention the TS-Fetch format uses for function names; static segments are camelized (`feature-flags` → `featureFlags`). Endpoints sharing a path with different HTTP methods are sibling entries on the same node. Each module file exports an `initContract().router(...)` subtree; `contracts.ts` mounts them.
 
 ### Zod Schema Mapping
 
@@ -145,6 +138,10 @@ When multiple test cases produce different schemas for the same endpoint input/o
 Object keys that aren't valid JavaScript identifiers (e.g. kebab-case query/header parameters like `seller-id` or `X-Forwarded-For`) are emitted quoted so the generated source compiles.
 
 `multipart/form-data` request bodies (a `Multipart(...)` body in the test) are emitted as `contentType: 'multipart/form-data'` plus a `z.object({...})` naming each captured form part — `FilePart`s become `z.instanceof(File)`, `TextPart`s become `z.string()`, and a part name that appears more than once (a multi-value field) becomes a `z.array(...)`. Distinct part-sets recorded across calls for the same endpoint are combined into a `z.union([...])`, like any other body shape. (`z.instanceof(File)` references the global `File` constructor; it's available in browsers and Node ≥ 20.)
+
+### Security
+
+ts-rest has no route-level OpenAPI `security` field — in ts-rest, security is applied by an [`operationMapper`](https://ts-rest.com/docs/open-api) that the consumer passes to `generateOpenApi`. So a route's captured schemes are surfaced **in the description** (e.g. `Requires authentication: basicAuth (HTTP Basic).`) rather than structurally. To turn that into real OpenAPI security, define the schemes in `generateOpenApi`'s `components.securitySchemes` and map them per operation. Authentication itself is a transport concern handled by the client, not the contract.
 
 ### Configuration
 
@@ -194,9 +191,11 @@ Generates a TypeScript npm package of [oRPC](https://orpc.dev) contracts ([`@orp
 - `package.json` — npm package with build scripts, peer dependencies on `@orpc/contract`, `@orpc/client`, `@orpc/openapi-client` and `zod` (**v4**)
 - `tsconfig.json` — TypeScript configuration (ES2022, strict mode)
 - `src/contracts.ts` — main exports file assembling the module files into one nested router object
-- `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`); a version prefix is treated as organizational, so `/v1/auctions/...` lands in `src/v1/auctions.contract.ts`
-- `src/schemas.ts` — named, deduplicated schemas: any object schema occurring more than once anywhere in the output is hoisted under a name derived from its Scala case-class name (`AuctionDto` → `auctionDtoSchema`), giving consumers `z.infer`-able named types
+- `src/{area}.contract.ts` — one module file per top-level path area (`/users/...` → `users.contract.ts`). A **namespace** — a version prefix (`/v1/...`) or any segment fronting two or more named sub-resources (`/admin/config`, `/admin/loggers`, …) — becomes a folder with a file per sub-resource (`src/v1/auctions.contract.ts`, `src/admin/loggers.contract.ts`); a single-resource area (`/users` + `/users/{id}`) stays one flat file
+- `src/{area}.schemas.ts` — named, deduplicated schemas used only by that module: every object schema with a captured case-class name is hoisted under a derived name and paired with its inferred type (`AuctionDto` → `auctionDtoSchema` + `export type AuctionDto`); a type name that would shadow a TS global gets a `Type` suffix (`Error` → `ErrorType`)
+- `src/schemas.ts` — hoisted schemas shared by two or more modules (`errorSchema`, common DTOs)
 - `src/client.ts` — a ready-made client factory (`createContractsClient(url)`): an `OpenAPILink` whose error decoder lifts the backend's discriminated error bodies into defined `ORPCError`s under the declared codes
+- `src/security.ts` — `securitySchemes`: the OpenAPI Security Scheme Objects captured from the routes (`{ basicAuth: { type: 'http', scheme: 'basic' }, … }`), keyed by scheme name — feed it to an OpenAPI generator's `components.securitySchemes`
 
 Contracts nest by path segment — oRPC's native router shape — so `/v1/auctions/{auctionId}/bids` is reached as `contracts.v1.auctions.byAuctionId.bids.<method>`. A path parameter reads as `by<Param>` (`{auctionId}` → `byAuctionId`), the router-tree spelling of the `getUsersByUserId` convention the TS-Fetch format uses for function names; static segments are camelized (`feature-flags` → `featureFlags`). Schemas use the **zod 4** vocabulary and deliberately tell the wire truth: `date-time` fields render `z.iso.datetime({ offset: true })` (over HTTP a timestamp *is* an ISO string and `OpenAPILink` performs no client-side coercion), `uuid` → `z.uuid()`, `email` → `z.email()`, multipart file parts → `z.file()`. The rest of the Zod mapping table above applies unchanged.
 
@@ -255,9 +254,24 @@ Backends documented by baklava don't speak oRPC's own error envelope, but most s
 })
 ```
 
-The discriminator field defaults to `type` and is configurable via the `orpc-error-code-field` config key. Inside each declared error's `data` schema the discriminator property is narrowed to `z.enum(["<the code>"])`, so payloads are self-discriminating. Error responses whose body carries no extractable discriminator (bodyless 429s, non-JSON payloads) are left undeclared and surface through oRPC's defaults.
+The discriminator field defaults to `type` and is configurable via the `orpc-error-code-field` config key. Inside each declared error's `data` schema the discriminator property is narrowed to `z.enum(["<the code>"])`, so payloads are self-discriminating; when the error body shape is hoisted, the narrowing happens at the use site (`errorSchema.extend({type: z.enum(["<the code>"])})`) so one shared schema serves every declared code. Error responses whose body carries no extractable discriminator (bodyless 429s, non-JSON payloads) are left undeclared and surface through oRPC's defaults.
 
 The generated `src/client.ts` completes the loop: its `createContractsClient(url)` wires an `OpenAPILink` with a [`customErrorResponseBodyDecoder`](https://orpc.dev/docs/openapi/advanced/customizing-error-response) that lifts error bodies into `ORPCError`s whose `code` is the same discriminator value (and `defined: true`) — so [`isDefinedError`](https://orpc.dev/docs/client/error-handling) narrows errors to the declared union, giving statically typed, exhaustively checkable error handling end to end, out of the box.
+
+### Security
+
+Routes that captured a security scheme add it to the generated OpenAPI operation via oRPC's route [`spec`](https://orpc.dev/docs/openapi/openapi-specification) override:
+
+```typescript
+.route({
+  method: 'GET',
+  path: '/admin/loggers/{name}',
+  /* ... */
+  spec: (current) => ({ ...current, security: [{ basicAuth: [] }] }),
+})
+```
+
+`security` references schemes by name; the matching definitions are exported from `src/security.ts` as `securitySchemes`. Pass them to your OpenAPI generator so the references resolve. Authentication itself stays a transport concern — inject credentials via the client's `fetch`/`headers` (as `createContractsClient`'s options allow), the same way bearer tokens are added; the contract only *documents* the requirement.
 
 ### Configuration
 
@@ -556,19 +570,19 @@ Generates a plain-TypeScript client library that uses the browser/Node `fetch` A
 
 - `package.json` / `tsconfig.json` — minimal npm package with a single `typescript` dev dep
 - `src/client.ts` — `BaklavaClient` class with `baseUrl`, pluggable `fetch`, optional bearer/basic/API-key credentials; plus `BaklavaHttpError` for failed responses
-- `src/common/types.ts` — interfaces for types used by two or more tags
-- `src/{tag}/types.ts` — interfaces for types used only within that tag
-- `src/{tag}/endpoints.ts` — one `async function` per endpoint in that tag. Untagged operations go into `src/default/endpoints.ts`.
-- `src/index.ts` — re-exports every tag's endpoints. Per-tag types are re-exported under a namespace (`Users`, `Projects`, …) to avoid collisions; shared types appear under `Common`.
+- `src/common/types.ts` — interfaces for types used by two or more route-area modules
+- `src/{area}/types.ts` — interfaces for types used only within that module
+- `src/{area}/endpoints.ts` — one `async function` per endpoint in that module. Modules follow the same path-derived boundaries as the TS-REST and oRPC formats (`/users/...` → `users/`; a namespace — a version prefix or a grouping of ≥2 named sub-resources like `/admin/*` — becomes a folder-per-sub-resource: `/v1/auctions/...` → `v1/auctions/`, `/admin/loggers` → `admin/loggers/`).
+- `src/index.ts` — re-exports every module's endpoints. Per-module types are re-exported under a namespace (`Users`, `V1Auctions`, …) to avoid collisions; shared types appear under `Common`.
 
 ### Type Distribution
 
-Each named schema is routed based on which tags' endpoints reference it:
+Each named schema is routed based on which modules' endpoints reference it:
 
-- Used by **one tag** → `src/{tag}/types.ts`
-- Used by **two or more tags** → `src/common/types.ts`
+- Used by **one module** → `src/{area}/types.ts`
+- Used by **two or more modules** → `src/common/types.ts`
 
-Endpoint files import types from the appropriate location (`./types`, `../common/types`, or `../{other-tag}/types`). Interface references inside other interfaces follow the same rule, so the output never duplicates a type.
+Endpoint files import types from the appropriate location (`./types`, the shared `common/types`, or the owning module's `types`). Interface references inside other interfaces follow the same rule, so the output never duplicates a type.
 
 ### Schema Type Mapping
 
@@ -580,7 +594,7 @@ Endpoint files import types from the appropriate location (`./types`, `../common
 | `Boolean` | `boolean` |
 | `Null` | `null` |
 | `Seq[T]`, `List[T]`, `Vector[T]`, `Set[T]`, `Array[T]` | `InnerType[]` |
-| Case class with properties | Named `interface` (re-exported per-tag as `Users.ClassName` / shared as `Common.ClassName`) |
+| Case class with properties | Named `interface` (re-exported per-module as `Users.ClassName` / shared as `Common.ClassName`) |
 | `Map[K, V]` | `Record<string, V>` |
 | `Option[T]` | Field becomes optional (`field?: T`) |
 

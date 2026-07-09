@@ -459,6 +459,46 @@ class ComprehensiveGoldSpec
     )
   )
 
+  // An admin namespace: two named sub-resources under one non-version prefix, HTTP Basic
+  // protected — exercises the folder-per-area split for non-version namespaces and captures a
+  // basic-auth security scheme.
+  path("/admin/config", description = "Runtime configuration", summary = "Admin config")(
+    supports(
+      GET,
+      securitySchemes = Seq(basicScheme),
+      description = "Read the effective runtime configuration",
+      summary = "Get config",
+      operationId = "adminGetConfig",
+      tags = Seq("Admin")
+    )(
+      onRequest(security = basicAuth("admin", "admin-pass"))
+        .respondsWith[HealthResponse](OK, description = "Current configuration")
+        .assert { ctx =>
+          nextResponse = jsonResponse(OK, HealthResponse("ok", 1L).asJson.noSpaces)
+          ctx.performRequest(routes)
+        }
+    )
+  )
+
+  path("/admin/loggers/{name}", description = "Inspect a logger's level", summary = "Admin loggers")(
+    supports(
+      GET,
+      pathParameters = p[String]("name", "Logger name"),
+      securitySchemes = Seq(basicScheme),
+      description = "Read a logger's effective level",
+      summary = "Get logger level",
+      operationId = "adminGetLogger",
+      tags = Seq("Admin")
+    )(
+      onRequest(pathParameters = "ROOT", security = basicAuth("admin", "admin-pass"))
+        .respondsWith[HealthResponse](OK, description = "Logger level")
+        .assert { ctx =>
+          nextResponse = jsonResponse(OK, HealthResponse("DEBUG", 1L).asJson.noSpaces)
+          ctx.performRequest(routes)
+        }
+    )
+  )
+
   path("/users/{userId}/photo", description = "Upload a profile photo with a caption", summary = "Photo")(
     supports(
       POST,

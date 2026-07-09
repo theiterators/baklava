@@ -122,15 +122,6 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
     }
   }
 
-  describe("contractNameFromSymbolicPath") {
-
-    it("preserves existing non-collision behavior") {
-      generator.contractNameFromSymbolicPath("/pets") shouldBe "pets"
-      generator.contractNameFromSymbolicPath("/pets/{id}") shouldBe "pets---id"
-      generator.contractNameFromSymbolicPath("/") shouldBe "root"
-    }
-  }
-
   describe("toTsRestPath") {
 
     it("converts simple {name} placeholders to :name") {
@@ -373,6 +364,48 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
         bodySchema = None
       )
     )
+
+  describe("security (ts-rest: documentary note in description)") {
+    it("appends the auth requirement to the route description") {
+      val base = getCall("/admin/loggers")
+      val call = base.copy(
+        request = base.request.copy(
+          operationDescription = Some("Read a logger level"),
+          securitySchemes =
+            Seq(BaklavaSecuritySchemaSerializable("adminBasic", BaklavaSecuritySerializable(httpBasic = Some(HttpBasic()))))
+        )
+      )
+      val entry = generator.createContractForEndpoint(((Some(Method("GET")), "/admin/loggers"), Seq(call)))
+      entry should include("Read a logger level")
+      entry should include("Requires authentication: adminBasic (HTTP Basic).")
+    }
+  }
+
+  describe("named schema hoisting (buildSchemaRefs)") {
+
+    def callWithResponse(path: String, schema: BaklavaSchemaSerializable): BaklavaSerializableCall = {
+      val base = getCall(path)
+      base.copy(response = base.response.copy(bodySchema = Some(schema)))
+    }
+
+    it("hoists an object schema that occurs more than once, named from its className") {
+      val dto  = objectSchema(Map("a" -> stringSchema())).copy(className = "UserDto")
+      val refs = generator.buildSchemaRefs(
+        Seq(
+          ((Some(Method("GET")), "/a"), Seq(callWithResponse("/a", dto))),
+          ((Some(Method("GET")), "/b"), Seq(callWithResponse("/b", dto)))
+        )
+      )
+      refs.get(dto) shouldBe Some("userDtoSchema")
+    }
+
+    it("hoists single-occurrence named schemas too") {
+      val dto = objectSchema(Map("a" -> stringSchema())).copy(className = "UserDto")
+      generator
+        .buildSchemaRefs(Seq(((Some(Method("GET")), "/a"), Seq(callWithResponse("/a", dto)))))
+        .get(dto) shouldBe Some("userDtoSchema")
+    }
+  }
 
   // The contract entry (`get: { ... }` / `post: { ... }` block) the generator emits for one
   // (method, path) endpoint group — exercised directly so the tests don't touch the filesystem.

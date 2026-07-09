@@ -4,6 +4,11 @@ export interface ErrorResponse {
   message: string;
 }
 
+export interface HealthResponse {
+  status: string;
+  uptimeSeconds: number;
+}
+
 export interface User {
   email: string;
   id: string;

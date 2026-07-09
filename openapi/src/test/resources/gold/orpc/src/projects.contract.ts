@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
-import { createProjectRequestSchema, projectSchema, taskSchema } from "./schemas";
+import { errorResponseSchema } from "./schemas";
+import { createProjectRequestSchema, createTaskRequestSchema, patchProjectRequestSchema, projectSchema, taskSchema } from "./projects.schemas";
 
 export const projects = {
   get: oc
@@ -12,7 +13,8 @@ export const projects = {
       operationId: 'listProjects',
       tags: ['Projects'],
       successStatus: 200,
-      inputStructure: 'detailed'
+      inputStructure: 'detailed',
+      spec: (current) => ({ ...current, security: [{ oauth2: [] }] })
     })
     .input(z.object({
       query: z.object({status: z.enum(["active","archived","draft"]).describe("Lifecycle state of a project").nullish()}).optional()
@@ -27,7 +29,8 @@ export const projects = {
       operationId: 'createProject',
       tags: ['Projects'],
       successStatus: 201,
-      inputStructure: 'detailed'
+      inputStructure: 'detailed',
+      spec: (current) => ({ ...current, security: [{ oauth2: [] }] })
     })
     .input(z.object({
       body: createProjectRequestSchema
@@ -36,10 +39,7 @@ export const projects = {
     .errors({
       'validation': {
         status: 400,
-        data: z.object({
-        "code": z.enum(["validation"]),
-        "details": z.array(z.string()).nullish(),
-        "message": z.string()})
+        data: errorResponseSchema.extend({code: z.enum(["validation"])})
       }
     }),
   byProjectId: {
@@ -52,14 +52,12 @@ export const projects = {
         operationId: 'patchProject',
         tags: ['Projects'],
         successStatus: 200,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ oauth2: [] }] })
       })
       .input(z.object({
         params: z.object({projectId: z.number().int()}),
-        body: z.object({
-          "description": z.string().nullish(),
-          "name": z.string().nullish(),
-          "status": z.enum(["active","archived","draft"]).describe("Lifecycle state of a project").nullish()})
+        body: patchProjectRequestSchema
       }))
       .output(projectSchema),
     tasks: {
@@ -72,7 +70,8 @@ export const projects = {
           operationId: 'listTasks',
           tags: ['Tasks'],
           successStatus: 200,
-          inputStructure: 'detailed'
+          inputStructure: 'detailed',
+          spec: (current) => ({ ...current, security: [{ oauth2: [] }] })
         })
         .input(z.object({
           params: z.object({projectId: z.number().int()})
@@ -87,14 +86,12 @@ export const projects = {
           operationId: 'createTask',
           tags: ['Tasks'],
           successStatus: 201,
-          inputStructure: 'detailed'
+          inputStructure: 'detailed',
+          spec: (current) => ({ ...current, security: [{ oauth2: [] }] })
         })
         .input(z.object({
           params: z.object({projectId: z.number().int()}),
-          body: z.object({
-            "description": z.string().nullish(),
-            "priority": z.enum(["high","low","medium"]).describe("Task priority level"),
-            "title": z.string()})
+          body: createTaskRequestSchema
         }))
         .output(taskSchema)
     }

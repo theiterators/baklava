@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
-import { userSchema } from "./schemas";
+import { errorResponseSchema, userSchema } from "./schemas";
+import { paginatedUsersSchema, photoUploadSchema, updateUserRequestSchema } from "./users.schemas";
 
 export const users = {
   get: oc
@@ -12,16 +13,13 @@ export const users = {
       operationId: 'listUsers',
       tags: ['Users'],
       successStatus: 200,
-      inputStructure: 'detailed'
+      inputStructure: 'detailed',
+      spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
     })
     .input(z.object({
       query: z.object({page: z.number().int().nullish(), limit: z.number().int().nullish(), role: z.enum(["admin","guest","member"]).describe("User role within the system").nullish()}).optional()
     }))
-    .output(z.object({
-        "limit": z.number().int(),
-        "page": z.number().int(),
-        "total": z.number().int(),
-        "users": z.array(userSchema)})),
+    .output(paginatedUsersSchema),
   byUserId: {
     delete: oc
       .route({
@@ -32,7 +30,8 @@ export const users = {
         operationId: 'deleteUser',
         tags: ['Users'],
         successStatus: 204,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
       })
       .input(z.object({
         params: z.object({userId: z.uuid()})
@@ -47,7 +46,8 @@ export const users = {
         operationId: 'getUser',
         tags: ['Users'],
         successStatus: 200,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
       })
       .input(z.object({
         params: z.object({userId: z.uuid()})
@@ -56,10 +56,7 @@ export const users = {
       .errors({
         'not_found': {
           status: 404,
-          data: z.object({
-          "code": z.enum(["not_found"]),
-          "details": z.array(z.string()).nullish(),
-          "message": z.string()})
+          data: errorResponseSchema.extend({code: z.enum(["not_found"])})
         }
       }),
     put: oc
@@ -71,13 +68,12 @@ export const users = {
         operationId: 'updateUser',
         tags: ['Users'],
         successStatus: 200,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
       })
       .input(z.object({
         params: z.object({userId: z.uuid()}),
-        body: z.object({
-          "name": z.string(),
-          "role": z.enum(["admin","guest","member"]).describe("User role within the system")})
+        body: updateUserRequestSchema
       }))
       .output(userSchema),
     photo: {
@@ -90,19 +86,14 @@ export const users = {
           operationId: 'uploadPhoto',
           tags: ['Users'],
           successStatus: 201,
-          inputStructure: 'detailed'
+          inputStructure: 'detailed',
+          spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
         })
         .input(z.object({
           params: z.object({userId: z.uuid()}),
           body: z.object({caption: z.string(), photo: z.file()})
         }))
-        .output(z.object({
-            "id": z.uuid(),
-            "variants": z.record(z.string(), z.object({
-            "format": z.string(),
-            "height": z.number().int(),
-            "url": z.string(),
-            "width": z.number().int()}))}))
+        .output(photoUploadSchema)
     }
   }
 };

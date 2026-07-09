@@ -1,4 +1,4 @@
-ThisBuild / tlBaseVersion          := "1.4"
+ThisBuild / tlBaseVersion          := "2.0"
 ThisBuild / tlCiHeaderCheck        := false
 ThisBuild / tlUntaggedAreSnapshots := true
 ThisBuild / versionScheme          := Some("early-semver")
@@ -42,11 +42,19 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
       )
     ),
     WorkflowStep.Run(
+      name = Some("tsc: tsfetch gold"),
+      commands = List(
+        "cd openapi/src/test/resources/gold/tsfetch",
+        "npm install --no-save typescript@5.9",
+        "npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler --lib es2022,dom $(find src -name '*.ts' | sort)"
+      )
+    ),
+    WorkflowStep.Run(
       name = Some("tsc: tsrest gold"),
       commands = List(
         "cd openapi/src/test/resources/gold/tsrest",
         "npm install --no-save typescript@5.9 \"zod@^3.25\" \"@ts-rest/core@^3.52\"",
-        "npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler src/*.ts"
+        "npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler $(find src -name '*.ts' | sort)"
       )
     )
   )
@@ -195,7 +203,7 @@ lazy val sttpclient = project
 
 lazy val tsfetch = project
   .in(file("tsfetch"))
-  .dependsOn(core, scalatest % "test")
+  .dependsOn(core, tscommon, scalatest % "test")
   .settings(
     name := "baklava-tsfetch"
   )
@@ -216,6 +224,10 @@ lazy val openapi = project
   )
   .settings(
     name := "baklava-openapi",
+    // Formatters write to fixed target/baklava/<format> paths; suites that invoke them
+    // (ComprehensiveGoldSpec, BaklavaDslFormatterOpenAPIConfigSpec) corrupt each other's
+    // output when run in parallel threads.
+    Test / parallelExecution := false,
     scalacOptions ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((3, _)) => Seq("-Xmax-inlines:64")

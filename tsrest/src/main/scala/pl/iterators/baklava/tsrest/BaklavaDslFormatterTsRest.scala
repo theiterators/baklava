@@ -1,22 +1,28 @@
 package pl.iterators.baklava.tsrest
 
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsNaming, TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsPathRouter, TsSchemaRefs, TsSecurity, TsZodDialect, TsZodRenderer}
 import sttp.model.Method
 
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Using
 
 class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
-  private val renderer = new TsZodRenderer(TsZodDialect.tsRest)
+  import TsPathRouter.*
+
+  private val plainRenderer = new TsZodRenderer(TsZodDialect.tsRest)
 
   private val dirName                 = "target/baklava/tsrest"
   private val sourcesDirName          = "target/baklava/tsrest/src"
   private val packageContractJsonPath = s"$dirName/package-contracts.json"
 
   private val contractTsPath = s"$sourcesDirName/contracts.ts"
+  private val schemasTsPath  = s"$sourcesDirName/schemas.ts"
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
+    // Module files are named after the current route set; without a wipe, files from a previous
+    // run (renamed or removed routes) would linger and ship to consumers syncing the directory.
+    deleteRecursively(new File(sourcesDirName))
     // Create all target directories upfront so downstream writes don't depend on ordering.
     new File(dirName).mkdirs()
     new File(sourcesDirName).mkdirs()
@@ -29,70 +35,166 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       .get("ts-rest-package-contract-json")
       .foreach(packageContractJson => writeTo(packageContractJsonPath, packageContractJson))
 
-    val groupedByBaseName = calls
+    // Sorted so tree insertion (and thus collision-suffix assignment) is deterministic.
+    val endpoints: Seq[Endpoint] = calls
       .groupBy(c => (c.request.method, c.request.symbolicPath))
       .toList
-      .groupBy(c => contractNameFromSymbolicPath(c._1._2))
-      .toList
-      .sortBy(_._1)
+      .sortBy { case ((method, path), _) => (path, method.map(_.toString).getOrElse("")) }
 
-    // Disambiguate contract-name collisions: if two distinct symbolicPaths map to the same derived
-    // name (e.g. "/a/b" and "/a-b" both collapse to "a-b"), split each into its own contract with
-    // a short deterministic hash suffix. Non-colliding names pass through unchanged.
-    val callsGroupedBySymbolicPathIntoContractName = groupedByBaseName.flatMap { case (baseName, endpoints) =>
-      val distinctPaths = endpoints.map(_._1._2).distinct
-      if (distinctPaths.size <= 1) Seq((baseName, endpoints))
-      else {
-        endpoints.groupBy(_._1._2).toList.sortBy(_._1).map { case (symbolicPath, eps) =>
-          val suffix = f"${symbolicPath.hashCode.abs}%x".take(4)
-          (s"$baseName-$suffix", eps)
-        }
-      }
+    val refs    = buildSchemaRefs(endpoints)
+    val modules = modulesOf(buildRouterTree(endpoints))
+
+    val rendered = modules.map { module =>
+      val usedRefs = scala.collection.mutable.SortedSet.empty[String]
+      val renderer = rendererWith(refs, usedRefs += _)
+      val body     = TsPathRouter.render(
+        module.node,
+        0,
+        plainRenderer.tsObjectKey,
+        (endpoint, key) => createContractForEndpoint(endpoint, keyOverride = Some(key), renderer = renderer)
+      )
+      (module, body, usedRefs.toSet)
     }
 
-    val contractNames = callsGroupedBySymbolicPathIntoContractName
-      .map { case (name, endpoints) =>
-        val constName = createContractForGroup(name, endpoints)
-        (name, constName)
-      }
+    // A schema used by exactly one module lives in that module's sibling `<module>.schemas.ts`;
+    // anything shared (or referenced by a shared definition) stays in the common schemas.ts.
+    val defUses     = TsSchemaRefs.definitionUses(refs, (schema, record) => rendererWith(refs, record).zodDefinition(schema))
+    val assignment  = TsSchemaRefs.moduleAssignment(rendered.map { case (m, _, used) => m.constName -> used }, defUses)
+    val commonNames = refs.values.toSet.filter(name => assignment.getOrElse(name, Set.empty).sizeIs != 1)
 
-    val importStmts = contractNames
-      .map { case (name, constName) =>
-        s"""import { $constName } from "./$name.contract";"""
-      }
+    if (commonNames.nonEmpty) {
+      val commonRefs = refs.filter { case (_, name) => commonNames(name) }
+      writeTo(schemasTsPath, TsSchemaRefs.schemasFileContent(commonRefs, rendererWith(refs, _ => ()).zodDefinition))
+    }
+
+    rendered.foreach { case (module, body, usedRefs) =>
+      writeModuleFile(module, body, usedRefs, assignment, commonNames, refs, defUses)
+    }
+    writeContractsFile(modules)
+  }
+
+  private[tsrest] def buildSchemaRefs(endpoints: Seq[Endpoint]): Map[BaklavaSchemaSerializable, String] = {
+    val calls    = endpoints.flatMap(_._2)
+    val rendered =
+      calls.flatMap(_.request.bodySchema).filterNot(plainRenderer.isEmptyBodyInstance) ++
+        calls.flatMap(_.response.bodySchema)
+    TsSchemaRefs.buildRefs(rendered, plainRenderer.zodDefinition)
+  }
+
+  private def rendererWith(
+      refs: Map[BaklavaSchemaSerializable, String],
+      record: String => Unit
+  ): TsZodRenderer =
+    new TsZodRenderer(
+      TsZodDialect.tsRest,
+      schema =>
+        refs.get(schema).map { name =>
+          record(name)
+          name
+        }
+    )
+
+  private def moduleFilePath(module: RouterModule): String =
+    module.fileSegments.mkString("/") + ".contract.ts"
+
+  private def writeModuleFile(
+      module: RouterModule,
+      body: String,
+      usedRefs: Set[String],
+      assignment: Map[String, Set[String]],
+      commonNames: Set[String],
+      refs: Map[BaklavaSchemaSerializable, String],
+      defUses: Map[String, Set[String]]
+  ): Unit = {
+    val code =
+      s"""export const ${module.constName} = initContract().router({
+         |$body
+         |});
+         |""".stripMargin
+    val filePath    = moduleFilePath(module)
+    val schemasFrom = if (filePath.contains('/')) "../schemas" else "./schemas"
+    val localBase   = module.fileSegments.last + ".schemas"
+
+    val localNames = refs.values.toSet.filter(name => assignment.get(name).contains(Set(module.constName)))
+    if (localNames.nonEmpty) {
+      val localRefs      = refs.filter { case (_, name) => localNames(name) }
+      val commonImported = localNames.flatMap(defUses.getOrElse(_, Set.empty)).intersect(commonNames).toSeq.sorted
+      val importLines    =
+        if (commonImported.isEmpty) Seq.empty
+        else Seq(s"import { ${commonImported.mkString(", ")} } from \"$schemasFrom\";")
+      val localPath     = (module.fileSegments.dropRight(1) :+ localBase).mkString("/") + ".ts"
+      val content       = TsSchemaRefs.schemasFileContent(localRefs, rendererWith(refs, _ => ()).zodDefinition, importLines)
+      val fullLocalPath = s"$sourcesDirName/$localPath"
+      new File(fullLocalPath).getParentFile.mkdirs()
+      writeTo(fullLocalPath, content)
+    }
+
+    val commonUsed   = usedRefs.intersect(commonNames).toSeq.sorted
+    val localUsed    = usedRefs.intersect(localNames).toSeq.sorted
+    val schemaImport =
+      (if (commonUsed.isEmpty) "" else s"import { ${commonUsed.mkString(", ")} } from \"$schemasFrom\";\n") +
+        (if (localUsed.isEmpty) "" else s"import { ${localUsed.mkString(", ")} } from \"./$localBase\";\n")
+    val path = s"$sourcesDirName/$filePath"
+    new File(path).getParentFile.mkdirs()
+    writeTo(
+      path,
+      """import { z } from "zod";
+        |import { initContract } from "@ts-rest/core";
+        |""".stripMargin + schemaImport + "\n" + code
+    )
+  }
+
+  private def writeContractsFile(modules: Seq[RouterModule]): Unit = {
+    val imports = modules
+      .map(m => s"""import { ${m.constName} } from "./${moduleFilePath(m).stripSuffix(".ts")}";""")
       .mkString("\n")
 
-    val contractsMap = contractNames
-      .map { case (name, constName) => s"""  "$name": $constName""" }
-      .mkString(",\n")
+    val (rootModules, mounted) = modules.partition(_.mountPath.isEmpty)
+    val mountedByTop           =
+      mounted.map(_.mountPath.head).distinct.map(top => top -> mounted.filter(_.mountPath.head == top))
 
-    val typeMap = contractNames
-      .map { case (name, constName) => s"""  "$name": typeof $constName""" }
-      .mkString(";\n")
+    val entries = rootModules.map(m => s"  ...${m.constName}") ++
+      mountedByTop.map {
+        case (top, Seq(single)) if single.mountPath.sizeIs == 1 =>
+          if (single.constName == top) s"  $top"
+          else s"  ${plainRenderer.tsObjectKey(top)}: ${single.constName}"
+        case (top, group) =>
+          val inner = group
+            .map { m =>
+              if (m.spread) s"    ...${m.constName}"
+              else s"    ${plainRenderer.tsObjectKey(m.mountPath.last)}: ${m.constName}"
+            }
+            .mkString(",\n")
+          s"  ${plainRenderer.tsObjectKey(top)}: {\n$inner\n  }"
+      }
 
     writeTo(
       contractTsPath,
-      s"""$importStmts
-
-         |export const contracts: {
-         |$typeMap
-         |} = {
-         |$contractsMap
-         |};
-         |\n""".stripMargin
+      s"""import { initContract } from "@ts-rest/core";
+         |$imports
+         |
+         |export const contracts = initContract().router({
+         |${entries.mkString(",\n")}
+         |});
+         |""".stripMargin
     )
   }
 
   private def writeTo(path: String, content: String): Unit =
     Using.resource(new PrintWriter(new FileWriter(path)))(_.write(content))
 
+  private def deleteRecursively(file: File): Unit = {
+    if (file.isDirectory) Option(file.listFiles()).toSeq.flatten.foreach(deleteRecursively)
+    val _ = file.delete()
+  }
+
   private[tsrest] def buildParamsZod[P](
       paramsPerCall: Seq[Seq[P]],
       nameOf: P => String,
       schemaOf: P => BaklavaSchemaSerializable
-  ): Option[String] = renderer.buildParamsZod(paramsPerCall, nameOf, schemaOf)
+  ): Option[String] = plainRenderer.buildParamsZod(paramsPerCall, nameOf, schemaOf)
 
-  private[tsrest] def tsObjectKey(name: String): String = renderer.tsObjectKey(name)
+  private[tsrest] def tsObjectKey(name: String): String = plainRenderer.tsObjectKey(name)
 
   // Render one captured `Multipart` value as a ts-rest body schema (see
   // https://ts-rest.com/docs/core/multi-part): a `z.object` keyed by part name, `FilePart` ->
@@ -100,7 +202,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   // field) becomes a `z.array(...)`; a name that mixes file and text parts unions the element
   // schemas. Names and element schemas are sorted so output is deterministic.
   private[tsrest] def renderMultipartBody(parts: Seq[BaklavaMultipartPartSerializable]): String =
-    renderer.renderMultipartBody(parts)
+    plainRenderer.renderMultipartBody(parts)
 
   /** Convert a Baklava `{name}` placeholder path to the ts-rest `:name` syntax. Non-placeholder braces (i.e. anything containing `/` or
     * nested braces) are left alone. Param names can contain any character except `{`, `}`, or `/` — so hyphens and dots survive.
@@ -108,31 +210,11 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   private[tsrest] def toTsRestPath(symbolicPath: String): String =
     symbolicPath.replaceAll("""\{([^{}/]+)\}""", ":$1")
 
-  private[tsrest] def contractNameFromSymbolicPath(path: String): String =
-    TsNaming.contractNameFromSymbolicPath(path)
-
-  private def createContractForGroup(
-      contractName: String,
-      endpointsWithCalls: Seq[((Option[Method], String), Seq[BaklavaSerializableCall])]
-  ): String = {
-    val contractConstName = toCamelCase(contractName) + "Contract"
-    val code              =
-      s"""export const $contractConstName = initContract().router({
-         |${endpointsWithCalls.sortBy(_._1._1.map(_.toString).getOrElse("")).map(createContractForEndpoint).mkString(",\n")}
-         |});
-         |""".stripMargin
-    writeTo(
-      s"$sourcesDirName/$contractName.contract.ts",
-      """import { z } from "zod";
-        |import { initContract } from "@ts-rest/core";
-        |""".stripMargin + "\n" + code
-    )
-    contractConstName
-  }
-
   // Contract endpoint generator
   private[tsrest] def createContractForEndpoint(
-      endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall])
+      endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall]),
+      keyOverride: Option[String] = None,
+      renderer: TsZodRenderer = plainRenderer
   ): String = {
     val ((httpMethodOpt, _), calls) = endpoint
     require(
@@ -140,24 +222,29 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       s"createContractForEndpoint called with empty calls for method=${httpMethodOpt.map(_.method)}"
     )
     val httpMethod = httpMethodOpt.map(_.method).getOrElse("ANY").toLowerCase
+    val entryKey   = keyOverride.getOrElse(httpMethod)
 
-    val firstCall   = calls.head
-    val req         = firstCall.request
-    val summary     = escapeTsSingleQuoted(calls.flatMap(_.request.operationSummary).distinct.mkString(" / "))
-    val description = escapeTsSingleQuoted(calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n"))
-    val path        = toTsRestPath(req.symbolicPath)
+    val firstCall = calls.head
+    val req       = firstCall.request
+    val summary   = escapeTsSingleQuoted(calls.flatMap(_.request.operationSummary).distinct.mkString(" / "))
+    // ts-rest has no route-level OpenAPI security field (that lives in the consumer's
+    // `generateOpenApi` operationMapper), so the requirement is surfaced in the description.
+    val baseDescription = calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n")
+    val securityNote    = TsSecurity.note(calls.flatMap(_.request.securitySchemes).distinct)
+    val description     = escapeTsSingleQuoted((Seq(baseDescription).filter(_.nonEmpty) ++ securityNote).mkString("\n\n"))
+    val path            = toTsRestPath(req.symbolicPath)
 
-    val pathParamsZodOpt = buildParamsZod(
+    val pathParamsZodOpt = renderer.buildParamsZod(
       calls.map(_.request.pathParametersSeq),
       (p: BaklavaPathParamSerializable) => p.name,
       (p: BaklavaPathParamSerializable) => p.schema
     )
-    val queryParamsZodOpt = buildParamsZod(
+    val queryParamsZodOpt = renderer.buildParamsZod(
       calls.map(_.request.queryParametersSeq),
       (p: BaklavaQueryParamSerializable) => p.name,
       (p: BaklavaQueryParamSerializable) => p.schema
     )
-    val headersZodOpt = buildParamsZod(
+    val headersZodOpt = renderer.buildParamsZod(
       calls.map(_.request.headersSeq),
       (h: BaklavaHeaderSerializable) => h.name,
       (h: BaklavaHeaderSerializable) => h.schema
@@ -180,7 +267,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       }
     val (contentTypeLineOpt, bodyZod) =
       if (multipartPartSets.nonEmpty)
-        (Some("    contentType: 'multipart/form-data',"), collapseZodUnion(multipartPartSets.map(renderMultipartBody)))
+        (Some("    contentType: 'multipart/form-data',"), renderer.collapseZodUnion(multipartPartSets.map(renderer.renderMultipartBody)))
       else {
         val bodySchemas = calls.flatMap(_.request.bodySchema).distinct
         val bodyZods    =
@@ -188,9 +275,9 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
           else if (bodySchemas.size == 1 && isEmptyBodyInstance(bodySchemas.head)) Seq("z.undefined()")
           else {
             val notEmptyBodies = bodySchemas.filterNot(isEmptyBodyInstance)
-            if (notEmptyBodies.isEmpty) Seq("z.undefined()") else notEmptyBodies.map(zod)
+            if (notEmptyBodies.isEmpty) Seq("z.undefined()") else notEmptyBodies.map(renderer.zod)
           }
-        (None, collapseZodUnion(bodyZods))
+        (None, renderer.collapseZodUnion(bodyZods))
       }
 
     // --- Responses ---
@@ -199,8 +286,8 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       .toList
       .sortBy(_._1)
       .map { case (status, respCalls) =>
-        val schemas = respCalls.flatMap(_.response.bodySchema).distinct.map(zod)
-        val zodStr  = collapseZodUnion(schemas)
+        val schemas = respCalls.flatMap(_.response.bodySchema).distinct.map(renderer.zod)
+        val zodStr  = renderer.collapseZodUnion(schemas)
         s"      $status: $zodStr"
       }
       .mkString(",\n")
@@ -211,7 +298,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
 
     // Compose contract entry
     val lines = List(
-      s"  $httpMethod: {",
+      s"  $entryKey: {",
       s"    summary: '${summary}',",
       s"    description: '${description}',",
       s"    method: '${httpMethod.toUpperCase()}',",
@@ -233,14 +320,12 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
   }
 
   private def isEmptyBodyInstance(schema: BaklavaSchemaSerializable): Boolean =
-    renderer.isEmptyBodyInstance(schema)
+    plainRenderer.isEmptyBodyInstance(schema)
 
-  private def toCamelCase(s: String): String = TsNaming.toCamelCase(s)
+  private def escapeTsSingleQuoted(s: String): String = plainRenderer.escapeTsSingleQuoted(s)
 
-  private def escapeTsSingleQuoted(s: String): String = renderer.escapeTsSingleQuoted(s)
+  private[tsrest] def zod(schema: BaklavaSchemaSerializable): String = plainRenderer.zod(schema)
 
-  private[tsrest] def zod(schema: BaklavaSchemaSerializable): String = renderer.zod(schema)
-
-  private[tsrest] def collapseZodUnion(zods: Seq[String]): String = renderer.collapseZodUnion(zods)
+  private[tsrest] def collapseZodUnion(zods: Seq[String]): String = plainRenderer.collapseZodUnion(zods)
 
 }

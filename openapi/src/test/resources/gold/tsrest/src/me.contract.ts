@@ -1,18 +1,15 @@
 import { z } from "zod";
 import { initContract } from "@ts-rest/core";
+import { userSchema } from "./schemas";
 
-export const meContract = initContract().router({
+export const me = initContract().router({
   get: {
     summary: 'Who am I',
-    description: 'Return the profile of the currently authenticated user',
+    description: 'Return the profile of the currently authenticated user\n\nRequires authentication: bearerAuth (HTTP Bearer, JWT).',
     method: 'GET',
     path: '/me',
     responses: {
-      200: z.object({
-        "email": z.string(),
-        "id": z.string().uuid(),
-        "name": z.string(),
-        "role": z.enum(["admin","guest","member"]).describe("User role within the system")})
+      200: userSchema
     }
   }
 });

@@ -1,41 +1,14 @@
 package pl.iterators.baklava.orpc
 
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsNaming, TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsPathRouter, TsSchemaRefs, TsSecurity, TsZodDialect, TsZodRenderer}
 import sttp.model.Method
 
 import java.io.{File, FileWriter, PrintWriter}
 import scala.util.Using
 
-// Endpoints nest by path segment (oRPC's native router shape): `/v1/auctions/{auctionId}/bids`
-// becomes `contracts.v1.auctions.byAuctionId.bids.<method>`. Path parameters read as
-// `by<Param>` — the router-tree spelling of tsfetch's `getUsersByUserId` function names.
-private[orpc] object OrpcRouter {
-  type Endpoint = ((Option[Method], String), Seq[BaklavaSerializableCall])
-
-  final case class RouterChild(rawSegment: String, node: RouterNode)
-  final case class RouterNode(
-      procedures: Map[String, Endpoint],
-      children: Map[String, RouterChild]
-  )
-  object RouterNode {
-    val empty: RouterNode = RouterNode(Map.empty, Map.empty)
-  }
-
-  /** One generated source file: a subtree mounted at `contractsKeyPath` inside `contracts.ts`. `spread = true` marks a subtree holding
-    * only the procedures declared directly at its mount point (e.g. `GET /v1` or `GET /`), merged in via object spread.
-    */
-  final case class RouterModule(
-      constName: String,
-      filePath: String,
-      contractsKeyPath: List[String],
-      spread: Boolean,
-      node: RouterNode
-  )
-}
-
 class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
-  import OrpcRouter.*
+  import TsPathRouter.*
 
   private val plainRenderer = new TsZodRenderer(TsZodDialect.orpc)
 
@@ -46,6 +19,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
   private val contractTsPath = s"$sourcesDirName/contracts.ts"
   private val schemasTsPath  = s"$sourcesDirName/schemas.ts"
   private val clientTsPath   = s"$sourcesDirName/client.ts"
+  private val securityTsPath = s"$sourcesDirName/security.ts"
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
     // Module files are named after the current route set; without a wipe, files from a previous
@@ -71,85 +45,44 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       .toList
       .sortBy { case ((method, path), _) => (path, method.map(_.toString).getOrElse("")) }
 
-    val refs = buildSchemaRefs(endpoints, errorCodeField)
-    if (refs.nonEmpty) writeSchemasFile(refs)
-
+    val refs    = buildSchemaRefs(endpoints, errorCodeField)
     val modules = modulesOf(buildRouterTree(endpoints))
-    modules.foreach(writeModuleFile(_, errorCodeField, refs))
+
+    val rendered = modules.map { module =>
+      val usedRefs = scala.collection.mutable.SortedSet.empty[String]
+      val renderer = rendererWith(refs, usedRefs += _)
+      val body     = TsPathRouter.render(
+        module.node,
+        0,
+        plainRenderer.tsObjectKey,
+        (endpoint, key) => createContractForEndpoint(endpoint, errorCodeField, renderer, keyOverride = Some(key), refs = refs)
+      )
+      (module, body, usedRefs.toSet)
+    }
+
+    // A schema used by exactly one module lives in that module's sibling `<module>.schemas.ts`;
+    // anything shared (or referenced by a shared definition) stays in the common schemas.ts.
+    val defUses     = TsSchemaRefs.definitionUses(refs, (schema, record) => rendererWith(refs, record).zodDefinition(schema))
+    val assignment  = TsSchemaRefs.moduleAssignment(rendered.map { case (m, _, used) => m.constName -> used }, defUses)
+    val commonNames = refs.values.toSet.filter(name => assignment.getOrElse(name, Set.empty).sizeIs != 1)
+
+    if (commonNames.nonEmpty) {
+      val commonRefs = refs.filter { case (_, name) => commonNames(name) }
+      writeTo(schemasTsPath, TsSchemaRefs.schemasFileContent(commonRefs, rendererWith(refs, _ => ()).zodDefinition))
+    }
+
+    rendered.foreach { case (module, body, usedRefs) =>
+      writeModuleFile(module, body, usedRefs, assignment, commonNames, refs, defUses)
+    }
     writeContractsFile(modules)
 
+    // The `security` in each route's `spec` references schemes by name; `security.ts` exports the
+    // matching OpenAPI Security Scheme Objects for the consumer's OpenAPI generator config. Always
+    // emitted (empty when the API has no auth) so the package build entry is stable.
+    val schemesObject = TsSecurity.securitySchemesObject(calls.flatMap(_.request.securitySchemes)).getOrElse("{}")
+    writeTo(securityTsPath, s"export const securitySchemes = $schemesObject as const;\n")
+
     writeTo(clientTsPath, BaklavaOrpcFiles.clientTs(errorCodeField))
-  }
-
-  private def hash4(s: String): String = f"${s.hashCode.abs}%x".take(4)
-
-  private def insert(node: RouterNode, segments: List[String], methodKey: String, endpoint: Endpoint): RouterNode =
-    segments match {
-      case Nil =>
-        // Distinct symbolic paths can collapse to one key path (`/users/{id}` vs `/users/by-id`);
-        // the later (sorted) endpoint keeps a suffixed method key instead of silently overwriting.
-        val key = if (node.procedures.contains(methodKey)) methodKey + hash4(endpoint._1._2) else methodKey
-        node.copy(procedures = node.procedures.updated(key, endpoint))
-      case segment :: rest =>
-        val base = TsNaming.segmentKey(segment)
-        val key  = node.children.get(base) match {
-          case Some(child) if child.rawSegment != segment => base + hash4(segment)
-          case _                                          => base
-        }
-        val childNode = node.children.get(key).map(_.node).getOrElse(RouterNode.empty)
-        node.copy(children = node.children.updated(key, RouterChild(segment, insert(childNode, rest, methodKey, endpoint))))
-    }
-
-  private[orpc] def buildRouterTree(endpoints: Seq[Endpoint]): RouterNode =
-    endpoints.foldLeft(RouterNode.empty) { case (tree, endpoint @ ((method, path), _)) =>
-      val segments  = path.split("/").toList.filter(_.nonEmpty)
-      val methodKey = method.map(_.method.toLowerCase).getOrElse("any")
-      insert(tree, segments, methodKey, endpoint)
-    }
-
-  private def versionLike(segment: String): Boolean = segment.matches("v[0-9]+")
-
-  private def constNameOf(name: String): String = {
-    val cleaned = name.filter(c => c.isLetterOrDigit || c == '_' || c == '$')
-    if (cleaned.isEmpty || cleaned.head.isDigit) "_" + cleaned else cleaned
-  }
-
-  // A version prefix (`/v1/...`) is organizational, not a resource: modules live one level below
-  // it (file per `/v1/<area>`), while non-versioned APIs get a file per top-level area.
-  private[orpc] def modulesOf(tree: RouterNode): Seq[RouterModule] = {
-    val rootModule =
-      if (tree.procedures.isEmpty) Seq.empty
-      else Seq(RouterModule("root", "root.contract.ts", Nil, spread = true, tree.copy(children = Map.empty)))
-
-    val areaModules = tree.children.toSeq.sortBy(_._1).flatMap { case (key, child) =>
-      if (versionLike(child.rawSegment) && child.node.children.nonEmpty) {
-        val versionRoot =
-          if (child.node.procedures.isEmpty) Seq.empty
-          else
-            Seq(
-              RouterModule(
-                constNameOf(key + "Root"),
-                s"$key/index.contract.ts",
-                List(key),
-                spread = true,
-                child.node.copy(children = Map.empty)
-              )
-            )
-        val subModules = child.node.children.toSeq.sortBy(_._1).map { case (subKey, subChild) =>
-          RouterModule(
-            constNameOf(key + TsNaming.capitalize(subKey)),
-            s"$key/$subKey.contract.ts",
-            List(key, subKey),
-            spread = false,
-            subChild.node
-          )
-        }
-        versionRoot ++ subModules
-      } else {
-        Seq(RouterModule(constNameOf(key), s"$key.contract.ts", List(key), spread = false, child.node))
-      }
-    }
-    rootModule ++ areaModules
   }
 
   private def writeTo(path: String, content: String): Unit =
@@ -176,26 +109,9 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
 
   // --- Named, deduplicated schemas -----------------------------------------------------------
 
-  private def collectObjectNodes(schema: BaklavaSchemaSerializable): Seq[BaklavaSchemaSerializable] = {
-    val children =
-      schema.properties.values.toSeq ++ schema.items.toSeq ++ schema.additionalPropertiesSchema.toSeq
-    val self =
-      if (schema.`type` == SchemaType.ObjectType && schema.properties.nonEmpty) Seq(schema) else Seq.empty
-    self ++ children.flatMap(collectObjectNodes)
-  }
-
-  private val genericClassNames = Set("Object", "Map", "Option", "Some", "None", "List", "Seq", "Vector", "Set")
-
-  private def hoistableName(schema: BaklavaSchemaSerializable): Option[String] =
-    Option(schema.className)
-      .filter(_.matches("[A-Za-z][A-Za-z0-9]*"))
-      .filterNot(genericClassNames.contains)
-      .map(n => n.head.toLower.toString + n.tail + "Schema")
-
-  // Object schemas that occur more than once anywhere in the rendered output (bodies, success
-  // outputs, declared error data — including nested occurrences) are hoisted into schemas.ts
-  // under a name derived from the captured case-class name. Same derived name with a different
-  // structure gets a deterministic hash suffix.
+  // Error data schemas count un-narrowed: the per-code literal is applied at the use site
+  // (`errorSchema.extend({type: z.enum(["<code>"])})`), so one shared base hoists instead of
+  // one narrowed copy per declared code.
   private[orpc] def buildSchemaRefs(
       endpoints: Seq[((Option[Method], String), Seq[BaklavaSerializableCall])],
       errorCodeField: String
@@ -205,43 +121,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       calls.flatMap(_.request.bodySchema).filterNot(plainRenderer.isEmptyBodyInstance) ++
         calls.filter(c => c.response.status.code >= 200 && c.response.status.code < 300).flatMap(_.response.bodySchema) ++
         endpoints.flatMap { case (_, epCalls) => errorDataSchemas(epCalls, errorCodeField).map(_._2).flatten }
-    val counts    = rendered.flatMap(collectObjectNodes).groupBy(identity).view.mapValues(_.size).toMap
-    val hoistable = counts.collect { case (schema, n) if n >= 2 => schema }.toSeq
-    val named     = hoistable.flatMap(s => hoistableName(s).map(_ -> s))
-    named
-      .groupBy(_._1)
-      .toSeq
-      .flatMap { case (name, entries) =>
-        val schemas = entries.map(_._2).sortBy(plainRenderer.zodDefinition)
-        schemas.zipWithIndex.map { case (schema, i) =>
-          val finalName = if (i == 0) name else s"$name${f"${plainRenderer.zodDefinition(schema).hashCode.abs}%x".take(4)}"
-          schema -> finalName
-        }
-      }
-      .toMap
-  }
-
-  private def writeSchemasFile(refs: Map[BaklavaSchemaSerializable, String]): Unit = {
-    // Definition order: dependencies before dependents (a hoisted schema may reference another).
-    val remaining = scala.collection.mutable.LinkedHashMap.from(refs.toSeq.sortBy(_._2))
-    val ordered   = scala.collection.mutable.ListBuffer.empty[(BaklavaSchemaSerializable, String)]
-    while (remaining.nonEmpty) {
-      val ready = remaining.filter { case (schema, _) =>
-        collectObjectNodes(schema).filterNot(_ == schema).forall(n => !remaining.contains(n))
-      }
-      ready.foreach { entry =>
-        ordered += entry
-        remaining -= entry._1
-      }
-    }
-    val renderer = rendererWith(refs, _ => ())
-    val defs     = ordered
-      .map { case (schema, name) =>
-        val body = renderer.zodDefinition(schema)
-        s"export const $name = $body;"
-      }
-      .mkString("\n\n")
-    writeTo(schemasTsPath, "import { z } from \"zod\";\n\n" + defs + "\n")
+    TsSchemaRefs.buildRefs(rendered, plainRenderer.zodDefinition)
   }
 
   private def rendererWith(
@@ -259,68 +139,74 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
 
   // --- Contract emission ---------------------------------------------------------------------
 
-  private def reindent(block: String, depth: Int): String =
-    if (depth == 0) block
-    else {
-      val pad = "  " * depth
-      block.linesIterator.map(line => if (line.isEmpty) line else pad + line).mkString("\n")
-    }
-
-  private def renderNode(node: RouterNode, depth: Int, errorCodeField: String, renderer: TsZodRenderer): String = {
-    val procedureEntries = node.procedures.toSeq.sortBy(_._1).map { case (methodKey, endpoint) =>
-      reindent(createContractForEndpoint(endpoint, errorCodeField, renderer, keyOverride = Some(methodKey)), depth)
-    }
-    val procedureKeys = node.procedures.keySet
-    val childEntries  = node.children.toSeq.sortBy(_._1).map { case (baseKey, child) =>
-      // A static segment named like an HTTP method used at the same node (`GET /api` + `/api/get/...`)
-      // would duplicate the object key; the child yields.
-      val key = if (procedureKeys.contains(baseKey)) baseKey + hash4(child.rawSegment) else baseKey
-      val pad = "  " * (depth + 1)
-      s"$pad${plainRenderer.tsObjectKey(key)}: {\n${renderNode(child.node, depth + 1, errorCodeField, renderer)}\n$pad}"
-    }
-    (procedureEntries ++ childEntries).mkString(",\n")
-  }
-
-  private def writeModuleFile(module: RouterModule, errorCodeField: String, refs: Map[BaklavaSchemaSerializable, String]): Unit = {
-    val usedRefs = scala.collection.mutable.SortedSet.empty[String]
-    val renderer = rendererWith(refs, usedRefs += _)
-    val code     =
+  private def writeModuleFile(
+      module: RouterModule,
+      body: String,
+      usedRefs: Set[String],
+      assignment: Map[String, Set[String]],
+      commonNames: Set[String],
+      refs: Map[BaklavaSchemaSerializable, String],
+      defUses: Map[String, Set[String]]
+  ): Unit = {
+    val code =
       s"""export const ${module.constName} = {
-         |${renderNode(module.node, 0, errorCodeField, renderer)}
+         |$body
          |};
          |""".stripMargin
 
-    val schemasFrom  = if (module.filePath.contains('/')) "../schemas" else "./schemas"
+    val filePath    = moduleFilePath(module)
+    val schemasFrom = if (filePath.contains('/')) "../schemas" else "./schemas"
+    val localBase   = module.fileSegments.last + ".schemas"
+
+    val localNames = refs.values.toSet.filter(name => assignment.get(name).contains(Set(module.constName)))
+    if (localNames.nonEmpty) {
+      val localRefs      = refs.filter { case (_, name) => localNames(name) }
+      val commonImported = localNames.flatMap(defUses.getOrElse(_, Set.empty)).intersect(commonNames).toSeq.sorted
+      val importLines    =
+        if (commonImported.isEmpty) Seq.empty
+        else Seq(s"import { ${commonImported.mkString(", ")} } from \"$schemasFrom\";")
+      val localPath     = (module.fileSegments.dropRight(1) :+ localBase).mkString("/") + ".ts"
+      val content       = TsSchemaRefs.schemasFileContent(localRefs, rendererWith(refs, _ => ()).zodDefinition, importLines)
+      val fullLocalPath = s"$sourcesDirName/$localPath"
+      new File(fullLocalPath).getParentFile.mkdirs()
+      writeTo(fullLocalPath, content)
+    }
+
+    val commonUsed   = usedRefs.intersect(commonNames).toSeq.sorted
+    val localUsed    = usedRefs.intersect(localNames).toSeq.sorted
     val schemaImport =
-      if (usedRefs.isEmpty) ""
-      else s"import { ${usedRefs.mkString(", ")} } from \"$schemasFrom\";\n"
+      (if (commonUsed.isEmpty) "" else s"import { ${commonUsed.mkString(", ")} } from \"$schemasFrom\";\n") +
+        (if (localUsed.isEmpty) "" else s"import { ${localUsed.mkString(", ")} } from \"./$localBase\";\n")
     // A contract with no schemas at all (e.g. a bare WebSocket upgrade route) uses no `z` —
     // strict consumer tsconfigs (noUnusedLocals) reject the unused import.
     val zImport = if (code.contains("z.")) "import { z } from \"zod\";\n" else ""
-    val path    = s"$sourcesDirName/${module.filePath}"
+    val path    = s"$sourcesDirName/$filePath"
     new File(path).getParentFile.mkdirs()
     writeTo(path, zImport + "import { oc } from \"@orpc/contract\";\n" + schemaImport + "\n" + code)
   }
 
+  private def moduleFilePath(module: RouterModule): String =
+    module.fileSegments.mkString("/") + ".contract.ts"
+
   private def writeContractsFile(modules: Seq[RouterModule]): Unit = {
     val imports = modules
-      .map(m => s"""import { ${m.constName} } from "./${m.filePath.stripSuffix(".ts")}";""")
+      .map(m => s"""import { ${m.constName} } from "./${moduleFilePath(m).stripSuffix(".ts")}";""")
       .mkString("\n")
 
-    val (rootModules, mounted) = modules.partition(_.contractsKeyPath.isEmpty)
+    val (rootModules, mounted) = modules.partition(_.mountPath.isEmpty)
     val mountedByTop           =
-      mounted.map(_.contractsKeyPath.head).distinct.map(top => top -> mounted.filter(_.contractsKeyPath.head == top))
+      mounted.map(_.mountPath.head).distinct.map(top => top -> mounted.filter(_.mountPath.head == top))
 
     val entries = rootModules.map(m => s"  ...${m.constName}") ++
       mountedByTop.map {
-        case (top, Seq(single)) if single.contractsKeyPath.sizeIs == 1 =>
+        case (top, Seq(single)) if single.mountPath.sizeIs == 1 =>
           if (single.constName == top) s"  $top"
           else s"  ${plainRenderer.tsObjectKey(top)}: ${single.constName}"
         case (top, group) =>
           val inner = group
             .map { m =>
               if (m.spread) s"    ...${m.constName}"
-              else s"    ${plainRenderer.tsObjectKey(m.contractsKeyPath.last)}: ${m.constName}"
+              else s"    ${plainRenderer.tsObjectKey(m.mountPath.last)}: ${m.constName}"
             }
             .mkString(",\n")
           s"  ${plainRenderer.tsObjectKey(top)}: {\n$inner\n  }"
@@ -345,7 +231,8 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       endpoint: ((Option[Method], String), Seq[BaklavaSerializableCall]),
       errorCodeField: String = "type",
       renderer: TsZodRenderer = plainRenderer,
-      keyOverride: Option[String] = None
+      keyOverride: Option[String] = None,
+      refs: Map[BaklavaSchemaSerializable, String] = Map.empty
   ): String = {
     val ((httpMethodOpt, _), calls) = endpoint
     require(
@@ -440,6 +327,12 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       .headOption
       .map(id => s"      operationId: '${renderer.escapeTsSingleQuoted(id)}'")
 
+    // Security is emitted through oRPC's OpenAPI operation override: the scheme names go into the
+    // generated operation's `security`, referencing the schemes defined in `security.ts`.
+    val securityFieldOpt = TsSecurity
+      .securityRequirement(calls.flatMap(_.request.securitySchemes).distinct)
+      .map(req => s"      spec: (current) => ({ ...current, security: $req })")
+
     val inputGroups = List(
       pathParamsZodOpt.map(z => s"      params: $z"),
       queryParamsZodOpt.map(z => s"      query: $z$queryOptionalSuffix"),
@@ -456,7 +349,8 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       tagsFieldOpt,
       successStatusOpt.map(s => s"      successStatus: $s"),
       Some(s"      inputStructure: 'detailed'"),
-      if (outputStructure == "detailed") Some(s"      outputStructure: 'detailed'") else None
+      if (outputStructure == "detailed") Some(s"      outputStructure: 'detailed'") else None,
+      securityFieldOpt
     ).flatten
 
     val lines = List(
@@ -473,7 +367,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
            s"    }))"
          )) ++
       outputZodOpt.toList.map(z => s"    .output($z)") ++
-      declaredErrors(calls, errorCodeField, renderer).toList
+      declaredErrors(calls, errorCodeField, renderer, refs).toList
 
     lines.mkString("\n")
   }
@@ -516,7 +410,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       .toList
       .sortBy(_._1)
       .map { case (code, codeCalls) =>
-        code -> codeCalls.flatMap(_._2.response.bodySchema).distinct.map(withLiteralDiscriminator(_, errorCodeField, code))
+        code -> codeCalls.flatMap(_._2.response.bodySchema).distinct
       }
   }
 
@@ -524,10 +418,27 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
   // bodies. Codes match what a client-side error decoder should set on its ORPCErrors, making
   // `isDefinedError` narrowing work end to end. Calls whose body carries no extractable code
   // (bodyless 429s, non-JSON payloads) are left undeclared and surface via oRPC's defaults.
+  // A hoisted base with a plain-string discriminator narrows at the use site via `.extend`,
+  // keeping one shared schema; anything else inlines a narrowed copy.
+  private def errorDataZod(
+      schema: BaklavaSchemaSerializable,
+      field: String,
+      code: String,
+      renderer: TsZodRenderer,
+      refs: Map[BaklavaSchemaSerializable, String]
+  ): String =
+    schema.properties.get(field) match {
+      case Some(prop) if prop.`type` == SchemaType.StringType && prop.`enum`.isEmpty && refs.contains(schema) =>
+        val narrowedProp = prop.copy(format = None, `enum` = Some(Set(code)))
+        s"${renderer.zod(schema)}.extend({${renderer.tsObjectKey(field)}: ${renderer.zod(narrowedProp)}})"
+      case _ => renderer.zod(withLiteralDiscriminator(schema, field, code))
+    }
+
   private[orpc] def declaredErrors(
       calls: Seq[BaklavaSerializableCall],
       errorCodeField: String,
-      renderer: TsZodRenderer = plainRenderer
+      renderer: TsZodRenderer = plainRenderer,
+      refs: Map[BaklavaSchemaSerializable, String] = Map.empty
   ): Option[String] = {
     val errorCalls = calls.filter(c => c.response.status.code < 200 || c.response.status.code >= 300)
     val byCode     = errorDataSchemas(calls, errorCodeField)
@@ -541,8 +452,10 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
         .toMap
       val entries = byCode.map { case (code, schemas) =>
         val status  = statusByCode(code)
-        val dataOpt = if (schemas.isEmpty) None else Some(s"        data: ${renderer.collapseZodUnion(schemas.map(renderer.zod))}")
-        val fields  = List(Some(s"        status: $status"), dataOpt).flatten.mkString(",\n")
+        val dataOpt =
+          if (schemas.isEmpty) None
+          else Some(s"        data: ${renderer.collapseZodUnion(schemas.map(errorDataZod(_, errorCodeField, code, renderer, refs)))}")
+        val fields = List(Some(s"        status: $status"), dataOpt).flatten.mkString(",\n")
         s"      '${renderer.escapeTsSingleQuoted(code)}': {\n$fields\n      }"
       }
       Some(s"    .errors({\n${entries.mkString(",\n")}\n    })")

@@ -1,13 +1,14 @@
 import { BaklavaClient, BaklavaHttpError } from "../client";
-import type { HealthResponse } from "./types";
+import type { User } from "../common/types";
 
-/** Liveness probe — Return service liveness — no authentication required */
-export async function health(client: BaklavaClient): Promise<HealthResponse> {
-  const url = new URL(`${client.baseUrl}/health`);
-  let __ret!: HealthResponse;
+/** Who am I — Return the profile of the currently authenticated user */
+export async function me(client: BaklavaClient): Promise<User> {
+  const url = new URL(`${client.baseUrl}/me`);
+  let __ret!: User;
   const res = await client.fetch(url.toString(), {
     method: "GET",
     headers: {
+    ...client.authHeaders(),
     },
   });
   const text = await res.text();

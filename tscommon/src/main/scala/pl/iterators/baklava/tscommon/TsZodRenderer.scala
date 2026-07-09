@@ -36,34 +36,6 @@ object TsZodDialect {
 
 object TsNaming {
 
-  def toCamelCase(s: String): String = {
-    val base = s.replaceAll("--", "-")
-    base
-      .split("-")
-      .filter(_.nonEmpty)
-      .zipWithIndex
-      .map { case (s, i) =>
-        if (i == 0) s.toLowerCase else s.capitalize
-      }
-      .mkString
-  }
-
-  def contractNameFromSymbolicPath(path: String): String = {
-    val cleaned = path.stripPrefix("/").stripSuffix("/")
-    if (cleaned.isEmpty) "root"
-    else {
-      cleaned
-        .split("/")
-        .map {
-          case p if p.startsWith("{") && p.endsWith("}") => "--" + p.substring(1, p.length - 1)
-          case p if p.startsWith(":")                    => "--" + p.substring(1)
-          case p                                         => p
-        }
-        .mkString("-")
-        .replace(".", "---")
-    }
-  }
-
   def capitalize(s: String): String = if (s.isEmpty) s else s"${s.head.toUpper}${s.tail}"
 
   /** Camelize one raw path segment into a router-object key: runs of non-alphanumerics are word boundaries (`feature-flags` ->

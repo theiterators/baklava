@@ -5,6 +5,109 @@
   },
   "item" : [
     {
+      "name" : "Admin",
+      "item" : [
+        {
+          "name" : "Get config",
+          "request" : {
+            "method" : "GET",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/admin/config",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "admin",
+                "config"
+              ]
+            },
+            "auth" : {
+              "type" : "basic",
+              "basic" : [
+                {
+                  "key" : "username",
+                  "value" : "{{basicAuthUsername}}",
+                  "type" : "string"
+                },
+                {
+                  "key" : "password",
+                  "value" : "{{basicAuthPassword}}",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Read the effective runtime configuration"
+          },
+          "response" : [
+            {
+              "name" : "Current configuration",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "{\"status\":\"ok\",\"uptimeSeconds\":1}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        },
+        {
+          "name" : "Get logger level",
+          "request" : {
+            "method" : "GET",
+            "header" : [
+            ],
+            "url" : {
+              "raw" : "{{baseUrl}}/admin/loggers/:name",
+              "host" : [
+                "{{baseUrl}}"
+              ],
+              "path" : [
+                "admin",
+                "loggers",
+                ":name"
+              ],
+              "variable" : [
+                {
+                  "key" : "name",
+                  "value" : "ROOT",
+                  "description" : "Logger name"
+                }
+              ]
+            },
+            "auth" : {
+              "type" : "basic",
+              "basic" : [
+                {
+                  "key" : "username",
+                  "value" : "{{basicAuthUsername}}",
+                  "type" : "string"
+                },
+                {
+                  "key" : "password",
+                  "value" : "{{basicAuthPassword}}",
+                  "type" : "string"
+                }
+              ]
+            },
+            "description" : "Read a logger's effective level"
+          },
+          "response" : [
+            {
+              "name" : "Logger level",
+              "status" : "OK",
+              "code" : 200,
+              "header" : [
+              ],
+              "body" : "{\"status\":\"DEBUG\",\"uptimeSeconds\":1}",
+              "_postman_previewlanguage" : "json"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name" : "Auth",
       "item" : [
         {

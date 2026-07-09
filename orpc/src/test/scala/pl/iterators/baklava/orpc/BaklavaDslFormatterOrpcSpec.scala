@@ -3,7 +3,7 @@ package pl.iterators.baklava.orpc
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsNaming, TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsNaming, TsPathRouter, TsSchemaRefs, TsZodDialect, TsZodRenderer}
 import sttp.model.{Method, StatusCode}
 
 class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
@@ -278,13 +278,13 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       refs.get(dto) shouldBe Some("auctionDtoSchema")
     }
 
-    it("leaves single-occurrence schemas inline") {
+    it("hoists single-occurrence named schemas too (every case class gets a schema + type)") {
       val dto  = dtoSchema("a")
       val refs = generator.buildSchemaRefs(
         Seq(((Some(Method("GET")), "/a"), Seq(call("/a", responseSchema = Some(dto))))),
         "type"
       )
-      refs shouldBe empty
+      refs.get(dto) shouldBe Some("auctionDtoSchema")
     }
 
     it("suffixes colliding names deterministically") {
@@ -302,6 +302,52 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       refs.values.filterNot(_ == "auctionDtoSchema").head should startWith("auctionDtoSchema")
     }
 
+    it("hoists ONE shared base for error data declared under several codes") {
+      val problem               = objectSchema(Map("type" -> stringSchema(), "title" -> stringSchema())).copy(className = "Error")
+      def errCall(code: String) =
+        call(
+          "/a",
+          method = "POST",
+          status = 409,
+          responseSchema = Some(problem),
+          responseBodyString = s"""{"type":"$code","title":"t"}"""
+        )
+      val refs = generator.buildSchemaRefs(
+        Seq(
+          (
+            (Some(Method("POST")), "/a"),
+            Seq(call("/a", method = "POST", status = 201), errCall("result:bid-too-low"), errCall("result:auction-not-open"))
+          )
+        ),
+        "type"
+      )
+      refs.keySet shouldBe Set(problem)
+      refs(problem) shouldBe "errorSchema"
+    }
+
+    it("narrows a hoisted error base at the use site via .extend") {
+      val problem  = objectSchema(Map("type" -> stringSchema(), "title" -> stringSchema())).copy(className = "Error")
+      val refs     = Map(problem -> "errorSchema")
+      val renderer = new TsZodRenderer(TsZodDialect.orpc, refs.get)
+      val entry    = generator.declaredErrors(
+        Seq(
+          call("/a", method = "POST", status = 201),
+          call(
+            "/a",
+            method = "POST",
+            status = 409,
+            responseSchema = Some(problem),
+            responseBodyString = """{"type":"result:bid-too-low","title":"t"}"""
+          )
+        ),
+        errorCodeField = "type",
+        renderer = renderer,
+        refs = refs
+      )
+      entry.get should include("""data: errorSchema.extend({type: z.enum(["result:bid-too-low"])})""")
+      (entry.get should not).include("z.object(")
+    }
+
     it("skips schemas with generic classNames") {
       val obj  = objectSchema(Map("a" -> stringSchema()))
       val refs = generator.buildSchemaRefs(
@@ -312,6 +358,50 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
         "type"
       )
       refs shouldBe empty
+    }
+  }
+
+  describe("security (oRPC: route spec + securitySchemes)") {
+    import pl.iterators.baklava.tscommon.TsSecurity
+
+    val basic  = BaklavaSecuritySchemaSerializable("adminBasic", BaklavaSecuritySerializable(httpBasic = Some(HttpBasic())))
+    val bearer =
+      BaklavaSecuritySchemaSerializable("bearerAuth", BaklavaSecuritySerializable(httpBearer = Some(HttpBearer(bearerFormat = "JWT"))))
+
+    it("emits a route spec that adds the security requirement, keyed by scheme name") {
+      val entry = generator.createContractForEndpoint(
+        (
+          (Some(Method("GET")), "/admin/loggers"),
+          Seq(call("/admin/loggers").copy(request = call("/admin/loggers").request.copy(securitySchemes = Seq(basic))))
+        )
+      )
+      entry should include("spec: (current) => ({ ...current, security: [{ adminBasic: [] }] })")
+    }
+
+    it("omits the spec when a route captured no security schemes") {
+      val entry = endpoint("GET", "/v1/health", call("/v1/health"))
+      (entry should not).include("spec:")
+    }
+
+    it("renders securitySchemes with the right OpenAPI shape per scheme type") {
+      val obj = TsSecurity.securitySchemesObject(Seq(basic, bearer)).get
+      obj should include("""adminBasic: { type: "http", scheme: "basic" }""")
+      obj should include("""bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" }""")
+    }
+  }
+
+  describe("schema type exports") {
+
+    it("pairs every hoisted schema with an inferred type export") {
+      val dto     = objectSchema(Map("a" -> stringSchema())).copy(className = "AuctionDto")
+      val content = TsSchemaRefs.schemasFileContent(Map(dto -> "auctionDtoSchema"), zodRenderer.zodDefinition)
+      content should include("export type AuctionDto = z.infer<typeof auctionDtoSchema>;")
+    }
+
+    it("suffixes type names that would shadow TS globals") {
+      val err     = objectSchema(Map("type" -> stringSchema())).copy(className = "Error")
+      val content = TsSchemaRefs.schemasFileContent(Map(err -> "errorSchema"), zodRenderer.zodDefinition)
+      content should include("export type ErrorType = z.infer<typeof errorSchema>;")
     }
   }
 
@@ -355,7 +445,7 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       ((Some(Method(method)), path), Seq(call(path, method = method)))
 
     it("nests endpoints by path segment with by<Param> keys") {
-      val tree = generator.buildRouterTree(
+      val tree = TsPathRouter.buildRouterTree(
         Seq(ep("GET", "/v1/auctions"), ep("GET", "/v1/auctions/{auctionId}"), ep("POST", "/v1/auctions/{auctionId}/bids"))
       )
       val auctions = tree.children("v1").node.children("auctions").node
@@ -366,7 +456,7 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
     }
 
     it("hash-suffixes a segment key when two distinct raw segments collapse to it") {
-      val tree = generator.buildRouterTree(Seq(ep("GET", "/users/by-id"), ep("GET", "/users/{id}")))
+      val tree = TsPathRouter.buildRouterTree(Seq(ep("GET", "/users/by-id"), ep("GET", "/users/{id}")))
       val keys = tree.children("users").node.children.keySet
       keys should have size 2
       keys should contain("byId")
@@ -374,19 +464,36 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
     }
 
     it("treats a version prefix as organizational: one module file per area below it") {
-      val modules = generator.modulesOf(generator.buildRouterTree(Seq(ep("GET", "/v1/auctions"), ep("GET", "/v1/feature-flags"))))
-      modules.map(m => (m.constName, m.filePath, m.contractsKeyPath)) shouldBe Seq(
-        ("v1Auctions", "v1/auctions.contract.ts", List("v1", "auctions")),
-        ("v1FeatureFlags", "v1/featureFlags.contract.ts", List("v1", "featureFlags"))
+      val modules = TsPathRouter.modulesOf(TsPathRouter.buildRouterTree(Seq(ep("GET", "/v1/auctions"), ep("GET", "/v1/feature-flags"))))
+      modules.map(m => (m.constName, m.fileSegments, m.mountPath)) shouldBe Seq(
+        ("v1Auctions", List("v1", "auctions"), List("v1", "auctions")),
+        ("v1FeatureFlags", List("v1", "featureFlags"), List("v1", "featureFlags"))
       )
     }
 
-    it("gives a non-versioned API one module file per top-level area") {
-      val modules = generator.modulesOf(generator.buildRouterTree(Seq(ep("GET", "/health"), ep("GET", "/users/{userId}"))))
-      modules.map(m => (m.constName, m.filePath, m.contractsKeyPath)) shouldBe Seq(
-        ("health", "health.contract.ts", List("health")),
-        ("users", "users.contract.ts", List("users"))
+    it("gives a single-resource area one flat module file (only param children)") {
+      val modules = TsPathRouter.modulesOf(TsPathRouter.buildRouterTree(Seq(ep("GET", "/health"), ep("GET", "/users/{userId}"))))
+      modules.map(m => (m.constName, m.fileSegments, m.mountPath)) shouldBe Seq(
+        ("health", List("health"), List("health")),
+        ("users", List("users"), List("users"))
       )
+    }
+
+    it("explodes a non-version namespace (>=2 named sub-resources) into a folder, like admin") {
+      val modules = TsPathRouter.modulesOf(
+        TsPathRouter.buildRouterTree(
+          Seq(ep("GET", "/admin/config"), ep("GET", "/admin/loggers/{name}"), ep("POST", "/admin/loggers/{name}"))
+        )
+      )
+      modules.map(m => (m.constName, m.fileSegments, m.mountPath)) shouldBe Seq(
+        ("adminConfig", List("admin", "config"), List("admin", "config")),
+        ("adminLoggers", List("admin", "loggers"), List("admin", "loggers"))
+      )
+    }
+
+    it("keeps a single named sub-resource flat (not a namespace)") {
+      val modules = TsPathRouter.modulesOf(TsPathRouter.buildRouterTree(Seq(ep("POST", "/auth/login"))))
+      modules.map(m => (m.constName, m.fileSegments)) shouldBe Seq(("auth", List("auth")))
     }
   }
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { oc } from "@orpc/contract";
-import { loginFormSchema, userSchema } from "./schemas";
+import { errorResponseSchema } from "./schemas";
+import { loginFormSchema, loginResponseSchema } from "./auth.schemas";
 
 export const auth = {
   login: {
@@ -13,21 +14,17 @@ export const auth = {
         operationId: 'login',
         tags: ['Auth'],
         successStatus: 200,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ basicAuth: [] }] })
       })
       .input(z.object({
         body: loginFormSchema
       }))
-      .output(z.object({
-          "token": z.string(),
-          "user": userSchema}))
+      .output(loginResponseSchema)
       .errors({
         'unauthorized': {
           status: 401,
-          data: z.object({
-          "code": z.enum(["unauthorized"]),
-          "details": z.array(z.string()).nullish(),
-          "message": z.string()})
+          data: errorResponseSchema.extend({code: z.enum(["unauthorized"])})
         }
       })
   }

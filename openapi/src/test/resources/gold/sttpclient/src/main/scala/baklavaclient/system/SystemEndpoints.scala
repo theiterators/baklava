@@ -4,6 +4,7 @@ import sttp.client4._
 import sttp.client4.circe._
 import io.circe.generic.auto._
 import sttp.model.Uri
+import baklavaclient.common.HealthResponse
 
 object SystemEndpoints {
 

@@ -12,7 +12,7 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
 
   describe("BaklavaDslFormatterTsFetch") {
 
-    it("creates the directory structure with a folder per tag") {
+    it("creates the directory structure with a folder per route area") {
       val call = getCall("/users", tag = Some("Users"))
       new BaklavaDslFormatterTsFetch().create(Map.empty, Seq(call))
       new File("target/baklava/tsfetch/tsconfig.json").exists() shouldBe true
@@ -22,9 +22,17 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
       new File("target/baklava/tsfetch/src/users/endpoints.ts").exists() shouldBe true
     }
 
-    it("puts untagged operations into default/endpoints.ts") {
+    it("groups by route area regardless of tags") {
       new BaklavaDslFormatterTsFetch().create(Map.empty, Seq(getCall("/health", tag = None)))
-      new File("target/baklava/tsfetch/src/default/endpoints.ts").exists() shouldBe true
+      new File("target/baklava/tsfetch/src/health/endpoints.ts").exists() shouldBe true
+    }
+
+    it("treats a version prefix as organizational: /v1/auctions lands in v1/auctions/") {
+      val indexTs = generateAndRead("src/index.ts", Seq(getCall("/v1/auctions/{auctionId}", tag = None, pathParams = Seq("auctionId"))))
+      indexTs should include("""export * from "./v1/auctions/endpoints";""")
+      val endpointsTs =
+        new String(Files.readAllBytes(new File("target/baklava/tsfetch/src/v1/auctions/endpoints.ts").toPath))
+      endpointsTs should include("""import { BaklavaClient, BaklavaHttpError } from "../../client";""")
     }
 
     it("names endpoint functions from operationId when present, else method+pascalPath") {
@@ -51,16 +59,16 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
       val schema = BaklavaSchemaSerializable(Schema.stringSchema)
       val base   = getCall("/hello", tag = Some("Users"))
       val call   = base.copy(response = base.response.copy(bodySchema = Some(schema)))
-      val ts     = generateAndRead("src/users/endpoints.ts", Seq(call))
+      val ts     = generateAndRead("src/hello/endpoints.ts", Seq(call))
       ts should include("Promise<string>")
     }
 
     it("returns Promise<void> when there's no 2xx body schema") {
-      val ts = generateAndRead("src/users/endpoints.ts", Seq(getCall("/noop", tag = Some("Users"))))
+      val ts = generateAndRead("src/noop/endpoints.ts", Seq(getCall("/noop", tag = Some("Users"))))
       ts should include("Promise<void>")
     }
 
-    it("puts a type used by a single tag in that tag's types.ts") {
+    it("puts a type used by a single module in that module's types.ts") {
       cleanSrc()
       val userSchema = namedObject("User", Map("id" -> Schema.intSchema, "name" -> Schema.stringSchema))
       val base       = getCall("/users", tag = Some("Users"))
@@ -74,7 +82,7 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
       new File("target/baklava/tsfetch/src/common/types.ts").exists() shouldBe false
     }
 
-    it("puts a type used by two or more tags in common/types.ts and imports it from there") {
+    it("puts a type used by two or more modules in common/types.ts and imports it from there") {
       cleanSrc()
       val errSchema = namedObject("ErrorResponse", Map("message" -> Schema.stringSchema))
 
@@ -106,7 +114,7 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
     }
 
     it("zero-param endpoints receive `client` (not `_client`) so the generated body compiles") {
-      val ts = generateAndRead("src/users/endpoints.ts", Seq(getCall("/noop", tag = Some("Users"))))
+      val ts = generateAndRead("src/noop/endpoints.ts", Seq(getCall("/noop", tag = Some("Users"))))
       ts should include("(client: BaklavaClient)")
       ts should not include "_client: BaklavaClient"
     }
@@ -117,7 +125,7 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
       val base = getCall("/search/{query.id}", tag = Some("Users"), pathParams = Seq("query.id"))
       val call = base.copy(request = base.request.copy(headersSeq = Seq(hdr), queryParametersSeq = Seq(q)))
 
-      val ts = generateAndRead("src/users/endpoints.ts", Seq(call))
+      val ts = generateAndRead("src/search/endpoints.ts", Seq(call))
       ts should include("""params["X-Trace-Id"]""")
       ts should include("""params?.["page.size"]""")
       ts should include("""params["query.id"]""")
@@ -126,7 +134,7 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
     }
 
     it("omits `...client.authHeaders()` when the endpoint has no bearer/basic/oauth scheme") {
-      val ts = generateAndRead("src/users/endpoints.ts", Seq(getCall("/public", tag = Some("Users"))))
+      val ts = generateAndRead("src/public/endpoints.ts", Seq(getCall("/public", tag = Some("Users"))))
       ts should not include "client.authHeaders()"
     }
 
@@ -142,7 +150,7 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
       val base = getCall("/secure", tag = Some("Users"))
       val call = base.copy(request = base.request.copy(securitySchemes = Seq(qKeyScheme, cKeyScheme)))
 
-      val ts = generateAndRead("src/users/endpoints.ts", Seq(call))
+      val ts = generateAndRead("src/secure/endpoints.ts", Seq(call))
       ts should include("""url.searchParams.set("token", client.apiKeys["token"])""")
       ts should include("""Cookie": `sid=""" + "$" + """{client.apiKeys["sid"]}`""")
     }
@@ -174,7 +182,7 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
       )
       val base = getCall("/list", tag = Some("Users"))
       val call = base.copy(response = base.response.copy(bodySchema = Some(arrSchema)))
-      val ts   = generateAndRead("src/users/endpoints.ts", Seq(call))
+      val ts   = generateAndRead("src/list/endpoints.ts", Seq(call))
       ts should include("""("a" | "b")[]""")
     }
 
@@ -186,13 +194,13 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
         request = base.request.copy(bodySchema = Some(body), headersSeq = Seq(hdr)),
         response = base.response.copy(requestContentType = Some("multipart/form-data"))
       )
-      val ts = generateAndRead("src/users/endpoints.ts", Seq(call))
+      val ts = generateAndRead("src/upload/endpoints.ts", Seq(call))
       ts should include("body: params.body as unknown as BodyInit")
       ts should include(""""Content-Type": "multipart/form-data"""")
       ts should not include "JSON.stringify(params.body)"
     }
 
-    it("index.ts re-exports client, each tag's endpoints, and common/local type namespaces") {
+    it("index.ts re-exports client, each module's endpoints, and common/local type namespaces") {
       val errSchema  = namedObject("ErrorResponse", Map("message" -> Schema.stringSchema))
       val userSchema = namedObject("User", Map("id" -> Schema.intSchema))
 
@@ -208,6 +216,7 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
       indexTs should include("""export * as Common from "./common/types";""")
       indexTs should include("""export * from "./users/endpoints";""")
       indexTs should include("""export * from "./projects/endpoints";""")
+      indexTs should include("""export * from "./errors/endpoints";""")
       indexTs should include("""export * as Users from "./users/types";""")
     }
 
