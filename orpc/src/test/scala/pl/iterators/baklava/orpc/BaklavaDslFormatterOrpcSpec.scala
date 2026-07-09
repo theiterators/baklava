@@ -361,6 +361,35 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
     }
   }
 
+  describe("security (oRPC: route spec + securitySchemes)") {
+    import pl.iterators.baklava.tscommon.TsSecurity
+
+    val basic  = BaklavaSecuritySchemaSerializable("adminBasic", BaklavaSecuritySerializable(httpBasic = Some(HttpBasic())))
+    val bearer =
+      BaklavaSecuritySchemaSerializable("bearerAuth", BaklavaSecuritySerializable(httpBearer = Some(HttpBearer(bearerFormat = "JWT"))))
+
+    it("emits a route spec that adds the security requirement, keyed by scheme name") {
+      val entry = generator.createContractForEndpoint(
+        (
+          (Some(Method("GET")), "/admin/loggers"),
+          Seq(call("/admin/loggers").copy(request = call("/admin/loggers").request.copy(securitySchemes = Seq(basic))))
+        )
+      )
+      entry should include("spec: (current) => ({ ...current, security: [{ adminBasic: [] }] })")
+    }
+
+    it("omits the spec when a route captured no security schemes") {
+      val entry = endpoint("GET", "/v1/health", call("/v1/health"))
+      (entry should not).include("spec:")
+    }
+
+    it("renders securitySchemes with the right OpenAPI shape per scheme type") {
+      val obj = TsSecurity.securitySchemesObject(Seq(basic, bearer)).get
+      obj should include("""adminBasic: { type: "http", scheme: "basic" }""")
+      obj should include("""bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" }""")
+    }
+  }
+
   describe("schema type exports") {
 
     it("pairs every hoisted schema with an inferred type export") {

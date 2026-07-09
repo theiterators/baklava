@@ -11,7 +11,8 @@ export const adminConfig = {
       operationId: 'adminGetConfig',
       tags: ['Admin'],
       successStatus: 200,
-      inputStructure: 'detailed'
+      inputStructure: 'detailed',
+      spec: (current) => ({ ...current, security: [{ basicAuth: [] }] })
     })
     .output(healthResponseSchema)
 };

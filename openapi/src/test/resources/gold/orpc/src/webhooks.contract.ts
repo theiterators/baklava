@@ -12,7 +12,8 @@ export const webhooks = {
       operationId: 'deliverWebhook',
       tags: ['Webhooks'],
       successStatus: 202,
-      inputStructure: 'detailed'
+      inputStructure: 'detailed',
+      spec: (current) => ({ ...current, security: [{ apiKey: [] }] })
     })
     .input(z.object({
       body: webhookPayloadSchema

@@ -1,7 +1,7 @@
 package pl.iterators.baklava.orpc
 
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsPathRouter, TsSchemaRefs, TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsPathRouter, TsSchemaRefs, TsSecurity, TsZodDialect, TsZodRenderer}
 import sttp.model.Method
 
 import java.io.{File, FileWriter, PrintWriter}
@@ -19,6 +19,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
   private val contractTsPath = s"$sourcesDirName/contracts.ts"
   private val schemasTsPath  = s"$sourcesDirName/schemas.ts"
   private val clientTsPath   = s"$sourcesDirName/client.ts"
+  private val securityTsPath = s"$sourcesDirName/security.ts"
 
   override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
     // Module files are named after the current route set; without a wipe, files from a previous
@@ -74,6 +75,12 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       writeModuleFile(module, body, usedRefs, assignment, commonNames, refs, defUses)
     }
     writeContractsFile(modules)
+
+    // The `security` in each route's `spec` references schemes by name; `security.ts` exports the
+    // matching OpenAPI Security Scheme Objects for the consumer's OpenAPI generator config. Always
+    // emitted (empty when the API has no auth) so the package build entry is stable.
+    val schemesObject = TsSecurity.securitySchemesObject(calls.flatMap(_.request.securitySchemes)).getOrElse("{}")
+    writeTo(securityTsPath, s"export const securitySchemes = $schemesObject as const;\n")
 
     writeTo(clientTsPath, BaklavaOrpcFiles.clientTs(errorCodeField))
   }
@@ -320,6 +327,12 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       .headOption
       .map(id => s"      operationId: '${renderer.escapeTsSingleQuoted(id)}'")
 
+    // Security is emitted through oRPC's OpenAPI operation override: the scheme names go into the
+    // generated operation's `security`, referencing the schemes defined in `security.ts`.
+    val securityFieldOpt = TsSecurity
+      .securityRequirement(calls.flatMap(_.request.securitySchemes).distinct)
+      .map(req => s"      spec: (current) => ({ ...current, security: $req })")
+
     val inputGroups = List(
       pathParamsZodOpt.map(z => s"      params: $z"),
       queryParamsZodOpt.map(z => s"      query: $z$queryOptionalSuffix"),
@@ -336,7 +349,8 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       tagsFieldOpt,
       successStatusOpt.map(s => s"      successStatus: $s"),
       Some(s"      inputStructure: 'detailed'"),
-      if (outputStructure == "detailed") Some(s"      outputStructure: 'detailed'") else None
+      if (outputStructure == "detailed") Some(s"      outputStructure: 'detailed'") else None,
+      securityFieldOpt
     ).flatten
 
     val lines = List(

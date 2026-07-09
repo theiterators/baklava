@@ -365,6 +365,22 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
       )
     )
 
+  describe("security (ts-rest: documentary note in description)") {
+    it("appends the auth requirement to the route description") {
+      val base = getCall("/admin/loggers")
+      val call = base.copy(
+        request = base.request.copy(
+          operationDescription = Some("Read a logger level"),
+          securitySchemes =
+            Seq(BaklavaSecuritySchemaSerializable("adminBasic", BaklavaSecuritySerializable(httpBasic = Some(HttpBasic()))))
+        )
+      )
+      val entry = generator.createContractForEndpoint(((Some(Method("GET")), "/admin/loggers"), Seq(call)))
+      entry should include("Read a logger level")
+      entry should include("Requires authentication: adminBasic (HTTP Basic).")
+    }
+  }
+
   describe("named schema hoisting (buildSchemaRefs)") {
 
     def callWithResponse(path: String, schema: BaklavaSchemaSerializable): BaklavaSerializableCall = {

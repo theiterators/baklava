@@ -6,7 +6,7 @@ import { createProjectRequestSchema, createTaskRequestSchema, patchProjectReques
 export const projects = initContract().router({
   get: {
     summary: 'List projects',
-    description: 'List projects, optionally filtered by status',
+    description: 'List projects, optionally filtered by status\n\nRequires authentication: oauth2 (OAuth2).',
     method: 'GET',
     path: '/projects',
     query: z.object({status: z.enum(["active","archived","draft"]).describe("Lifecycle state of a project").nullish()}),
@@ -16,7 +16,7 @@ export const projects = initContract().router({
   },
   post: {
     summary: 'Create project',
-    description: 'Create a new project',
+    description: 'Create a new project\n\nRequires authentication: oauth2 (OAuth2).',
     method: 'POST',
     path: '/projects',
     body: createProjectRequestSchema,
@@ -28,7 +28,7 @@ export const projects = initContract().router({
   byProjectId: {
     patch: {
       summary: 'Patch project',
-      description: 'Partially update a project',
+      description: 'Partially update a project\n\nRequires authentication: oauth2 (OAuth2).',
       method: 'PATCH',
       path: '/projects/:projectId',
       pathParams: z.object({projectId: z.number().int()}),
@@ -40,7 +40,7 @@ export const projects = initContract().router({
     tasks: {
       get: {
         summary: 'List tasks',
-        description: 'List all tasks in a project',
+        description: 'List all tasks in a project\n\nRequires authentication: oauth2 (OAuth2).',
         method: 'GET',
         path: '/projects/:projectId/tasks',
         pathParams: z.object({projectId: z.number().int()}),
@@ -50,7 +50,7 @@ export const projects = initContract().router({
       },
       post: {
         summary: 'Create task',
-        description: 'Create a task in a project',
+        description: 'Create a task in a project\n\nRequires authentication: oauth2 (OAuth2).',
         method: 'POST',
         path: '/projects/:projectId/tasks',
         pathParams: z.object({projectId: z.number().int()}),

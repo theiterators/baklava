@@ -139,6 +139,10 @@ Object keys that aren't valid JavaScript identifiers (e.g. kebab-case query/head
 
 `multipart/form-data` request bodies (a `Multipart(...)` body in the test) are emitted as `contentType: 'multipart/form-data'` plus a `z.object({...})` naming each captured form part — `FilePart`s become `z.instanceof(File)`, `TextPart`s become `z.string()`, and a part name that appears more than once (a multi-value field) becomes a `z.array(...)`. Distinct part-sets recorded across calls for the same endpoint are combined into a `z.union([...])`, like any other body shape. (`z.instanceof(File)` references the global `File` constructor; it's available in browsers and Node ≥ 20.)
 
+### Security
+
+ts-rest has no route-level OpenAPI `security` field — in ts-rest, security is applied by an [`operationMapper`](https://ts-rest.com/docs/open-api) that the consumer passes to `generateOpenApi`. So a route's captured schemes are surfaced **in the description** (e.g. `Requires authentication: basicAuth (HTTP Basic).`) rather than structurally. To turn that into real OpenAPI security, define the schemes in `generateOpenApi`'s `components.securitySchemes` and map them per operation. Authentication itself is a transport concern handled by the client, not the contract.
+
 ### Configuration
 
 ```scala
@@ -191,6 +195,7 @@ Generates a TypeScript npm package of [oRPC](https://orpc.dev) contracts ([`@orp
 - `src/{area}.schemas.ts` — named, deduplicated schemas used only by that module: every object schema with a captured case-class name is hoisted under a derived name and paired with its inferred type (`AuctionDto` → `auctionDtoSchema` + `export type AuctionDto`); a type name that would shadow a TS global gets a `Type` suffix (`Error` → `ErrorType`)
 - `src/schemas.ts` — hoisted schemas shared by two or more modules (`errorSchema`, common DTOs)
 - `src/client.ts` — a ready-made client factory (`createContractsClient(url)`): an `OpenAPILink` whose error decoder lifts the backend's discriminated error bodies into defined `ORPCError`s under the declared codes
+- `src/security.ts` — `securitySchemes`: the OpenAPI Security Scheme Objects captured from the routes (`{ basicAuth: { type: 'http', scheme: 'basic' }, … }`), keyed by scheme name — feed it to an OpenAPI generator's `components.securitySchemes`
 
 Contracts nest by path segment — oRPC's native router shape — so `/v1/auctions/{auctionId}/bids` is reached as `contracts.v1.auctions.byAuctionId.bids.<method>`. A path parameter reads as `by<Param>` (`{auctionId}` → `byAuctionId`), the router-tree spelling of the `getUsersByUserId` convention the TS-Fetch format uses for function names; static segments are camelized (`feature-flags` → `featureFlags`). Schemas use the **zod 4** vocabulary and deliberately tell the wire truth: `date-time` fields render `z.iso.datetime({ offset: true })` (over HTTP a timestamp *is* an ISO string and `OpenAPILink` performs no client-side coercion), `uuid` → `z.uuid()`, `email` → `z.email()`, multipart file parts → `z.file()`. The rest of the Zod mapping table above applies unchanged.
 
@@ -252,6 +257,21 @@ Backends documented by baklava don't speak oRPC's own error envelope, but most s
 The discriminator field defaults to `type` and is configurable via the `orpc-error-code-field` config key. Inside each declared error's `data` schema the discriminator property is narrowed to `z.enum(["<the code>"])`, so payloads are self-discriminating; when the error body shape is hoisted, the narrowing happens at the use site (`errorSchema.extend({type: z.enum(["<the code>"])})`) so one shared schema serves every declared code. Error responses whose body carries no extractable discriminator (bodyless 429s, non-JSON payloads) are left undeclared and surface through oRPC's defaults.
 
 The generated `src/client.ts` completes the loop: its `createContractsClient(url)` wires an `OpenAPILink` with a [`customErrorResponseBodyDecoder`](https://orpc.dev/docs/openapi/advanced/customizing-error-response) that lifts error bodies into `ORPCError`s whose `code` is the same discriminator value (and `defined: true`) — so [`isDefinedError`](https://orpc.dev/docs/client/error-handling) narrows errors to the declared union, giving statically typed, exhaustively checkable error handling end to end, out of the box.
+
+### Security
+
+Routes that captured a security scheme add it to the generated OpenAPI operation via oRPC's route [`spec`](https://orpc.dev/docs/openapi/openapi-specification) override:
+
+```typescript
+.route({
+  method: 'GET',
+  path: '/admin/loggers/{name}',
+  /* ... */
+  spec: (current) => ({ ...current, security: [{ basicAuth: [] }] }),
+})
+```
+
+`security` references schemes by name; the matching definitions are exported from `src/security.ts` as `securitySchemes`. Pass them to your OpenAPI generator so the references resolve. Authentication itself stays a transport concern — inject credentials via the client's `fetch`/`headers` (as `createContractsClient`'s options allow), the same way bearer tokens are added; the contract only *documents* the requirement.
 
 ### Configuration
 

@@ -22,7 +22,7 @@ object BaklavaOrpcFiles {
         |    "dist"
         |  ],
         |  "scripts": {
-        |    "build:js": "esbuild src/contracts.ts src/client.ts --bundle --platform=node --target=es2022 --format=esm --tree-shaking=true --external:@orpc/contract --external:@orpc/client --external:@orpc/openapi-client --external:zod --outdir=dist",
+        |    "build:js": "esbuild src/contracts.ts src/client.ts src/security.ts --bundle --platform=node --target=es2022 --format=esm --tree-shaking=true --external:@orpc/contract --external:@orpc/client --external:@orpc/openapi-client --external:zod --outdir=dist",
         |    "build:dts": "dts-bundle-generator -o dist/index.d.ts src/contracts.ts",
         |    "build:package": "cp package-contracts.json dist/package.json && sed -i \"s/VERSION/${VERSION}/g\" dist/package.json",
         |    "build": "pnpm run build:js && pnpm run build:dts && pnpm run build:package"

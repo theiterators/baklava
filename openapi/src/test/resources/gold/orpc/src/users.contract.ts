@@ -13,7 +13,8 @@ export const users = {
       operationId: 'listUsers',
       tags: ['Users'],
       successStatus: 200,
-      inputStructure: 'detailed'
+      inputStructure: 'detailed',
+      spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
     })
     .input(z.object({
       query: z.object({page: z.number().int().nullish(), limit: z.number().int().nullish(), role: z.enum(["admin","guest","member"]).describe("User role within the system").nullish()}).optional()
@@ -29,7 +30,8 @@ export const users = {
         operationId: 'deleteUser',
         tags: ['Users'],
         successStatus: 204,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
       })
       .input(z.object({
         params: z.object({userId: z.uuid()})
@@ -44,7 +46,8 @@ export const users = {
         operationId: 'getUser',
         tags: ['Users'],
         successStatus: 200,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
       })
       .input(z.object({
         params: z.object({userId: z.uuid()})
@@ -65,7 +68,8 @@ export const users = {
         operationId: 'updateUser',
         tags: ['Users'],
         successStatus: 200,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
       })
       .input(z.object({
         params: z.object({userId: z.uuid()}),
@@ -82,7 +86,8 @@ export const users = {
           operationId: 'uploadPhoto',
           tags: ['Users'],
           successStatus: 201,
-          inputStructure: 'detailed'
+          inputStructure: 'detailed',
+          spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
         })
         .input(z.object({
           params: z.object({userId: z.uuid()}),

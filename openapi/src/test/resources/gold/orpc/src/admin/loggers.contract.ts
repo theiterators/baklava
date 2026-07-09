@@ -13,7 +13,8 @@ export const adminLoggers = {
         operationId: 'adminGetLogger',
         tags: ['Admin'],
         successStatus: 200,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ basicAuth: [] }] })
       })
       .input(z.object({
         params: z.object({name: z.string()})

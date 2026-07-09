@@ -13,7 +13,8 @@ export const projects = {
       operationId: 'listProjects',
       tags: ['Projects'],
       successStatus: 200,
-      inputStructure: 'detailed'
+      inputStructure: 'detailed',
+      spec: (current) => ({ ...current, security: [{ oauth2: [] }] })
     })
     .input(z.object({
       query: z.object({status: z.enum(["active","archived","draft"]).describe("Lifecycle state of a project").nullish()}).optional()
@@ -28,7 +29,8 @@ export const projects = {
       operationId: 'createProject',
       tags: ['Projects'],
       successStatus: 201,
-      inputStructure: 'detailed'
+      inputStructure: 'detailed',
+      spec: (current) => ({ ...current, security: [{ oauth2: [] }] })
     })
     .input(z.object({
       body: createProjectRequestSchema
@@ -50,7 +52,8 @@ export const projects = {
         operationId: 'patchProject',
         tags: ['Projects'],
         successStatus: 200,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ oauth2: [] }] })
       })
       .input(z.object({
         params: z.object({projectId: z.number().int()}),
@@ -67,7 +70,8 @@ export const projects = {
           operationId: 'listTasks',
           tags: ['Tasks'],
           successStatus: 200,
-          inputStructure: 'detailed'
+          inputStructure: 'detailed',
+          spec: (current) => ({ ...current, security: [{ oauth2: [] }] })
         })
         .input(z.object({
           params: z.object({projectId: z.number().int()})
@@ -82,7 +86,8 @@ export const projects = {
           operationId: 'createTask',
           tags: ['Tasks'],
           successStatus: 201,
-          inputStructure: 'detailed'
+          inputStructure: 'detailed',
+          spec: (current) => ({ ...current, security: [{ oauth2: [] }] })
         })
         .input(z.object({
           params: z.object({projectId: z.number().int()}),

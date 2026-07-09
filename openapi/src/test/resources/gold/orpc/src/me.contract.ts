@@ -11,7 +11,8 @@ export const me = {
       operationId: 'me',
       tags: ['Auth'],
       successStatus: 200,
-      inputStructure: 'detailed'
+      inputStructure: 'detailed',
+      spec: (current) => ({ ...current, security: [{ bearerAuth: [] }] })
     })
     .output(userSchema)
 };

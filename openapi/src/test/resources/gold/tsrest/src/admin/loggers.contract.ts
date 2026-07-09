@@ -6,7 +6,7 @@ export const adminLoggers = initContract().router({
   byName: {
     get: {
       summary: 'Get logger level',
-      description: 'Read a logger\'s effective level',
+      description: 'Read a logger\'s effective level\n\nRequires authentication: basicAuth (HTTP Basic).',
       method: 'GET',
       path: '/admin/loggers/:name',
       pathParams: z.object({name: z.string()}),

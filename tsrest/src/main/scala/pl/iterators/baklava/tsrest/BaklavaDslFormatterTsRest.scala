@@ -1,7 +1,7 @@
 package pl.iterators.baklava.tsrest
 
 import pl.iterators.baklava.*
-import pl.iterators.baklava.tscommon.{TsPathRouter, TsSchemaRefs, TsZodDialect, TsZodRenderer}
+import pl.iterators.baklava.tscommon.{TsPathRouter, TsSchemaRefs, TsSecurity, TsZodDialect, TsZodRenderer}
 import sttp.model.Method
 
 import java.io.{File, FileWriter, PrintWriter}
@@ -224,11 +224,15 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     val httpMethod = httpMethodOpt.map(_.method).getOrElse("ANY").toLowerCase
     val entryKey   = keyOverride.getOrElse(httpMethod)
 
-    val firstCall   = calls.head
-    val req         = firstCall.request
-    val summary     = escapeTsSingleQuoted(calls.flatMap(_.request.operationSummary).distinct.mkString(" / "))
-    val description = escapeTsSingleQuoted(calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n"))
-    val path        = toTsRestPath(req.symbolicPath)
+    val firstCall = calls.head
+    val req       = firstCall.request
+    val summary   = escapeTsSingleQuoted(calls.flatMap(_.request.operationSummary).distinct.mkString(" / "))
+    // ts-rest has no route-level OpenAPI security field (that lives in the consumer's
+    // `generateOpenApi` operationMapper), so the requirement is surfaced in the description.
+    val baseDescription = calls.flatMap(_.request.operationDescription).distinct.mkString("\n\n")
+    val securityNote    = TsSecurity.note(calls.flatMap(_.request.securitySchemes).distinct)
+    val description     = escapeTsSingleQuoted((Seq(baseDescription).filter(_.nonEmpty) ++ securityNote).mkString("\n\n"))
+    val path            = toTsRestPath(req.symbolicPath)
 
     val pathParamsZodOpt = renderer.buildParamsZod(
       calls.map(_.request.pathParametersSeq),

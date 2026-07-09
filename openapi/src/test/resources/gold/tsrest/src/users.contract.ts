@@ -6,7 +6,7 @@ import { paginatedUsersSchema, photoUploadSchema, updateUserRequestSchema } from
 export const users = initContract().router({
   get: {
     summary: 'List users',
-    description: 'List users with pagination and optional role filter',
+    description: 'List users with pagination and optional role filter\n\nRequires authentication: bearerAuth (HTTP Bearer, JWT).',
     method: 'GET',
     path: '/users',
     query: z.object({page: z.number().int().nullish(), limit: z.number().int().nullish(), role: z.enum(["admin","guest","member"]).describe("User role within the system").nullish()}),
@@ -17,7 +17,7 @@ export const users = initContract().router({
   byUserId: {
     delete: {
       summary: 'Delete user',
-      description: 'Delete a user',
+      description: 'Delete a user\n\nRequires authentication: bearerAuth (HTTP Bearer, JWT).',
       method: 'DELETE',
       path: '/users/:userId',
       pathParams: z.object({userId: z.string().uuid()}),
@@ -28,7 +28,7 @@ export const users = initContract().router({
     },
     get: {
       summary: 'Get user',
-      description: 'Fetch a single user by UUID',
+      description: 'Fetch a single user by UUID\n\nRequires authentication: bearerAuth (HTTP Bearer, JWT).',
       method: 'GET',
       path: '/users/:userId',
       pathParams: z.object({userId: z.string().uuid()}),
@@ -39,7 +39,7 @@ export const users = initContract().router({
     },
     put: {
       summary: 'Update user',
-      description: 'Replace a user\'s profile (admin only)',
+      description: 'Replace a user\'s profile (admin only)\n\nRequires authentication: bearerAuth (HTTP Bearer, JWT).',
       method: 'PUT',
       path: '/users/:userId',
       pathParams: z.object({userId: z.string().uuid()}),
@@ -51,7 +51,7 @@ export const users = initContract().router({
     photo: {
       post: {
         summary: 'Upload photo',
-        description: 'Upload a profile photo alongside a caption as multipart/form-data',
+        description: 'Upload a profile photo alongside a caption as multipart/form-data\n\nRequires authentication: bearerAuth (HTTP Bearer, JWT).',
         method: 'POST',
         path: '/users/:userId/photo',
         pathParams: z.object({userId: z.string().uuid()}),

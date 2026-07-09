@@ -7,7 +7,7 @@ export const auth = initContract().router({
   login: {
     post: {
       summary: 'Login',
-      description: 'Exchange HTTP Basic credentials for a JWT token',
+      description: 'Exchange HTTP Basic credentials for a JWT token\n\nRequires authentication: basicAuth (HTTP Basic).',
       method: 'POST',
       path: '/auth/login',
       body: loginFormSchema,

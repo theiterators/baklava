@@ -14,7 +14,8 @@ export const auth = {
         operationId: 'login',
         tags: ['Auth'],
         successStatus: 200,
-        inputStructure: 'detailed'
+        inputStructure: 'detailed',
+        spec: (current) => ({ ...current, security: [{ basicAuth: [] }] })
       })
       .input(z.object({
         body: loginFormSchema
