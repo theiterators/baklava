@@ -1,6 +1,5 @@
 package pl.iterators.baklava.openapi
 
-import io.circe.Printer
 import io.circe.parser.*
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.media.{Content, Schema}
@@ -68,16 +67,13 @@ object BaklavaDslFormatterOpenAPIWorker {
 
               val usedExampleKeys = scala.collection.mutable.Set.empty[String]
               commonContentTypeCalls.zipWithIndex.foreach { case (BaklavaSerializableCall(ctx, response), idx) =>
-                val responseStr =
-                  if (contentType.contains("application/json"))
-                    parse(response.bodyString).map(_.printWith(Printer.spaces2)).getOrElse(response.bodyString)
-                  else response.bodyString
+                val responseValue = exampleValue(response.bodyString, contentType)
 
                 val baseKey   = ctx.responseDescription.getOrElse(s"Example $idx")
                 val uniqueKey = disambiguateKey(baseKey, usedExampleKeys)
                 val _         = mediaType.addExamples(
                   uniqueKey,
-                  new io.swagger.v3.oas.models.examples.Example().value(responseStr)
+                  new io.swagger.v3.oas.models.examples.Example().value(responseValue)
                 )
               }
 
@@ -117,16 +113,13 @@ object BaklavaDslFormatterOpenAPIWorker {
               val usedRequestExampleKeys = scala.collection.mutable.Set.empty[String]
               calls.zipWithIndex.foreach { case (call, idx) =>
                 if (call.request.bodyString.nonEmpty) {
-                  val requestStr =
-                    if (contentType.contains("application/json"))
-                      parse(call.request.bodyString).map(_.printWith(Printer.spaces2)).getOrElse(call.request.bodyString)
-                    else call.request.bodyString
+                  val requestValue = exampleValue(call.request.bodyString, contentType)
 
                   val baseKey   = call.request.responseDescription.getOrElse(s"Example $idx")
                   val uniqueKey = disambiguateKey(baseKey, usedRequestExampleKeys)
                   val _         = mediaType.addExamples(
                     uniqueKey,
-                    new io.swagger.v3.oas.models.examples.Example().value(requestStr)
+                    new io.swagger.v3.oas.models.examples.Example().value(requestValue)
                   )
                 }
               }
@@ -347,6 +340,35 @@ object BaklavaDslFormatterOpenAPIWorker {
     }
   }
 
+  // application/json examples must reach swagger-core as a Java object tree, not a printed string — otherwise they
+  // serialize as escaped string blobs that fail `type: object` validation and render poorly in Swagger UI/Redoc (#120).
+  // Unparseable JSON and non-JSON content types keep the raw string.
+  private def exampleValue(bodyString: String, contentType: Option[String]): Object =
+    if (contentType.contains("application/json")) parse(bodyString).map(jsonToJavaObject).getOrElse(bodyString)
+    else bodyString
+
+  // Also used for schema defaults (#61): natural Java types make swagger's YAML encoder emit 42, not "42".
+  // LinkedHashMap/ArrayList so captured key order survives serialization.
+  private def jsonToJavaObject(j: io.circe.Json): Object = j.fold(
+    jsonNull = null,
+    jsonBoolean = b => java.lang.Boolean.valueOf(b),
+    jsonNumber = n =>
+      n.toLong
+        .map(java.lang.Long.valueOf(_): Object)
+        .getOrElse(n.toBigDecimal.getOrElse(BigDecimal(n.toString)).bigDecimal),
+    jsonString = s => s,
+    jsonArray = arr => {
+      val list = new java.util.ArrayList[Object](arr.size)
+      arr.foreach(v => list.add(jsonToJavaObject(v)))
+      list
+    },
+    jsonObject = obj => {
+      val m = new java.util.LinkedHashMap[String, Object]()
+      obj.toIterable.foreach { case (k, v) => m.put(k, jsonToJavaObject(v)) }
+      m
+    }
+  )
+
   private def disambiguateKey(baseKey: String, used: scala.collection.mutable.Set[String]): String = {
     if (!used.contains(baseKey)) {
       used += baseKey
@@ -403,7 +425,7 @@ object BaklavaDslFormatterOpenAPIWorker {
       schema.addProperty(name, baklavaSchemaToOpenAPISchema(bs))
     }
     baklavaSchema.`enum`.foreach(e => schema.setEnum(e.toList.asJava))
-    baklavaSchema.default.flatMap(jsonToJavaDefault).foreach(schema.setDefault)
+    baklavaSchema.default.map(jsonToJavaObject).foreach(schema.setDefault)
     schema.setRequired(baklavaSchema.properties.toList.filter(_._2.required).map(_._1).asJava)
     baklavaSchema.additionalPropertiesSchema match {
       case Some(bs) => schema.setAdditionalProperties(baklavaSchemaToOpenAPISchema(bs))
@@ -412,25 +434,6 @@ object BaklavaDslFormatterOpenAPIWorker {
 
     schema
   }
-
-  /** Convert a captured JSON default (circe) into the Java/Scala `Object` shape that swagger's `Schema.setDefault` accepts. Swagger
-    * serializes the value back out via its own YAML encoder, so handing it the natural Java type produces correct YAML (e.g. an `Integer`
-    * becomes `42`, not `"42"`). Fixes issue #61.
-    */
-  private def jsonToJavaDefault(j: io.circe.Json): Option[Object] = j.fold(
-    jsonNull = Some(null: Object),
-    jsonBoolean = b => Some(java.lang.Boolean.valueOf(b)),
-    jsonNumber = n =>
-      n.toLong
-        .map(java.lang.Long.valueOf(_): Object)
-        .orElse(Some(n.toBigDecimal.getOrElse(BigDecimal(n.toString)).bigDecimal: Object)),
-    jsonString = s => Some(s),
-    jsonArray = arr => Some(arr.map(v => jsonToJavaDefault(v).orNull).asJava),
-    jsonObject = obj =>
-      Some(
-        obj.toIterable.map { case (k, v) => k -> jsonToJavaDefault(v).orNull }.toMap.asJava
-      )
-  )
 
   // OpenAPI keys `content` by media type only, so drop any `;charset=…` / `;boundary=…` parameters before grouping.
   private def stripMediaTypeParams(contentType: String): String =
