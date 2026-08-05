@@ -10,7 +10,7 @@ You don't need an sbt project to use Baklava. With [scala-cli](https://scala-cli
 - **Trying Baklava in two minutes**, with zero build setup.
 - **Documenting a third-party API**: point Baklava at any HTTP service, assert on its real responses, and get an OpenAPI spec plus typed clients from behavior you have verified.
 
-The script below tests two endpoints of the **live GitHub REST API** and produces an OpenAPI spec and an [sttp-client4](https://sttp.softwaremill.com) source tree.
+The script below tests two endpoints of the **live GitHub REST API** through the [`baklava-sttp` remote-API adapter](sttp.md) and produces an OpenAPI spec and an [sttp-client4](https://sttp.softwaremill.com) source tree.
 
 ## The script
 
@@ -18,54 +18,31 @@ Save as `github-api-docs.test.scala`:
 
 ```scala
 //> using scala 3.3.8
-//> using dep pl.iterators::baklava-http4s:2.0.0
-//> using dep pl.iterators::baklava-munit:2.0.0
-//> using dep pl.iterators::baklava-openapi:2.0.0
-//> using dep pl.iterators::baklava-sttpclient:2.0.0
-//> using dep org.http4s::http4s-ember-client:0.23.36
-//> using dep org.http4s::http4s-circe:0.23.36
+//> using dep pl.iterators::baklava-sttp:2.1.0
+//> using dep pl.iterators::baklava-munit:2.1.0
+//> using dep pl.iterators::baklava-openapi:2.1.0
+//> using dep pl.iterators::baklava-sttpclient:2.1.0
 //> using dep io.circe::circe-generic:0.14.16
 
-import cats.effect.IO
-import cats.effect.unsafe.IORuntime
 import io.circe.generic.auto.*
-import org.http4s.circe.CirceEntityDecoder.*
-import org.http4s.ember.client.EmberClientBuilder
-import org.http4s.{Header, HttpRoutes, Request, Response, Uri}
-import org.http4s.Method.*
-import org.http4s.Status.*
-import org.typelevel.ci.CIString
 import pl.iterators.baklava.BaklavaGenerate
-import pl.iterators.baklava.http4s.BaklavaHttp4s
 import pl.iterators.baklava.munit.{BaklavaMunit, MunitAsExecution}
+import pl.iterators.baklava.sttp4.{BaklavaSttp, FromSttpBody, ToSttpBody}
+import sttp.client4.SyncBackend
+import sttp.model.Method.*
+import sttp.model.StatusCode.*
+import sttp.model.{Header, Uri}
 
 case class GitHubUser(login: String, id: Long, name: Option[String], company: Option[String], public_repos: Int, followers: Int)
 case class GitHubRepo(name: String, full_name: String, description: Option[String], stargazers_count: Int, language: Option[String])
 case class GitHubError(message: String, documentation_url: Option[String])
 
 class GitHubApiSpec
-    extends BaklavaMunit[HttpRoutes[IO], BaklavaHttp4s.ToEntityMarshaller, BaklavaHttp4s.FromEntityUnmarshaller]
-    with BaklavaHttp4s[Unit, Unit, MunitAsExecution] {
+    extends BaklavaMunit[SyncBackend, ToSttpBody, FromSttpBody]
+    with BaklavaSttp[Unit, Unit, MunitAsExecution] {
 
-  implicit val runtime: IORuntime                = IORuntime.global
-  override def strictHeaderCheckDefault: Boolean = false
-
-  // baklava normally tests local routes; for a remote API we send each request with a real client
-  val routes: HttpRoutes[IO] = HttpRoutes.empty[IO]
-
-  override def performRequest(routes: HttpRoutes[IO], request: Request[IO]): Response[IO] =
-    EmberClientBuilder
-      .default[IO]
-      .build
-      .use { client =>
-        val remote = request
-          .withUri(Uri.unsafeFromString(s"https://api.github.com${request.uri}"))
-          .putHeaders(Header.Raw(CIString("User-Agent"), "baklava-demo"))
-        client.run(remote).use { response =>
-          response.body.compile.toList.map(bytes => response.copy(body = fs2.Stream.emits(bytes)))
-        }
-      }
-      .unsafeRunSync()
+  override def baseUri: Uri                = Uri.unsafeParse("https://api.github.com")
+  override def defaultHeaders: Seq[Header] = Seq(Header("User-Agent", "baklava-demo"))
 
   path("/users/{username}")(
     supports(
@@ -78,13 +55,13 @@ class GitHubApiSpec
       onRequest(pathParameters = "octocat")
         .respondsWith[GitHubUser](Ok, description = "User found")
         .assert { ctx =>
-          val response = ctx.performRequest(routes)
+          val response = ctx.performRequest(defaultBackend)
           assertEquals(response.body.login, "octocat")
         },
       onRequest(pathParameters = "no-such-user-baklava-4711")
         .respondsWith[GitHubError](NotFound, description = "User not found")
         .assert { ctx =>
-          ctx.performRequest(routes)
+          ctx.performRequest(defaultBackend)
         }
     )
   )
@@ -100,7 +77,7 @@ class GitHubApiSpec
       onRequest(pathParameters = ("theiterators", "baklava"))
         .respondsWith[GitHubRepo](Ok, description = "Repository found")
         .assert { ctx =>
-          val response = ctx.performRequest(routes)
+          val response = ctx.performRequest(defaultBackend)
           assertEquals(response.body.full_name, "theiterators/baklava")
         }
     )
@@ -136,7 +113,7 @@ scala-cli test github-api-docs.test.scala
 
 ```
 Test run GitHubApiSpec started
-GitHubApiSpec: finished 7.61s
+GitHubApiSpec: finished 1.77s
 Test run GitHubApiSpec finished: 0 failed, 0 ignored, 3 total
 ```
 
@@ -216,6 +193,6 @@ final case class GitHubUser(company: Option[String] = None, followers: Int, id: 
 
 ## How it works
 
-- **Remote APIs via `performRequest`**: Baklava's DSL builds an `http4s` `Request[IO]` and hands it to `performRequest`, which normally runs it against local routes. Overriding it to send the request with a real client (Ember here) turns Baklava into a documentation-generating integration test for any HTTP service. The response body is compiled to memory so it can be read both by your assertions and by the serializer.
+- **Remote APIs via `baklava-sttp`**: the [sttp adapter](sttp.md) sends every request over the network with sttp-client4, resolved against `baseUri` — no HTTP server stack, no effect runtime, no `performRequest` override. Strict header checking is off by default (remote services always send undeclared headers), and response bodies are read fully into memory so both your assertions and the serializer can consume them. JSON codecs come from plain circe `Encoder`/`Decoder` instances — `circe-generic`'s auto derivation is enough here.
 - **Generation in `afterAll`**: the sbt plugin normally runs `BaklavaGenerate` after `sbt test`. In a standalone script we call it from `afterAll` instead, so a single `scala-cli test` invocation runs the tests and generates output. Config entries use the `key|<base64 value>` argument format; formatters are auto-discovered from the classpath, so which outputs you get is controlled purely by the `//> using dep` lines — swap in `baklava-tsrest`, `baklava-orpc`, `baklava-simple`, or `baklava-postman` to taste.
-- **Rate limits**: unauthenticated GitHub API calls are limited to 60/hour per IP; this script makes 3 per run. If you document an API that needs auth, add the header in `performRequest` (e.g. a bearer token from an environment variable) or document it properly with Baklava's `security` DSL — see [DSL Reference](dsl-reference.md).
+- **Rate limits**: unauthenticated GitHub API calls are limited to 60/hour per IP; this script makes 3 per run. If you document an API that needs auth, add the header to `defaultHeaders` (e.g. a bearer token from an environment variable) or document it properly with Baklava's `security` DSL — see [DSL Reference](dsl-reference.md).
