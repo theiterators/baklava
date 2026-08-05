@@ -470,7 +470,7 @@ paths:
         schema:
           type: integer
           format: int64
-        example: "42"
+        example: 42
       requestBody:
         content:
           application/json:
@@ -563,7 +563,7 @@ paths:
         schema:
           type: integer
           format: int64
-        example: "42"
+        example: 42
       responses:
         "200":
           description: All tasks in the project
@@ -628,7 +628,7 @@ paths:
         schema:
           type: integer
           format: int64
-        example: "42"
+        example: 42
       requestBody:
         content:
           application/json:
@@ -726,7 +726,7 @@ paths:
           type: integer
           format: int32
           default: null
-        example: "20"
+        example: 20
       - name: page
         in: query
         description: Page number (1-indexed)
@@ -736,7 +736,7 @@ paths:
           type: integer
           format: int32
           default: null
-        example: "1"
+        example: 1
       - name: role
         in: query
         description: Filter by role
@@ -761,7 +761,7 @@ paths:
               schema:
                 type: integer
                 format: int32
-              example: "59"
+              example: 59
           content:
             application/json:
               schema:

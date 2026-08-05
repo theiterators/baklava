@@ -50,7 +50,7 @@ object BaklavaDslFormatterOpenAPIWorker {
             h.schema(baklavaSchemaToOpenAPISchema(header.schema))
             h.setRequired(header.schema.required)
             header.description.foreach(h.setDescription)
-            caseInsensitiveHeaderLookup(commonStatusCalls, header.name).foreach(h.example)
+            caseInsensitiveHeaderLookup(commonStatusCalls, header.name).map(coerceExample(_, h.getSchema)).foreach(h.example)
             val _ = r.addHeaderObject(header.name, h)
           }
 
@@ -329,23 +329,41 @@ object BaklavaDslFormatterOpenAPIWorker {
     val distinctValues = examples.map(_._2).distinct
     if (distinctValues.isEmpty) () // nothing to attach
     else if (distinctValues.size == 1) {
-      val _ = parameter.example(distinctValues.head)
+      val _ = parameter.example(coerceExample(distinctValues.head, parameter.getSchema))
     } else {
       val used = scala.collection.mutable.Set.empty[String]
       examples.zipWithIndex.foreach { case ((label, value), idx) =>
         val baseKey  = if (label.isEmpty) s"Example $idx" else label
         val finalKey = disambiguateKey(baseKey, used)
-        val _        = parameter.addExample(finalKey, new io.swagger.v3.oas.models.examples.Example().value(value))
+        val _        = parameter.addExample(
+          finalKey,
+          new io.swagger.v3.oas.models.examples.Example().value(coerceExample(value, parameter.getSchema))
+        )
       }
     }
   }
 
-  // application/json examples must reach swagger-core as a Java object tree, not a printed string — otherwise they
+  // application/json and RFC 6839 +json suffix types (application/problem+json etc., #129)
+  private def isJsonMediaType(mediaType: String): Boolean =
+    mediaType == "application/json" || mediaType.endsWith("+json")
+
+  // JSON examples must reach swagger-core as a Java object tree, not a printed string — otherwise they
   // serialize as escaped string blobs that fail `type: object` validation and render poorly in Swagger UI/Redoc (#120).
   // Unparseable JSON and non-JSON content types keep the raw string.
   private def exampleValue(bodyString: String, contentType: Option[String]): Object =
-    if (contentType.contains("application/json")) parse(bodyString).map(jsonToJavaObject).getOrElse(bodyString)
+    if (contentType.exists(isJsonMediaType)) parse(bodyString).map(jsonToJavaObject).getOrElse(bodyString)
     else bodyString
+
+  // Captured parameter/header example values are raw strings; coerce to the declared schema type so they
+  // validate against integer/number/boolean schemas (10, not "10") — #130. Values that don't parse as the
+  // schema type keep the raw string.
+  private def coerceExample(value: String, schema: Schema[?]): Object =
+    Option(schema).flatMap(s => Option(s.getType)) match {
+      case Some("integer") => scala.util.Try(java.lang.Long.valueOf(value): Object).getOrElse(value)
+      case Some("number")  => scala.util.Try(new java.math.BigDecimal(value): Object).getOrElse(value)
+      case Some("boolean") if value == "true" || value == "false" => java.lang.Boolean.valueOf(value)
+      case _                                                      => value
+    }
 
   // Also used for schema defaults (#61): natural Java types make swagger's YAML encoder emit 42, not "42".
   // LinkedHashMap/ArrayList so captured key order survives serialization.

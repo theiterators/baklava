@@ -9,7 +9,7 @@ import scala.jdk.CollectionConverters.*
 // (e.g. the PetStore testcontainer suites, whose live responses vary between runs).
 object OpenAPIInvariants {
 
-  // Regression guard for #120 on end-to-end capture paths: application/json examples must be structured
+  // Regression guard for #120/#129 on end-to-end capture paths: JSON media-type examples must be structured
   // values, not re-printed strings. A String value is only an offender when its content parses to a JSON
   // object/array — scalar JSON bodies and unparseable-body fallbacks legitimately stay strings.
   def assertJsonExamplesAreStructured(openAPI: OpenAPI): Unit = {
@@ -20,7 +20,7 @@ object OpenAPIInvariants {
         content      <- Option(op.getRequestBody).flatMap(rb => Option(rb.getContent)).toList ++
           Option(op.getResponses).map(_.asScala.values.toList.flatMap(r => Option(r.getContent))).getOrElse(Nil)
         (mediaTypeName, mt) <- content.asScala.toList
-        if mediaTypeName == "application/json"
+        if mediaTypeName == "application/json" || mediaTypeName.endsWith("+json")
         (key, example) <- Option(mt.getExamples).map(_.asScala.toList).getOrElse(Nil)
         value          <- Option(example.getValue).toList
         if value.isInstanceOf[String] && parse(value.asInstanceOf[String]).exists(j => j.isObject || j.isArray)

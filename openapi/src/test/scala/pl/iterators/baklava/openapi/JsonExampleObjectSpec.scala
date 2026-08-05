@@ -75,6 +75,33 @@ class JsonExampleObjectSpec extends AnyFunSpec with Matchers {
       map.get("age") shouldBe java.lang.Long.valueOf(42)
     }
 
+    it("emits structured examples for +json structured-syntax suffix media types (regression for #129)") {
+      val openAPI = new OpenAPI()
+      BaklavaDslFormatterOpenAPIWorker.generateForCalls(
+        openAPI,
+        Seq(
+          responseCall(
+            desc = "Validation failed",
+            body = """{"title":"Invalid request"}""",
+            contentType = Some("application/problem+json")
+          )
+        )
+      )
+
+      val example = openAPI.getPaths
+        .get("/items")
+        .getGet
+        .getResponses
+        .get("200")
+        .getContent
+        .get("application/problem+json")
+        .getExamples
+        .get("Validation failed")
+
+      example.getValue shouldBe a[java.util.Map[?, ?]]
+      example.getValue.asInstanceOf[java.util.Map[String, Object]].get("title") shouldBe "Invalid request"
+    }
+
     it("keeps non-JSON content types as raw strings") {
       val openAPI = new OpenAPI()
       BaklavaDslFormatterOpenAPIWorker.generateForCalls(
