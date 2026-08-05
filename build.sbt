@@ -99,6 +99,7 @@ lazy val baklava =
     pekkohttproutes,
     http4s,
     http4sroutes,
+    sttp,
     specs2,
     scalatest,
     munit,
@@ -128,6 +129,7 @@ val webjarsLocatorV = "0.52"
 val swaggerUiV      = "5.32.1"
 val typesafeConfigV = "1.4.6"
 val sttpModelV      = "1.7.17"
+val sttpClient4V    = "4.0.25"
 
 lazy val core = project
   .in(file("core"))
@@ -301,6 +303,16 @@ lazy val http4sroutes = project
       "io.swagger.parser.v3" % "swagger-parser"  % swaggerParserV,
       "org.webjars"          % "swagger-ui"      % swaggerUiV,
       "org.scalatest"       %% "scalatest"       % scalatestV % "test"
+    )
+  )
+
+lazy val sttp = project
+  .in(file("sttp"))
+  .dependsOn(core, scalatest % "test")
+  .settings(
+    name := "baklava-sttp",
+    libraryDependencies ++= Seq(
+      "com.softwaremill.sttp.client4" %% "core" % sttpClient4V
     )
   )
 
