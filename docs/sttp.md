@@ -64,6 +64,8 @@ used in `respondsWith[T]`.
 
 ## Adapter defaults
 
+- `baseUri` may include a path prefix (e.g. `https://api.example.com/api/v3`) but must not
+  carry a query string or fragment — `resolveUri` rejects those with an `IllegalArgumentException`.
 - `strictHeaderCheckDefault` is `false` — remote services always send headers your test
   does not declare. Opt back in per request with `strictHeaderCheck = true`.
 - `defaultBackend` is sttp's `DefaultSyncBackend()`; override the `lazy val` to configure
