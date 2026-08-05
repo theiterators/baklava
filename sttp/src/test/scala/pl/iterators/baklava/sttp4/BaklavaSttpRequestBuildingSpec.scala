@@ -51,6 +51,11 @@ class BaklavaSttpRequestBuildingSpec
       BaklavaSttp.resolveUri(Uri.unsafeParse("https://api.example.com/api/v3"), "/pets").toString shouldBe
       "https://api.example.com/api/v3/pets"
     }
+
+    it("rejects a base URI carrying a query or fragment") {
+      val ex = intercept[IllegalArgumentException](BaklavaSttp.resolveUri(Uri.unsafeParse("https://api.example.com?key=x"), "/pets"))
+      ex.getMessage should include("must not carry a query or fragment")
+    }
   }
 
   describe("baklavaContextToHttpRequest") {

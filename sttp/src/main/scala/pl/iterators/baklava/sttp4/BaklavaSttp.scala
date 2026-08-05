@@ -58,7 +58,9 @@ trait BaklavaSttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestFra
   // root of the documented API; ctx.path is appended to it on every request
   def baseUri: Uri
 
-  // added to every request; per-test declared headers win on (case-insensitive) name conflict
+  // added to every request; per-test declared headers win on (case-insensitive) name conflict.
+  // Content-Type does not belong here — it bypasses findContentTypeOverride and gets silently
+  // replaced by the body's content type when a request has a body; override it per-test instead
   def defaultHeaders: Seq[SttpHeader] = Seq.empty
 
   // override to customize the client (proxies, TLS, auth wrappers)
@@ -191,8 +193,12 @@ trait BaklavaSttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestFra
 }
 
 object BaklavaSttp {
-  def resolveUri(baseUri: Uri, path: String): Uri =
+  def resolveUri(baseUri: Uri, path: String): Uri = {
+    // a query/fragment on the base would end up embedded mid-URI — always a spec-authoring bug
+    if (baseUri.querySegments.nonEmpty || baseUri.fragmentSegment.isDefined)
+      throw new IllegalArgumentException(s"baseUri must not carry a query or fragment: $baseUri")
     Uri
       .parse(baseUri.toString.stripSuffix("/") + path)
       .fold(error => throw new IllegalArgumentException(s"Could not build request URI: $error"), identity)
+  }
 }
