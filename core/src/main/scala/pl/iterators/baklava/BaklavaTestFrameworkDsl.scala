@@ -378,6 +378,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                       ],
                       route: RouteType
                   ) => {
+                    // count the attempt, not the completion — decode failures throw from inside
+                    // baklavaPerformRequest and would otherwise report "was not called" (issue #128)
+                    timesCalled += 1
                     val responseContext =
                       baklavaPerformRequest[
                         RequestBody,
@@ -392,7 +395,6 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                         requestContext,
                         route
                       )
-                    timesCalled += 1
 
                     validateResponseAndStore[
                       RequestBody,
@@ -657,6 +659,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                 ],
                 route: RouteType
             ) => {
+              // count the attempt, not the completion — decode failures throw from inside
+              // baklavaPerformRequest and would otherwise report "was not called" (issue #128)
+              timesCalled += 1
               val responseContext =
                 baklavaPerformRequest[
                   RequestBody,
@@ -671,7 +676,6 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                   requestContext,
                   route
                 )
-              timesCalled += 1
 
               validateResponseAndStore[
                 RequestBody,

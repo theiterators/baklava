@@ -127,17 +127,10 @@ class BaklavaSttpDslSpec
           response.body should include("--baklava-multipart-boundary")
           findHeader(response.headers, "X-Req-Content-Type") shouldBe Some(SttpBodies.multipartContentType)
         },
-      // core's "performRequest called exactly once" tracking only counts a call that returns, so a
-      // decode failure (which throws before that point) can't be observed via intercept(ctx.performRequest(...))
-      // without also tripping that check; decode as String (always succeeds) and invoke the adapter's own
-      // decoding step directly on the same raw request/response to exercise the failure path instead
       onRequest(body = "not json")
-        .respondsWith[String](StatusCode.Ok, description = "decode failure raises BaklavaAssertionException")
+        .respondsWith[Greeting](StatusCode.Ok, description = "decode failure raises BaklavaAssertionException")
         .assert { ctx =>
-          val response = ctx.performRequest(defaultBackend)
-          val ex       = intercept[BaklavaAssertionException] {
-            httpResponseToBaklavaResponseContext[Greeting](response.rawRequest, response.rawResponse)
-          }
+          val ex = intercept[BaklavaAssertionException](ctx.performRequest(defaultBackend))
           ex.getMessage should include("Failed to decode response body")
         }
     )
