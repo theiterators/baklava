@@ -222,6 +222,7 @@ lazy val openapi = project
     orpc       % "test",
     postman    % "test",
     sttpclient % "test",
+    sttp       % "test",
     tsfetch    % "test"
   )
   .settings(
