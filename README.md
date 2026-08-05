@@ -118,6 +118,16 @@ sbt test
 # Output in target/baklava/openapi/openapi.yml, target/baklava/simple/, etc.
 ```
 
+## Try It Without a Build
+
+Prefer to see it working first? A single [scala-cli](https://scala-cli.virtuslab.org/) script can test the **live GitHub REST API** and generate an OpenAPI spec plus a typed sttp client from verified responses — no sbt project needed:
+
+```bash
+scala-cli test github-api-docs.test.scala
+```
+
+Grab the script from [Standalone Scripts with scala-cli](https://theiterators.github.io/baklava/docs/scala-cli).
+
 ## Output Formats
 
 **OpenAPI** generates a standard `openapi.yml` spec. Optionally serve it via SwaggerUI with `baklava-pekko-http-routes`.
@@ -139,6 +149,7 @@ Full documentation is available at [theiterators.github.io/baklava](https://thei
 - [http4s Integration](https://theiterators.github.io/baklava/docs/http4s)
 - [DSL Reference](https://theiterators.github.io/baklava/docs/dsl-reference)
 - [Examples](https://theiterators.github.io/baklava/docs/examples)
+- [Standalone Scripts (scala-cli)](https://theiterators.github.io/baklava/docs/scala-cli)
 - [Output Formats](https://theiterators.github.io/baklava/docs/output-formats)
 - [Configuration](https://theiterators.github.io/baklava/docs/configuration)
 
