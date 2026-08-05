@@ -124,7 +124,7 @@ class BaklavaSttpRequestBuildingSpec
     request.headers.filter(_.name.equalsIgnoreCase("Content-Type")).map(_.value)
 
   // Everything except headers/body/path is boilerplate the adapter ignores.
-  private def buildRequestContext[B: ToSttpBody](
+  private def buildRequestContext[B](
       hs: Seq[SttpHeader],
       body: Option[B],
       path: String = "/x"
