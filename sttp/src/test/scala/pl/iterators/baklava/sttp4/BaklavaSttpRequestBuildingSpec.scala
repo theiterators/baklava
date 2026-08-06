@@ -123,8 +123,41 @@ class BaklavaSttpRequestBuildingSpec
   private def contentTypesOf(request: HttpRequest): Seq[String] =
     request.headers.filter(_.name.equalsIgnoreCase("Content-Type")).map(_.value)
 
-  // Everything except headers/body/path is boilerplate the adapter ignores.
   private def buildRequestContext[B](
+      hs: Seq[SttpHeader],
+      body: Option[B],
+      path: String = "/x"
+  ): BaklavaRequestContext[B, Unit, Unit, Unit, Unit, Unit, Unit] =
+    SttpTestRequestContexts.build(hs, body, path)
+
+  override def afterAll(): Unit = ()
+}
+
+// separate spec because defaultHeaders is a spec-wide override
+class BaklavaSttpDefaultHeadersGuardSpec
+    extends AnyFunSpec
+    with Matchers
+    with BaklavaSttp[Unit, Unit, ScalatestAsExecution]
+    with BaklavaScalatest[SyncBackend, ToSttpBody, FromSttpBody] {
+
+  override def baseUri: Uri                    = Uri.unsafeParse("https://api.example.com")
+  override def defaultHeaders: Seq[SttpHeader] = Seq(SttpHeader("content-type", "application/json"))
+
+  describe("defaultHeaders") {
+    it("rejects a Content-Type declared in defaultHeaders") {
+      val ex = intercept[IllegalArgumentException](
+        baklavaContextToHttpRequest(SttpTestRequestContexts.build[String](Seq.empty, None))
+      )
+      ex.getMessage should include("Content-Type must not be set in defaultHeaders")
+    }
+  }
+
+  override def afterAll(): Unit = ()
+}
+
+object SttpTestRequestContexts {
+  // Everything except headers/body/path is boilerplate the adapter ignores.
+  def build[B](
       hs: Seq[SttpHeader],
       body: Option[B],
       path: String = "/x"
@@ -156,6 +189,4 @@ class BaklavaSttpRequestBuildingSpec
       responseDescription = None,
       responseHeaders = Seq.empty
     )
-
-  override def afterAll(): Unit = ()
 }

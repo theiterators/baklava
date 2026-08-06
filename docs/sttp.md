@@ -72,6 +72,7 @@ used in `respondsWith[T]`.
   proxies, TLS, timeouts, or to wrap the backend (e.g. logging).
 - `defaultHeaders` are added to every request; headers declared in a test win on
   name conflict. Good for `User-Agent` or auth tokens from the environment.
+  `Content-Type` is rejected here — declare it per request in the test's headers.
 - Response bodies are read fully into memory, so assertions and the documentation
   serializer can both consume them.
 

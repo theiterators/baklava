@@ -59,8 +59,8 @@ trait BaklavaSttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestFra
   def baseUri: Uri
 
   // added to every request; per-test declared headers win on (case-insensitive) name conflict.
-  // Content-Type does not belong here — it bypasses findContentTypeOverride and gets silently
-  // replaced by the body's content type when a request has a body; override it per-test instead
+  // Content-Type is rejected here — it would be silently replaced by the body's content type
+  // whenever a request has a body; declare it per test in the request's headers instead
   def defaultHeaders: Seq[SttpHeader] = Seq.empty
 
   // override to customize the client (proxies, TLS, auth wrappers)
@@ -153,9 +153,14 @@ trait BaklavaSttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestFra
   )(implicit
       requestBody: ToSttpBody[RequestBody]
   ): HttpRequest = {
-    val parsedOverride             = findContentTypeOverride(ctx.headers)
-    val declared                   = if (parsedOverride.isDefined) dropContentType(ctx.headers) else ctx.headers
-    val merged                     = declared ++ defaultHeaders.filterNot(d => declared.exists(_.name.equalsIgnoreCase(d.name)))
+    val parsedOverride = findContentTypeOverride(ctx.headers)
+    val declared       = if (parsedOverride.isDefined) dropContentType(ctx.headers) else ctx.headers
+    val defaults       = defaultHeaders
+    if (defaults.exists(_.name.equalsIgnoreCase("Content-Type")))
+      throw new IllegalArgumentException(
+        "Content-Type must not be set in defaultHeaders — declare it per request in the test's headers instead"
+      )
+    val merged                     = declared ++ defaults.filterNot(d => declared.exists(_.name.equalsIgnoreCase(d.name)))
     val base: Request[Array[Byte]] = emptyRequest
       .method(ctx.method.get, BaklavaSttp.resolveUri(baseUri, ctx.path))
       .headers(merged*)
