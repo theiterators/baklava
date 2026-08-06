@@ -53,5 +53,33 @@ class SttpBodiesSpec extends AnyFunSpec with Matchers {
     it("advertises the fixed boundary in the content type") {
       SttpBodies.multipartContentType shouldBe "multipart/form-data; boundary=baklava-multipart-boundary"
     }
+
+    it("escapes quotes and CRLF in part names") {
+      val rendered = new String(SttpBodies.renderMultipart(Multipart(TextPart("a\"b\r\nc", "v"))), UTF_8)
+      rendered should include("""Content-Disposition: form-data; name="a%22b%0D%0Ac"""")
+    }
+
+    it("escapes quotes and CRLF in filenames") {
+      val rendered = new String(
+        SttpBodies.renderMultipart(Multipart(FilePart("f", "text/plain", "evil\"file\r\n.txt", "X".getBytes(UTF_8)))),
+        UTF_8
+      )
+      rendered should include("""filename="evil%22file%0D%0A.txt"""")
+    }
+  }
+
+  describe("SttpBodyContent") {
+    it("compares bytes by value, not reference") {
+      val a = SttpBodyContent("payload".getBytes(UTF_8), "text/plain")
+      val b = SttpBodyContent("payload".getBytes(UTF_8), "text/plain")
+      a shouldBe b
+      a.hashCode shouldBe b.hashCode
+    }
+
+    it("distinguishes different bytes and different content types") {
+      val base = SttpBodyContent("payload".getBytes(UTF_8), "text/plain")
+      SttpBodyContent("other".getBytes(UTF_8), "text/plain") should not be base
+      SttpBodyContent("payload".getBytes(UTF_8), "application/json") should not be base
+    }
   }
 }
