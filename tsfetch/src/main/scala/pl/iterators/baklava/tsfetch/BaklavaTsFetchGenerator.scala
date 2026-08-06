@@ -486,10 +486,14 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
   private def renderInterfaceBody(schema: BaklavaSchemaSerializable): String = {
     val fields = schema.properties.toSeq.sortBy(_._1).map { case (name, s) =>
       val q = if (s.required) "" else "?"
-      s"  ${tsFieldKey(name)}$q: ${tsType(s)};"
+      s"  ${tsFieldKey(name)}$q: ${tsType(s)}${nullUnion(s)};"
     }
     "{\n" + fields.mkString("\n") + "\n}"
   }
+
+  // `?` only covers absence; an Option field captured as explicit null needs `| null` in the type (#131)
+  private def nullUnion(schema: BaklavaSchemaSerializable): String =
+    if (schema.nullable) " | null" else ""
 
   private def tsType(schema: BaklavaSchemaSerializable): String = schema.`type` match {
     case SchemaType.NullType    => "null"
@@ -501,13 +505,13 @@ private[tsfetch] class BaklavaTsFetchGenerator(calls: Seq[BaklavaSerializableCal
         schema.`enum`.get.toList.sorted.map(v => "\"" + v.replace("\"", "\\\"") + "\"").mkString(" | ")
       else "string"
     case SchemaType.ArrayType =>
-      val inner = schema.items.map(tsType).getOrElse("unknown")
+      val inner = schema.items.map(i => tsType(i) + nullUnion(i)).getOrElse("unknown")
       if (inner.contains(" | ") || inner.contains(" & ")) s"($inner)[]" else s"$inner[]"
     case SchemaType.ObjectType =>
       if (isNamedInterface(schema)) tsSafeIdent(schema.className)
       else
         schema.additionalPropertiesSchema match {
-          case Some(v) => s"Record<string, ${tsType(v)}>"
+          case Some(v) => s"Record<string, ${tsType(v)}${nullUnion(v)}>"
           case None    => if (schema.properties.isEmpty) "Record<string, unknown>" else renderInterfaceBody(schema)
         }
   }

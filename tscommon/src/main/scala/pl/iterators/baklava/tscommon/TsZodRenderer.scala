@@ -99,8 +99,7 @@ class TsZodRenderer(dialect: TsZodDialect, refs: BaklavaSchemaSerializable => Op
     else {
       val zds = distinctSets.map { params =>
         val fields = params.map { p =>
-          val nullishMaybe = if (!schemaOf(p).required) ".nullish()" else ""
-          s"${tsObjectKey(nameOf(p))}: ${zod(schemaOf(p))}$nullishMaybe"
+          s"${tsObjectKey(nameOf(p))}: ${zod(schemaOf(p))}${modifierSuffix(schemaOf(p))}"
         }
         "z.object({" + fields.mkString(", ") + "})"
       }
@@ -128,6 +127,20 @@ class TsZodRenderer(dialect: TsZodDialect, refs: BaklavaSchemaSerializable => Op
   def zod(schema: BaklavaSchemaSerializable): String =
     refs(schema).getOrElse(zodInline(schema))
 
+  // Absence (`.optional()`) comes from required=false on the field slot; explicit null (`.nullable()`)
+  // from the schema's nullable flag (#131). Option fields carry both -> `.nullish()`.
+  private def modifierSuffix(schema: BaklavaSchemaSerializable): String =
+    (schema.required, schema.nullable) match {
+      case (true, false)  => ""
+      case (true, true)   => ".nullable()"
+      case (false, true)  => ".nullish()"
+      case (false, false) => ".optional()"
+    }
+
+  // Inside arrays and records absence is meaningless — only nullability applies.
+  private def nullableSuffix(schema: BaklavaSchemaSerializable): String =
+    if (schema.nullable) ".nullable()" else ""
+
   private def zodInline(schema: BaklavaSchemaSerializable): String = {
     val desc = schema.description.map(d => s""".describe("${escapeTsDoubleQuoted(d)}")""").getOrElse("")
     schema.`type` match {
@@ -144,7 +157,7 @@ class TsZodRenderer(dialect: TsZodDialect, refs: BaklavaSchemaSerializable => Op
       case SchemaType.IntegerType => s"z.number().int()$desc"
       case SchemaType.NumberType  => s"z.number()$desc"
       case SchemaType.ArrayType   =>
-        val item = schema.items.map(zod).getOrElse("z.any()")
+        val item = schema.items.map(i => zod(i) + nullableSuffix(i)).getOrElse("z.any()")
         s"z.array($item)$desc"
       case SchemaType.ObjectType =>
         val objectBody =
@@ -153,15 +166,15 @@ class TsZodRenderer(dialect: TsZodDialect, refs: BaklavaSchemaSerializable => Op
             val props = schema.properties.toSeq
               .sortBy(_._1)
               .map { case (k, v) =>
-                s""""${escapeTsDoubleQuoted(k)}": ${zod(v)}${if (!v.required) ".nullish()" else ""}"""
+                s""""${escapeTsDoubleQuoted(k)}": ${zod(v)}${modifierSuffix(v)}"""
               }
               .mkString("\n        ", ",\n        ", "")
             s"z.object({$props})"
           }
         schema.additionalPropertiesSchema match {
           // A map-like object: all values conform to one schema -> z.record (keys are strings in JSON).
-          case Some(v) if schema.properties.isEmpty => s"z.record(z.string(), ${zod(v)})$desc"
-          case Some(v)                              => s"$objectBody.catchall(${zod(v)})$desc"
+          case Some(v) if schema.properties.isEmpty => s"z.record(z.string(), ${zod(v)}${nullableSuffix(v)})$desc"
+          case Some(v)                              => s"$objectBody.catchall(${zod(v)}${nullableSuffix(v)})$desc"
           case None                                 => s"$objectBody$desc"
         }
       case SchemaType.NullType => s"z.null()$desc"

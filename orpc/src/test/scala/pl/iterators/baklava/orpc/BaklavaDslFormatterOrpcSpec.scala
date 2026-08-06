@@ -65,7 +65,13 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       val entry = endpoint(
         "GET",
         "/v1/auctions",
-        call("/v1/auctions", queryParams = Seq("limit" -> intSchema(required = false), "offset" -> intSchema(required = false)))
+        call(
+          "/v1/auctions",
+          queryParams = Seq(
+            "limit"  -> intSchema(required = false).copy(nullable = true),
+            "offset" -> intSchema(required = false).copy(nullable = true)
+          )
+        )
       )
       entry should include("      query: z.object({limit: z.number().int().nullish(), offset: z.number().int().nullish()}).optional()")
     }
@@ -84,7 +90,7 @@ class BaklavaDslFormatterOrpcSpec extends AnyFunSpec with Matchers {
       val entry = endpoint(
         "GET",
         "/v1/auctions",
-        call("/v1/auctions", queryParams = Seq("after-id" -> uuidSchema(required = false)))
+        call("/v1/auctions", queryParams = Seq("after-id" -> uuidSchema(required = false).copy(nullable = true)))
       )
       entry should include(""""after-id": z.uuid().nullish()""")
     }
