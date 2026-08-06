@@ -14,6 +14,7 @@ object SchemaCompare {
       // aProp.className shouldEqual bProp.className
       aProp.format shouldEqual bProp.format
       aProp.`type` shouldEqual bProp.`type`
+      aProp.nullable shouldEqual bProp.nullable
     }
     a.items shouldEqual b.items
     a.`enum` shouldEqual b.`enum`
@@ -23,6 +24,7 @@ object SchemaCompare {
     a.additionalPropertiesSchema.flatMap(_.format) shouldEqual b.additionalPropertiesSchema.flatMap(_.format)
     a.description shouldEqual b.description
     a.default shouldEqual b.default
+    a.nullable shouldEqual b.nullable
     ()
   }
 }

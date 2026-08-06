@@ -102,4 +102,30 @@ class SchemaSpec extends AnyFunSpec with Matchers {
       derived.additionalPropertiesSchema.map(_.`type`) shouldBe Some(SchemaType.IntegerType)
     }
   }
+
+  describe("nullable flag (regression for #131)") {
+
+    case class WithOptional(id: Int, note: Option[String])
+
+    it("marks Option schemas nullable and plain schemas not") {
+      implicitly[Schema[Option[String]]].nullable shouldBe true
+      implicitly[Schema[String]].nullable shouldBe false
+    }
+
+    it("marks Option fields of a derived case class nullable") {
+      val derived = implicitly[Schema[WithOptional]]
+      derived.properties("note").nullable shouldBe true
+      derived.properties("id").nullable shouldBe false
+    }
+
+    it("survives withDescription and withDefault copies") {
+      Schema.optionSchema(Schema.stringSchema).withDescription("d").nullable shouldBe true
+      Schema.optionSchema(Schema.stringSchema).withDefault(Some("x")).nullable shouldBe true
+    }
+
+    it("flows into BaklavaSchemaSerializable") {
+      BaklavaSchemaSerializable(Schema.optionSchema(Schema.stringSchema)).nullable shouldBe true
+      BaklavaSchemaSerializable(Schema.stringSchema).nullable shouldBe false
+    }
+  }
 }
