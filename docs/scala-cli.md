@@ -168,7 +168,7 @@ paths:
                 properties:
                   login: { type: string }
                   id: { type: integer, format: int64 }
-                  name: { type: string }
+                  name: { type: string, nullable: true }
                   # ...
         "404":
           description: User not found
