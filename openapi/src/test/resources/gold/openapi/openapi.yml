@@ -168,6 +168,7 @@ paths:
                     type: string
                   details:
                     type: array
+                    nullable: true
                     items:
                       type: string
                     default: null
@@ -276,10 +277,12 @@ paths:
         schema:
           type: string
           description: Lifecycle state of a project
+          nullable: true
           enum:
           - active
           - archived
           - draft
+          - null
           default: null
         examples:
           All active projects:
@@ -306,6 +309,7 @@ paths:
                       type: string
                     description:
                       type: string
+                      nullable: true
                       default: null
                     id:
                       type: integer
@@ -363,6 +367,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  nullable: true
                   default: null
                 status:
                   type: string
@@ -396,6 +401,7 @@ paths:
                     type: string
                   description:
                     type: string
+                    nullable: true
                     default: null
                   id:
                     type: integer
@@ -438,6 +444,7 @@ paths:
                     type: string
                   details:
                     type: array
+                    nullable: true
                     items:
                       type: string
                     default: null
@@ -479,17 +486,21 @@ paths:
               properties:
                 name:
                   type: string
+                  nullable: true
                   default: null
                 description:
                   type: string
+                  nullable: true
                   default: null
                 status:
                   type: string
                   description: Lifecycle state of a project
+                  nullable: true
                   enum:
                   - active
                   - archived
                   - draft
+                  - null
                   default: null
               x-class: PatchProjectRequest
             examples:
@@ -516,6 +527,7 @@ paths:
                     type: string
                   description:
                     type: string
+                    nullable: true
                     default: null
                   id:
                     type: integer
@@ -588,6 +600,7 @@ paths:
                       - high
                     description:
                       type: string
+                      nullable: true
                       default: null
                     id:
                       type: integer
@@ -642,6 +655,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  nullable: true
                   default: null
                 priority:
                   type: string
@@ -686,6 +700,7 @@ paths:
                     - high
                   description:
                     type: string
+                    nullable: true
                     default: null
                   id:
                     type: integer
@@ -725,6 +740,7 @@ paths:
         schema:
           type: integer
           format: int32
+          nullable: true
           default: null
         example: 20
       - name: page
@@ -735,6 +751,7 @@ paths:
         schema:
           type: integer
           format: int32
+          nullable: true
           default: null
         example: 1
       - name: role
@@ -745,10 +762,12 @@ paths:
         schema:
           type: string
           description: User role within the system
+          nullable: true
           enum:
           - admin
           - member
           - guest
+          - null
           default: null
         example: admin
       responses:
@@ -897,6 +916,7 @@ paths:
                     type: string
                   details:
                     type: array
+                    nullable: true
                     items:
                       type: string
                     default: null

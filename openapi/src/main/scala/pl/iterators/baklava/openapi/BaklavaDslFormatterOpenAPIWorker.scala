@@ -433,11 +433,16 @@ object BaklavaDslFormatterOpenAPIWorker {
     }
     baklavaSchema.description.foreach(schema.setDescription)
     baklavaSchema.format.foreach(schema.setFormat)
+    if (baklavaSchema.nullable) schema.setNullable(true)
     baklavaSchema.items.foreach(bs => schema.setItems(baklavaSchemaToOpenAPISchema(bs)))
     baklavaSchema.properties.foreach { case (name, bs) =>
       schema.addProperty(name, baklavaSchemaToOpenAPISchema(bs))
     }
-    baklavaSchema.`enum`.foreach(e => schema.setEnum(e.toList.asJava))
+    // OAS 3.0: null must also be listed among enum values to pass validation
+    baklavaSchema.`enum`.foreach { e =>
+      val values = if (baklavaSchema.nullable) e.toList :+ (null: String) else e.toList
+      schema.setEnum(values.asJava)
+    }
     baklavaSchema.default.map(jsonToJavaObject).foreach(schema.setDefault)
     schema.setRequired(baklavaSchema.properties.toList.filter(_._2.required).map(_._1).asJava)
     baklavaSchema.additionalPropertiesSchema match {

@@ -33,6 +33,9 @@ trait Schema[T] {
   // OpenAPI `additionalProperties: <schema>`). `None` for ordinary objects and primitives.
   def additionalPropertiesSchema: Option[Schema[?]] = None
 
+  // may be explicitly null, not just absent — set by optionSchema (#131)
+  def nullable: Boolean = false
+
   def withDescription(_description: String): Schema[T] = new Schema[T] {
     val className: String                                      = Schema.this.className
     val `type`: SchemaType                                     = Schema.this.`type`
@@ -43,6 +46,7 @@ trait Schema[T] {
     val required: Boolean                                      = Schema.this.required
     val additionalProperties: Boolean                          = Schema.this.additionalProperties
     override val additionalPropertiesSchema: Option[Schema[?]] = Schema.this.additionalPropertiesSchema
+    override val nullable: Boolean                             = Schema.this.nullable
     val default: Option[T]                                     = Schema.this.default
     val description: Option[String]                            = Some(_description)
   }
@@ -57,6 +61,7 @@ trait Schema[T] {
     val required: Boolean                                      = Schema.this.required
     val additionalProperties: Boolean                          = Schema.this.additionalProperties
     override val additionalPropertiesSchema: Option[Schema[?]] = Schema.this.additionalPropertiesSchema
+    override val nullable: Boolean                             = Schema.this.nullable
     val default: Option[T]                                     = Some(_default)
     val description: Option[String]                            = Schema.this.description
   }
@@ -137,6 +142,7 @@ trait SchemaDefaults {
     val required: Boolean                                      = false
     val additionalProperties: Boolean                          = schema.additionalProperties
     override val additionalPropertiesSchema: Option[Schema[?]] = schema.additionalPropertiesSchema
+    override val nullable: Boolean                             = true
     val default: Option[Option[T]]                             = Some(None)
     val description: Option[String]                            = schema.description
   }

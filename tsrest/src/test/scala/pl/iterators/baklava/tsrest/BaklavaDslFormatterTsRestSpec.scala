@@ -177,7 +177,12 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
     it("quotes a kebab-case query-parameter key so the generated z.object is valid TypeScript (issue #105)") {
       val out = generator
         .buildParamsZod[BaklavaQueryParamSerializable](
-          Seq(Seq(queryParam("seller-id", uuidSchema(required = false)), queryParam("status", stringSchema().copy(required = false)))),
+          Seq(
+            Seq(
+              queryParam("seller-id", uuidSchema(required = false).copy(nullable = true)),
+              queryParam("status", stringSchema().copy(required = false, nullable = true))
+            )
+          ),
           _.name,
           _.schema
         )
@@ -232,7 +237,10 @@ class BaklavaDslFormatterTsRestSpec extends AnyFunSpec with Matchers {
         "/v1/auctions",
         getCall(
           "/v1/auctions",
-          queryParams = Seq("status" -> stringSchema().copy(required = false), "seller-id" -> uuidSchema(required = false))
+          queryParams = Seq(
+            "status"    -> stringSchema().copy(required = false, nullable = true),
+            "seller-id" -> uuidSchema(required = false).copy(nullable = true)
+          )
         )
       )
       entry should include("""query: z.object({status: z.string().nullish(), "seller-id": z.string().uuid().nullish()}),""")

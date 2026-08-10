@@ -99,7 +99,9 @@ case class BaklavaSchemaSerializable(
     default: Option[Json],
     description: Option[String],
     // Value schema for a map-like object (`additionalProperties: <schema>`); `None` otherwise.
-    additionalPropertiesSchema: Option[BaklavaSchemaSerializable] = None
+    additionalPropertiesSchema: Option[BaklavaSchemaSerializable] = None,
+    // default keeps pre-#131 serialized call files decodable
+    nullable: Boolean = false
 ) extends Serializable
 
 object BaklavaSchemaSerializable {
@@ -115,7 +117,8 @@ object BaklavaSchemaSerializable {
       additionalProperties = schema.additionalProperties,
       default = schema.default.flatMap(encodeDefault(schema.`type`)),
       description = schema.description,
-      additionalPropertiesSchema = schema.additionalPropertiesSchema.map(BaklavaSchemaSerializable(_))
+      additionalPropertiesSchema = schema.additionalPropertiesSchema.map(BaklavaSchemaSerializable(_)),
+      nullable = schema.nullable
     )
   }
 
