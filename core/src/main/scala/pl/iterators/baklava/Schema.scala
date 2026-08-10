@@ -33,7 +33,7 @@ trait Schema[T] {
   // OpenAPI `additionalProperties: <schema>`). `None` for ordinary objects and primitives.
   def additionalPropertiesSchema: Option[Schema[?]] = None
 
-  // True for Option-wrapped types: the value may be explicitly null, not just absent (#131).
+  // may be explicitly null, not just absent — set by optionSchema (#131)
   def nullable: Boolean = false
 
   def withDescription(_description: String): Schema[T] = new Schema[T] {

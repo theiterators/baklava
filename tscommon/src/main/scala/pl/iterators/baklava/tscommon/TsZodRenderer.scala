@@ -127,8 +127,7 @@ class TsZodRenderer(dialect: TsZodDialect, refs: BaklavaSchemaSerializable => Op
   def zod(schema: BaklavaSchemaSerializable): String =
     refs(schema).getOrElse(zodInline(schema))
 
-  // Absence (`.optional()`) comes from required=false on the field slot; explicit null (`.nullable()`)
-  // from the schema's nullable flag (#131). Option fields carry both -> `.nullish()`.
+  // required=false is absence, nullable is explicit null; Option fields are both (#131)
   private def modifierSuffix(schema: BaklavaSchemaSerializable): String =
     (schema.required, schema.nullable) match {
       case (true, false)  => ""
@@ -137,7 +136,7 @@ class TsZodRenderer(dialect: TsZodDialect, refs: BaklavaSchemaSerializable => Op
       case (false, false) => ".optional()"
     }
 
-  // Inside arrays and records absence is meaningless — only nullability applies.
+  // inside arrays and records absence is meaningless — only nullability applies
   private def nullableSuffix(schema: BaklavaSchemaSerializable): String =
     if (schema.nullable) ".nullable()" else ""
 

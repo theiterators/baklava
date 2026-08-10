@@ -433,13 +433,12 @@ object BaklavaDslFormatterOpenAPIWorker {
     }
     baklavaSchema.description.foreach(schema.setDescription)
     baklavaSchema.format.foreach(schema.setFormat)
-    // OAS 3.0: explicit-null values only validate with nullable: true; `required` alone covers absence (#131)
     if (baklavaSchema.nullable) schema.setNullable(true)
     baklavaSchema.items.foreach(bs => schema.setItems(baklavaSchemaToOpenAPISchema(bs)))
     baklavaSchema.properties.foreach { case (name, bs) =>
       schema.addProperty(name, baklavaSchemaToOpenAPISchema(bs))
     }
-    // OAS 3.0: nullable alone doesn't let null pass enum validation — null must be listed among the values
+    // OAS 3.0: null must also be listed among enum values to pass validation
     baklavaSchema.`enum`.foreach { e =>
       val values = if (baklavaSchema.nullable) e.toList :+ (null: String) else e.toList
       schema.setEnum(values.asJava)

@@ -5,8 +5,7 @@ import org.scalatest.matchers.should.Matchers
 import pl.iterators.baklava.*
 import pl.iterators.baklava.tscommon.{TsZodDialect, TsZodRenderer}
 
-// Regression for #131 in the zod renderers: nullability must survive into zod modifiers,
-// including nested positions (array elements, record values) that `required` never covered.
+// Regression for #131: nullability must reach zod modifiers, including array elements and record values.
 class TsZodRendererNullableSpec extends AnyFunSpec with Matchers {
 
   private val renderer = new TsZodRenderer(TsZodDialect.tsRest)

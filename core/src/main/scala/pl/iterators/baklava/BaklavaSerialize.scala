@@ -100,7 +100,7 @@ case class BaklavaSchemaSerializable(
     description: Option[String],
     // Value schema for a map-like object (`additionalProperties: <schema>`); `None` otherwise.
     additionalPropertiesSchema: Option[BaklavaSchemaSerializable] = None,
-    // True for Option-wrapped types (#131); default keeps old serialized call files decodable.
+    // default keeps pre-#131 serialized call files decodable
     nullable: Boolean = false
 ) extends Serializable
 
