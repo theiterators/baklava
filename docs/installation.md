@@ -7,7 +7,7 @@ title: Installation
 
 To use Baklava, you need to choose:
 
-1. **HTTP Server**: Pekko HTTP or HTTP4s
+1. **HTTP Integration**: Pekko HTTP, HTTP4s (for routes you serve), or sttp (for remote APIs you consume)
 2. **Test Framework**: Specs2, ScalaTest, or MUnit
 3. **Output Format**: Simple, OpenAPI, or TS-REST
 
@@ -31,13 +31,16 @@ Add the required dependencies to your `build.sbt` based on your choices:
 
 #### Core Dependencies (Required)
 
-**HTTP Server Integration** - Choose one:
+**HTTP Integration** - Choose one:
 ```scala
 // For Pekko HTTP
 libraryDependencies += "pl.iterators" %% "baklava-pekko-http" % "VERSION" % Test
 
 // For HTTP4s
 libraryDependencies += "pl.iterators" %% "baklava-http4s" % "VERSION" % Test
+
+// For remote/third-party APIs via sttp-client
+libraryDependencies += "pl.iterators" %% "baklava-sttp" % "VERSION" % Test
 ```
 
 **Test Framework Integration** - Choose one:

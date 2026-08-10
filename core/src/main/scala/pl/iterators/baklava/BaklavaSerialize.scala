@@ -261,7 +261,7 @@ object BaklavaRequestContextSerializable {
       operationId = c.operationId,
       operationTags = c.operationTags,
       securitySchemes = c.securitySchemes.map(s => BaklavaSecuritySchemaSerializable(s)),
-      bodySchema = c.bodySchema.filter(_ != Schema.emptyBodySchema).map(s => BaklavaSchemaSerializable(s)),
+      bodySchema = c.bodySchema.filterNot(Schema.isEmptyBody).map(s => BaklavaSchemaSerializable(s)),
       bodyString = bodyString,
       headersSeq = c.headersSeq.map { h =>
         BaklavaHeaderSerializable(h, caseInsensitiveHeaderValue(c.headers, h.name))
@@ -359,7 +359,7 @@ object BaklavaResponseContextSerializable {
       bodyString = c.responseBodyString,
       requestContentType = c.requestContentType,
       responseContentType = c.responseContentType,
-      bodySchema = c.bodySchema.filter(_ != Schema.emptyBodySchema).map(s => BaklavaSchemaSerializable(s))
+      bodySchema = c.bodySchema.filterNot(Schema.isEmptyBody).map(s => BaklavaSchemaSerializable(s))
     )
 }
 

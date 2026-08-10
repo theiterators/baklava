@@ -9,7 +9,7 @@ Baklava is a Scala library that generates API documentation directly from your H
 
 ### Supported stacks
 
-- **HTTP Servers**: Pekko HTTP, http4s
+- **HTTP Integration**: Pekko HTTP, http4s (for routes you serve), or sttp (for remote APIs you consume)
 - **Test Frameworks**: ScalaTest, Specs2, MUnit
 - **Output Formats**: OpenAPI (with optional SwaggerUI), Simple, TS-REST
 - **Scala Versions**: 2.13 and 3 (LTS)
@@ -26,6 +26,7 @@ Baklava is a Scala library that generates API documentation directly from your H
 - [Installation](installation.md)
 - [Pekko HTTP Integration](pekko-http.md)
 - [http4s Integration](http4s.md)
+- [Remote APIs (sttp)](sttp.md)
 - [DSL Reference](dsl-reference.md)
 - [Examples](examples.md)
 - [Configuration](configuration.md)
