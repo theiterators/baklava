@@ -129,6 +129,108 @@ class ParameterExampleSpec extends AnyFunSpec with Matchers {
     }
   }
 
+  describe("parameter example coercion to the declared schema type (regression for #130)") {
+
+    it("emits integer query parameter examples as numbers") {
+      val call = synthCall(
+        symbolicPath = "/search",
+        resolvedPath = "/search?limit=10",
+        queryParams = Seq(("limit", "")),
+        paramSchema = intSchemaSerializable
+      )
+
+      val openAPI = new OpenAPI()
+      BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(call))
+
+      val limitParam = openAPI.getPaths.get("/search").getGet.getParameters.asScala.find(_.getName == "limit").get
+      limitParam.getExample shouldBe java.lang.Long.valueOf(10)
+    }
+
+    it("emits boolean query parameter examples as booleans") {
+      val call = synthCall(
+        symbolicPath = "/search",
+        resolvedPath = "/search?active=true",
+        queryParams = Seq(("active", "")),
+        paramSchema = BaklavaSchemaSerializable(Schema.booleanSchema)
+      )
+
+      val openAPI = new OpenAPI()
+      BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(call))
+
+      val activeParam = openAPI.getPaths.get("/search").getGet.getParameters.asScala.find(_.getName == "active").get
+      activeParam.getExample shouldBe java.lang.Boolean.TRUE
+    }
+
+    it("emits number path parameter examples as decimals") {
+      val call = synthCall(
+        symbolicPath = "/rates/{value}",
+        resolvedPath = "/rates/1.5",
+        pathParams = Seq(("value", "1.5")),
+        paramSchema = BaklavaSchemaSerializable(Schema.doubleSchema)
+      )
+
+      val openAPI = new OpenAPI()
+      BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(call))
+
+      val valueParam = openAPI.getPaths.get("/rates/{value}").getGet.getParameters.asScala.find(_.getName == "value").get
+      valueParam.getExample shouldBe new java.math.BigDecimal("1.5")
+    }
+
+    it("coerces named examples when calls captured different values") {
+      val call1 = synthCall(
+        symbolicPath = "/items/{id}",
+        resolvedPath = "/items/42",
+        pathParams = Seq(("id", "42")),
+        scenarioName = Some("found"),
+        paramSchema = intSchemaSerializable
+      )
+      val call2 = synthCall(
+        symbolicPath = "/items/{id}",
+        resolvedPath = "/items/7",
+        pathParams = Seq(("id", "7")),
+        scenarioName = Some("other"),
+        paramSchema = intSchemaSerializable
+      )
+
+      val openAPI = new OpenAPI()
+      BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(call1, call2))
+
+      val examples = openAPI.getPaths.get("/items/{id}").getGet.getParameters.asScala.find(_.getName == "id").get.getExamples.asScala
+      examples("found").getValue shouldBe java.lang.Long.valueOf(42)
+      examples("other").getValue shouldBe java.lang.Long.valueOf(7)
+    }
+
+    it("keeps the raw string when the captured value does not parse as the schema type") {
+      val call = synthCall(
+        symbolicPath = "/search",
+        resolvedPath = "/search?limit=abc",
+        queryParams = Seq(("limit", "")),
+        paramSchema = intSchemaSerializable
+      )
+
+      val openAPI = new OpenAPI()
+      BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(call))
+
+      val limitParam = openAPI.getPaths.get("/search").getGet.getParameters.asScala.find(_.getName == "limit").get
+      limitParam.getExample shouldBe "abc"
+    }
+
+    it("coerces response header examples to the declared schema type") {
+      val call = synthCall(
+        symbolicPath = "/counted",
+        resolvedPath = "/counted",
+        sentHeaders = Map("X-Count" -> "7"),
+        responseHeaders = Seq(BaklavaHeaderSerializable("X-Count", None, intSchemaSerializable, None))
+      )
+
+      val openAPI = new OpenAPI()
+      BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, Seq(call))
+
+      val header = openAPI.getPaths.get("/counted").getGet.getResponses.get("200").getHeaders.get("X-Count")
+      header.getExample shouldBe java.lang.Long.valueOf(7)
+    }
+  }
+
   describe("end-to-end extraction through BaklavaRequestContextSerializable.apply") {
     // These tests drive the real serializer — no duplicated extraction logic — to catch regressions
     // in the URL parsing that the synthCall-based tests above can't see.
@@ -215,7 +317,8 @@ class ParameterExampleSpec extends AnyFunSpec with Matchers {
       responseHeaders = Nil
     )
 
-  private val stringSchema = BaklavaSchemaSerializable(Schema.stringSchema)
+  private val stringSchema          = BaklavaSchemaSerializable(Schema.stringSchema)
+  private val intSchemaSerializable = BaklavaSchemaSerializable(Schema.intSchema)
 
   private def synthCall(
       symbolicPath: String,
@@ -224,7 +327,9 @@ class ParameterExampleSpec extends AnyFunSpec with Matchers {
       pathParams: Seq[(String, String)] = Nil,
       headers: Seq[(String, String)] = Nil,
       sentHeaders: Map[String, String] = Map.empty,
-      scenarioName: Option[String] = None
+      scenarioName: Option[String] = None,
+      paramSchema: BaklavaSchemaSerializable = stringSchema,
+      responseHeaders: Seq[BaklavaHeaderSerializable] = Nil
   ): BaklavaSerializableCall = {
     // The test directly constructs BaklavaSerializableCall bypassing the normal extraction path,
     // so we can exercise the generator-side emission independently. We still manually plug in
@@ -249,18 +354,18 @@ class ParameterExampleSpec extends AnyFunSpec with Matchers {
           BaklavaHeaderSerializable(
             name,
             None,
-            stringSchema,
+            paramSchema,
             sentHeaders.find(_._1.toLowerCase == name.toLowerCase).map(_._2)
           )
         },
         pathParametersSeq = pathParams.map { case (name, _) =>
-          BaklavaPathParamSerializable(name, None, stringSchema, path.get(name))
+          BaklavaPathParamSerializable(name, None, paramSchema, path.get(name))
         },
         queryParametersSeq = queryParams.map { case (name, _) =>
-          BaklavaQueryParamSerializable(name, None, stringSchema, query.get(name))
+          BaklavaQueryParamSerializable(name, None, paramSchema, query.get(name))
         },
         responseDescription = scenarioName.orElse(Some("ok")),
-        responseHeaders = Nil
+        responseHeaders = responseHeaders
       ),
       response = BaklavaResponseContextSerializable(
         protocol = BaklavaHttpProtocol("HTTP/1.1"),

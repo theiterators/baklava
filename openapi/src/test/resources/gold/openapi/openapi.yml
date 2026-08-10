@@ -34,11 +34,9 @@ paths:
                 x-class: HealthResponse
               examples:
                 Current configuration:
-                  value: |-
-                    {
-                      "status" : "ok",
-                      "uptimeSeconds" : 1
-                    }
+                  value:
+                    status: ok
+                    uptimeSeconds: 1
       security:
       - basicAuth: []
   /admin/loggers/{name}:
@@ -77,11 +75,9 @@ paths:
                 x-class: HealthResponse
               examples:
                 Logger level:
-                  value: |-
-                    {
-                      "status" : "DEBUG",
-                      "uptimeSeconds" : 1
-                    }
+                  value:
+                    status: DEBUG
+                    uptimeSeconds: 1
       security:
       - basicAuth: []
   /auth/login:
@@ -149,16 +145,13 @@ paths:
                 x-class: LoginResponse
               examples:
                 Successful login:
-                  value: |-
-                    {
-                      "token" : "jwt.token.xyz",
-                      "user" : {
-                        "id" : "00000000-0000-0000-0000-000000000001",
-                        "email" : "alice@example.com",
-                        "name" : "Alice",
-                        "role" : "admin"
-                      }
-                    }
+                  value:
+                    token: jwt.token.xyz
+                    user:
+                      id: 00000000-0000-0000-0000-000000000001
+                      email: alice@example.com
+                      name: Alice
+                      role: admin
         "401":
           description: Invalid credentials
           content:
@@ -181,12 +174,10 @@ paths:
                 x-class: ErrorResponse
               examples:
                 Invalid credentials:
-                  value: |-
-                    {
-                      "code" : "unauthorized",
-                      "message" : "Bad credentials",
-                      "details" : null
-                    }
+                  value:
+                    code: unauthorized
+                    message: Bad credentials
+                    details: null
       security:
       - basicAuth: []
   /health:
@@ -217,11 +208,9 @@ paths:
                 x-class: HealthResponse
               examples:
                 Service is alive:
-                  value: |-
-                    {
-                      "status" : "ok",
-                      "uptimeSeconds" : 12345
-                    }
+                  value:
+                    status: ok
+                    uptimeSeconds: 12345
       security: []
   /me:
     summary: Current user
@@ -262,13 +251,11 @@ paths:
                 x-class: User
               examples:
                 Authenticated user profile:
-                  value: |-
-                    {
-                      "id" : "00000000-0000-0000-0000-000000000001",
-                      "email" : "alice@example.com",
-                      "name" : "Alice",
-                      "role" : "admin"
-                    }
+                  value:
+                    id: 00000000-0000-0000-0000-000000000001
+                    email: alice@example.com
+                    name: Alice
+                    role: admin
       security:
       - bearerAuth: []
   /projects:
@@ -338,29 +325,21 @@ paths:
                   x-class: Project
               examples:
                 All active projects:
-                  value: |-
-                    [
-                      {
-                        "id" : 42,
-                        "name" : "Apollo",
-                        "description" : "Mission control",
-                        "status" : "active",
-                        "ownerId" : "00000000-0000-0000-0000-000000000001",
-                        "createdAt" : "2026-01-01T00:00:00Z"
-                      }
-                    ]
+                  value:
+                  - id: 42
+                    name: Apollo
+                    description: Mission control
+                    status: active
+                    ownerId: 00000000-0000-0000-0000-000000000001
+                    createdAt: 2026-01-01T00:00:00Z
                 All archived projects:
-                  value: |-
-                    [
-                      {
-                        "id" : 7,
-                        "name" : "Gemini",
-                        "description" : null,
-                        "status" : "archived",
-                        "ownerId" : "00000000-0000-0000-0000-000000000001",
-                        "createdAt" : "2025-06-01T00:00:00Z"
-                      }
-                    ]
+                  value:
+                  - id: 7
+                    name: Gemini
+                    description: null
+                    status: archived
+                    ownerId: 00000000-0000-0000-0000-000000000001
+                    createdAt: 2025-06-01T00:00:00Z
       security:
       - oauth2:
         - projects:read
@@ -395,12 +374,10 @@ paths:
               x-class: CreateProjectRequest
             examples:
               Project created:
-                value: |-
-                  {
-                    "name" : "Apollo",
-                    "description" : "Mission control",
-                    "status" : "active"
-                  }
+                value:
+                  name: Apollo
+                  description: Mission control
+                  status: active
       responses:
         "201":
           description: Project created
@@ -438,15 +415,13 @@ paths:
                 x-class: Project
               examples:
                 Project created:
-                  value: |-
-                    {
-                      "id" : 42,
-                      "name" : "Apollo",
-                      "description" : "Mission control",
-                      "status" : "active",
-                      "ownerId" : "00000000-0000-0000-0000-000000000001",
-                      "createdAt" : "2026-01-01T00:00:00Z"
-                    }
+                  value:
+                    id: 42
+                    name: Apollo
+                    description: Mission control
+                    status: active
+                    ownerId: 00000000-0000-0000-0000-000000000001
+                    createdAt: 2026-01-01T00:00:00Z
         "400":
           description: Validation failed
           content:
@@ -469,14 +444,11 @@ paths:
                 x-class: ErrorResponse
               examples:
                 Validation failed:
-                  value: |-
-                    {
-                      "code" : "validation",
-                      "message" : "One or more fields are invalid",
-                      "details" : [
-                        "name: must not be blank"
-                      ]
-                    }
+                  value:
+                    code: validation
+                    message: One or more fields are invalid
+                    details:
+                    - "name: must not be blank"
       security:
       - oauth2:
         - projects:read
@@ -498,7 +470,7 @@ paths:
         schema:
           type: integer
           format: int64
-        example: "42"
+        example: 42
       requestBody:
         content:
           application/json:
@@ -522,12 +494,10 @@ paths:
               x-class: PatchProjectRequest
             examples:
               Project updated:
-                value: |-
-                  {
-                    "name" : null,
-                    "description" : "Updated desc",
-                    "status" : null
-                  }
+                value:
+                  name: null
+                  description: Updated desc
+                  status: null
       responses:
         "200":
           description: Project updated
@@ -565,15 +535,13 @@ paths:
                 x-class: Project
               examples:
                 Project updated:
-                  value: |-
-                    {
-                      "id" : 42,
-                      "name" : "Apollo",
-                      "description" : "Updated desc",
-                      "status" : "active",
-                      "ownerId" : "00000000-0000-0000-0000-000000000001",
-                      "createdAt" : "2026-01-01T00:00:00Z"
-                    }
+                  value:
+                    id: 42
+                    name: Apollo
+                    description: Updated desc
+                    status: active
+                    ownerId: 00000000-0000-0000-0000-000000000001
+                    createdAt: 2026-01-01T00:00:00Z
       security:
       - oauth2:
         - projects:read
@@ -595,7 +563,7 @@ paths:
         schema:
           type: integer
           format: int64
-        example: "42"
+        example: 42
       responses:
         "200":
           description: All tasks in the project
@@ -631,23 +599,17 @@ paths:
                   x-class: Task
               examples:
                 All tasks in the project:
-                  value: |-
-                    [
-                      {
-                        "id" : 101,
-                        "title" : "Wire up telemetry",
-                        "description" : "Prometheus + Grafana",
-                        "done" : false,
-                        "priority" : "high"
-                      },
-                      {
-                        "id" : 102,
-                        "title" : "Write docs",
-                        "description" : null,
-                        "done" : true,
-                        "priority" : "low"
-                      }
-                    ]
+                  value:
+                  - id: 101
+                    title: Wire up telemetry
+                    description: Prometheus + Grafana
+                    done: false
+                    priority: high
+                  - id: 102
+                    title: Write docs
+                    description: null
+                    done: true
+                    priority: low
       security:
       - oauth2:
         - projects:read
@@ -666,7 +628,7 @@ paths:
         schema:
           type: integer
           format: int64
-        example: "42"
+        example: 42
       requestBody:
         content:
           application/json:
@@ -691,12 +653,10 @@ paths:
               x-class: CreateTaskRequest
             examples:
               Task created:
-                value: |-
-                  {
-                    "title" : "New task",
-                    "description" : null,
-                    "priority" : "medium"
-                  }
+                value:
+                  title: New task
+                  description: null
+                  priority: medium
       responses:
         "201":
           description: Task created
@@ -737,14 +697,12 @@ paths:
                 x-class: Task
               examples:
                 Task created:
-                  value: |-
-                    {
-                      "id" : 101,
-                      "title" : "Wire up telemetry",
-                      "description" : "Prometheus + Grafana",
-                      "done" : false,
-                      "priority" : "high"
-                    }
+                  value:
+                    id: 101
+                    title: Wire up telemetry
+                    description: Prometheus + Grafana
+                    done: false
+                    priority: high
       security:
       - oauth2:
         - projects:read
@@ -768,7 +726,7 @@ paths:
           type: integer
           format: int32
           default: null
-        example: "20"
+        example: 20
       - name: page
         in: query
         description: Page number (1-indexed)
@@ -778,7 +736,7 @@ paths:
           type: integer
           format: int32
           default: null
-        example: "1"
+        example: 1
       - name: role
         in: query
         description: Filter by role
@@ -803,7 +761,7 @@ paths:
               schema:
                 type: integer
                 format: int32
-              example: "59"
+              example: 59
           content:
             application/json:
               schema:
@@ -851,26 +809,19 @@ paths:
                 x-class: PaginatedUsers
               examples:
                 First page of users:
-                  value: |-
-                    {
-                      "users" : [
-                        {
-                          "id" : "00000000-0000-0000-0000-000000000001",
-                          "email" : "alice@example.com",
-                          "name" : "Alice",
-                          "role" : "admin"
-                        },
-                        {
-                          "id" : "00000000-0000-0000-0000-000000000002",
-                          "email" : "bob@example.com",
-                          "name" : "Bob",
-                          "role" : "member"
-                        }
-                      ],
-                      "total" : 2,
-                      "page" : 1,
-                      "limit" : 20
-                    }
+                  value:
+                    users:
+                    - id: 00000000-0000-0000-0000-000000000001
+                      email: alice@example.com
+                      name: Alice
+                      role: admin
+                    - id: 00000000-0000-0000-0000-000000000002
+                      email: bob@example.com
+                      name: Bob
+                      role: member
+                    total: 2
+                    page: 1
+                    limit: 20
       security:
       - bearerAuth: []
   /users/{userId}:
@@ -925,13 +876,11 @@ paths:
                 x-class: User
               examples:
                 User found:
-                  value: |-
-                    {
-                      "id" : "00000000-0000-0000-0000-000000000001",
-                      "email" : "alice@example.com",
-                      "name" : "Alice",
-                      "role" : "admin"
-                    }
+                  value:
+                    id: 00000000-0000-0000-0000-000000000001
+                    email: alice@example.com
+                    name: Alice
+                    role: admin
         "404":
           description: User not found
           content:
@@ -954,12 +903,10 @@ paths:
                 x-class: ErrorResponse
               examples:
                 User not found:
-                  value: |-
-                    {
-                      "code" : "not_found",
-                      "message" : "No such user",
-                      "details" : null
-                    }
+                  value:
+                    code: not_found
+                    message: No such user
+                    details: null
       security:
       - bearerAuth: []
     put:
@@ -998,11 +945,9 @@ paths:
               x-class: UpdateUserRequest
             examples:
               User updated:
-                value: |-
-                  {
-                    "name" : "Alice Updated",
-                    "role" : "admin"
-                  }
+                value:
+                  name: Alice Updated
+                  role: admin
       responses:
         "200":
           description: User updated
@@ -1033,13 +978,11 @@ paths:
                 x-class: User
               examples:
                 User updated:
-                  value: |-
-                    {
-                      "id" : "00000000-0000-0000-0000-000000000001",
-                      "email" : "alice@example.com",
-                      "name" : "Alice Updated",
-                      "role" : "admin"
-                    }
+                  value:
+                    id: 00000000-0000-0000-0000-000000000001
+                    email: alice@example.com
+                    name: Alice Updated
+                    role: admin
       security:
       - bearerAuth: []
     delete:
@@ -1132,24 +1075,19 @@ paths:
                 x-class: PhotoUpload
               examples:
                 Photo uploaded; rendered variants returned keyed by name:
-                  value: |-
-                    {
-                      "id" : "00000000-0000-0000-0000-000000000010",
-                      "variants" : {
-                        "thumbnail" : {
-                          "url" : "https://cdn.example.com/photo_thumb.png",
-                          "width" : 64,
-                          "height" : 64,
-                          "format" : "png"
-                        },
-                        "full" : {
-                          "url" : "https://cdn.example.com/photo.png",
-                          "width" : 1024,
-                          "height" : 768,
-                          "format" : "png"
-                        }
-                      }
-                    }
+                  value:
+                    id: 00000000-0000-0000-0000-000000000010
+                    variants:
+                      thumbnail:
+                        url: https://cdn.example.com/photo_thumb.png
+                        width: 64
+                        height: 64
+                        format: png
+                      full:
+                        url: https://cdn.example.com/photo.png
+                        width: 1024
+                        height: 768
+                        format: png
       security:
       - bearerAuth: []
   /webhooks:
@@ -1177,17 +1115,13 @@ paths:
               x-class: WebhookPayload
             examples:
               Legacy plain-text ack:
-                value: |-
-                  {
-                    "event" : "order.created",
-                    "data" : "{\"id\":1}"
-                  }
+                value:
+                  event: order.created
+                  data: "{\"id\":1}"
               Webhook accepted:
-                value: |-
-                  {
-                    "event" : "order.created",
-                    "data" : "{\"id\":1}"
-                  }
+                value:
+                  event: order.created
+                  data: "{\"id\":1}"
       responses:
         "202":
           description: Legacy plain-text ack / Webhook accepted
@@ -1203,10 +1137,8 @@ paths:
                 x-class: WebhookAck
               examples:
                 Webhook accepted:
-                  value: |-
-                    {
-                      "received" : true
-                    }
+                  value:
+                    received: true
             text/plain:
               schema:
                 type: string
