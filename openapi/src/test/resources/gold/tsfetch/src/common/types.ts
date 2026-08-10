@@ -1,6 +1,6 @@
 export interface ErrorResponse {
   code: string;
-  details?: string[];
+  details?: string[] | null;
   message: string;
 }
 

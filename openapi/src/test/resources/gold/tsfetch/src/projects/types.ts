@@ -1,24 +1,24 @@
 export interface CreateProjectRequest {
-  description?: string;
+  description?: string | null;
   name: string;
   status: "active" | "archived" | "draft";
 }
 
 export interface CreateTaskRequest {
-  description?: string;
+  description?: string | null;
   priority: "high" | "low" | "medium";
   title: string;
 }
 
 export interface PatchProjectRequest {
-  description?: string;
-  name?: string;
-  status?: "active" | "archived" | "draft";
+  description?: string | null;
+  name?: string | null;
+  status?: "active" | "archived" | "draft" | null;
 }
 
 export interface Project {
   createdAt: string;
-  description?: string;
+  description?: string | null;
   id: number;
   name: string;
   ownerId: string;
@@ -26,7 +26,7 @@ export interface Project {
 }
 
 export interface Task {
-  description?: string;
+  description?: string | null;
   done: boolean;
   id: number;
   priority: "high" | "low" | "medium";

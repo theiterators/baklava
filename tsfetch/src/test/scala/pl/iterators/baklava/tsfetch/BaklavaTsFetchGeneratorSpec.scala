@@ -232,8 +232,34 @@ class BaklavaTsFetchGeneratorSpec extends AnyFunSpec with Matchers {
     }
   }
 
+  describe("nullable (Option) fields in generated TypeScript (regression for #131)") {
+
+    def widgetTypesTs(): String = {
+      cleanSrc()
+      val base = getCall("/widgets", tag = Some("Widgets"))
+      val call =
+        base.let(c => c.copy(response = c.response.copy(bodySchema = Some(BaklavaSchemaSerializable(implicitly[Schema[NullableWidget]])))))
+      generateAndRead("src/widgets/types.ts", Seq(call))
+    }
+
+    it("renders Option fields as `field?: T | null`") {
+      val typesTs = widgetTypesTs()
+      typesTs should include("note?: string | null;")
+      typesTs should include("id: number;")
+    }
+
+    it("renders arrays of Option elements as `(T | null)[]`") {
+      widgetTypesTs() should include("tags: (string | null)[];")
+    }
+
+    it("renders map values of Option type as `Record<string, T | null>`") {
+      widgetTypesTs() should include("counts: Record<string, number | null>;")
+    }
+  }
+
   case class Variant(url: String, width: Int)
   case class ImageDto(id: String, variants: Map[String, Variant])
+  case class NullableWidget(id: Int, note: Option[String], tags: Seq[Option[String]], counts: Map[String, Option[Int]])
 
   private def namedObject(name: String, props: Map[String, PrimitiveSchema[?]]): BaklavaSchemaSerializable =
     BaklavaSchemaSerializable(

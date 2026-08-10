@@ -24,7 +24,10 @@ class ResponseContentTypeMergeSpec extends AnyFunSpec with Matchers {
 
       val content = openAPI.getPaths.get("/items").getGet.getResponses.get("200").getContent
       content.keySet.asScala.toList.sorted shouldBe List("application/json", "application/xml")
-      content.get("application/json").getExamples.get("JSON").getValue.toString should include("\"a\"")
+      content.get("application/json").getExamples.get("JSON").getValue match {
+        case m: java.util.Map[?, ?] => m.get("a") shouldBe java.lang.Long.valueOf(1)
+        case other                  => fail(s"expected structured JSON example, got: $other")
+      }
       content.get("application/xml").getExamples.get("XML").getValue shouldBe "<a>1</a>"
     }
 

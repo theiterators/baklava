@@ -20,6 +20,7 @@ trait BaklavaScalatestInMemory[
   override def afterAll(): Unit = {
     val openAPI = new OpenAPI()
     BaklavaDslFormatterOpenAPIWorker.generateForCalls(openAPI, listCalls)
+    OpenAPIInvariants.assertJsonExamplesAreStructured(openAPI)
     println(Yaml.pretty(openAPI))
   }
 }
