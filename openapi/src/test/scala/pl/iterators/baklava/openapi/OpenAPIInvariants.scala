@@ -5,13 +5,10 @@ import io.swagger.v3.oas.models.OpenAPI
 
 import scala.jdk.CollectionConverters.*
 
-// Structural invariants asserted on generated specs by suites without a deterministic gold file
-// (e.g. the PetStore testcontainer suites, whose live responses vary between runs).
+// Structural checks for suites whose live responses preclude a deterministic gold file.
 object OpenAPIInvariants {
 
-  // Regression guard for #120/#129 on end-to-end capture paths: JSON media-type examples must be structured
-  // values, not re-printed strings. A String value is only an offender when its content parses to a JSON
-  // object/array — scalar JSON bodies and unparseable-body fallbacks legitimately stay strings.
+  // #120/#129 guard: a String example is an offender only when it parses to a JSON object/array
   def assertJsonExamplesAreStructured(openAPI: OpenAPI): Unit = {
     val offenders =
       for {

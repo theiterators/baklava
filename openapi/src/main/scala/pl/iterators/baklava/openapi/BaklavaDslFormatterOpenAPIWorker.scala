@@ -343,20 +343,16 @@ object BaklavaDslFormatterOpenAPIWorker {
     }
   }
 
-  // application/json and RFC 6839 +json suffix types (application/problem+json etc., #129)
+  // application/json or an RFC 6839 +json suffix type (#129)
   private def isJsonMediaType(mediaType: String): Boolean =
     mediaType == "application/json" || mediaType.endsWith("+json")
 
-  // JSON examples must reach swagger-core as a Java object tree, not a printed string — otherwise they
-  // serialize as escaped string blobs that fail `type: object` validation and render poorly in Swagger UI/Redoc (#120).
-  // Unparseable JSON and non-JSON content types keep the raw string.
+  // JSON bodies become Java object trees — printed strings fail `type: object` validation (#120)
   private def exampleValue(bodyString: String, contentType: Option[String]): Object =
     if (contentType.exists(isJsonMediaType)) parse(bodyString).map(jsonToJavaObject).getOrElse(bodyString)
     else bodyString
 
-  // Captured parameter/header example values are raw strings; coerce to the declared schema type so they
-  // validate against integer/number/boolean schemas (10, not "10") — #130. Values that don't parse as the
-  // schema type keep the raw string.
+  // captured string values coerced to the declared schema type so examples validate (10, not "10") — #130
   private def coerceExample(value: String, schema: Schema[?]): Object =
     Option(schema).flatMap(s => Option(s.getType)) match {
       case Some("integer") => scala.util.Try(java.lang.Long.valueOf(value): Object).getOrElse(value)
@@ -365,8 +361,7 @@ object BaklavaDslFormatterOpenAPIWorker {
       case _                                                      => value
     }
 
-  // Also used for schema defaults (#61): natural Java types make swagger's YAML encoder emit 42, not "42".
-  // LinkedHashMap/ArrayList so captured key order survives serialization.
+  // LinkedHashMap/ArrayList preserve key order; also serves schema defaults (#61)
   private def jsonToJavaObject(j: io.circe.Json): Object = j.fold(
     jsonNull = null,
     jsonBoolean = b => java.lang.Boolean.valueOf(b),
