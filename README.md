@@ -27,7 +27,7 @@ Baklava is a Scala library that turns your HTTP routing tests into API documenta
 **1. Add the SBT plugin** to `project/plugins.sbt`:
 
 ```scala
-addSbtPlugin("pl.iterators" % "baklava-sbt-plugin" % "2.0.0")
+addSbtPlugin("pl.iterators" % "baklava-sbt-plugin" % "2.1.0")
 ```
 
 **2. Enable the plugin** in `build.sbt`:
@@ -40,23 +40,24 @@ enablePlugins(BaklavaSbtPlugin)
 
 ```scala
 libraryDependencies ++= Seq(
-  // HTTP server — choose one
-  "pl.iterators" %% "baklava-pekko-http" % "2.0.0" % Test,
-  // "pl.iterators" %% "baklava-http4s" % "2.0.0" % Test,
+  // HTTP integration — choose one
+  "pl.iterators" %% "baklava-pekko-http" % "2.1.0" % Test,
+  // "pl.iterators" %% "baklava-http4s" % "2.1.0" % Test,
+  // "pl.iterators" %% "baklava-sttp"   % "2.1.0" % Test, // for remote APIs you consume
 
   // Test framework — choose one
-  "pl.iterators" %% "baklava-scalatest"  % "2.0.0" % Test,
-  // "pl.iterators" %% "baklava-specs2"  % "2.0.0" % Test,
-  // "pl.iterators" %% "baklava-munit"   % "2.0.0" % Test,
+  "pl.iterators" %% "baklava-scalatest"  % "2.1.0" % Test,
+  // "pl.iterators" %% "baklava-specs2"  % "2.1.0" % Test,
+  // "pl.iterators" %% "baklava-munit"   % "2.1.0" % Test,
 
   // Output format — one or more
-  "pl.iterators" %% "baklava-openapi"    % "2.0.0" % Test,
-  "pl.iterators" %% "baklava-simple"     % "2.0.0" % Test,
-  // "pl.iterators" %% "baklava-tsrest"    % "2.0.0" % Test,
-  // "pl.iterators" %% "baklava-orpc"      % "2.0.0" % Test,
-  // "pl.iterators" %% "baklava-tsfetch"   % "2.0.0" % Test,
-  // "pl.iterators" %% "baklava-postman"   % "2.0.0" % Test,
-  // "pl.iterators" %% "baklava-sttpclient" % "2.0.0" % Test,
+  "pl.iterators" %% "baklava-openapi"    % "2.1.0" % Test,
+  "pl.iterators" %% "baklava-simple"     % "2.1.0" % Test,
+  // "pl.iterators" %% "baklava-tsrest"    % "2.1.0" % Test,
+  // "pl.iterators" %% "baklava-orpc"      % "2.1.0" % Test,
+  // "pl.iterators" %% "baklava-tsfetch"   % "2.1.0" % Test,
+  // "pl.iterators" %% "baklava-postman"   % "2.1.0" % Test,
+  // "pl.iterators" %% "baklava-sttpclient" % "2.1.0" % Test,
 )
 ```
 
