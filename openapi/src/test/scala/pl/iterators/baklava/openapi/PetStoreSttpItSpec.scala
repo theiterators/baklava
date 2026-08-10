@@ -10,7 +10,7 @@ import pl.iterators.baklava.sttp4.{BaklavaSttp, FromSttpBody, ToSttpBody}
 import sttp.client4.SyncBackend
 import sttp.model.Uri
 
-// the whole remote-API setup the sttp adapter replaces boilerplate with: a base URI
+// remote-API setup reduces to the base URI
 trait PetStoreSttpItSpec
     extends AnyFunSpec
     with Matchers

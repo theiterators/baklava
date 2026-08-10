@@ -19,8 +19,7 @@ import sttp.model.{Header => SttpHeader, MediaType, Method, StatusCode, Uri}
 import java.nio.charset.StandardCharsets.UTF_8
 import scala.reflect.ClassTag
 
-// lower priority than the specific instances in BaklavaSttp, so e.g. ToSttpBody[String]
-// beats Encoder[String]-derived JSON
+// lower priority than BaklavaSttp's specific instances, so ToSttpBody[String] beats Encoder[String]-derived JSON
 trait BaklavaSttpLowPriorityBodies {
   implicit def circeEncoderToSttpBody[T](implicit encoder: Encoder[T]): ToSttpBody[T] =
     t => Some(SttpBodyContent(Printer.noSpaces.print(encoder(t)).getBytes(UTF_8), "application/json"))
@@ -58,9 +57,7 @@ trait BaklavaSttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, TestFra
   // root of the documented API; ctx.path is appended to it on every request
   def baseUri: Uri
 
-  // added to every request; per-test declared headers win on (case-insensitive) name conflict.
-  // Content-Type is rejected here — it would be silently replaced by the body's content type
-  // whenever a request has a body; declare it per test in the request's headers instead
+  // added to every request; per-test headers win on name conflict; Content-Type is rejected — declare it per request
   def defaultHeaders: Seq[SttpHeader] = Seq.empty
 
   // override to customize the client (proxies, TLS, auth wrappers)

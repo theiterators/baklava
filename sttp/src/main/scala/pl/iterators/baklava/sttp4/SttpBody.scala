@@ -6,8 +6,7 @@ import java.io.ByteArrayOutputStream
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets.UTF_8
 
-// bytes + the Content-Type they were rendered with; bodies are rendered eagerly so
-// assertions and the serializer can both read them
+// a body rendered eagerly to bytes, plus the Content-Type it was rendered with
 final case class SttpBodyContent(bytes: Array[Byte], contentType: String) {
   // Array[Byte] would otherwise degrade the case-class equals/hashCode to reference semantics
   override def equals(other: Any): Boolean = other match {
