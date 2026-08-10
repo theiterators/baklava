@@ -708,6 +708,30 @@ implicit val myTypeSchema: Schema[MyType] = implicitly[Schema[MyType]]
   .withDefault(MyType("example", 42))
 ```
 
+### Naming Strategies
+
+By default, derived schemas use the Scala field names as property names and sealed trait / enum subtype names as enum values. If your JSON codecs use a different naming strategy (e.g. circe's `Configuration.snakeCaseMemberNames`), override the naming hooks on `SchemaDerivation` so the documented schemas match the wire format:
+
+```scala
+object MySchemas extends SchemaDerivation with SchemaDefaults {
+  override def transformMemberName(name: String): String      = SchemaNameTransform.snakeCase(name)
+  override def transformConstructorName(name: String): String = SchemaNameTransform.snakeCase(name)
+}
+```
+
+Then import its derivation instead of relying on the default one:
+
+```scala
+import MySchemas._     // Scala 2.13
+import MySchemas.given // Scala 3
+```
+
+The transform applies to the whole schema tree — nested case classes, collection items and map values included. `transformMemberName` maps case class fields to property names; `transformConstructorName` maps sealed trait / enum subtypes to enum values. Class names (used for `x-class` and schema references) are not transformed.
+
+`SchemaNameTransform` ships with `snakeCase`, `screamingSnakeCase` and `kebabCase`, but any `String => String` works as a transform — the hooks are plain methods, so custom conventions (acronym tables, legacy field maps) need no extra machinery.
+
+Note that the hooks only affect documentation and generated clients; runtime serialization in tests still goes through your own codecs, so the transform must match what those codecs actually emit.
+
 ## Best Practices
 
 1. **Use descriptive names**: Provide clear `description` and `summary` fields for better documentation

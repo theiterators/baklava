@@ -28,24 +28,36 @@ Save as `github-api-docs.test.scala`:
 
 import cats.effect.IO
 import cats.effect.unsafe.IORuntime
-import io.circe.generic.auto.*
+import io.circe.derivation.{Configuration, ConfiguredCodec}
 import org.http4s.circe.CirceEntityDecoder.*
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.{Header, HttpRoutes, Request, Response, Uri}
 import org.http4s.Method.*
 import org.http4s.Status.*
 import org.typelevel.ci.CIString
-import pl.iterators.baklava.BaklavaGenerate
+import pl.iterators.baklava.{BaklavaGenerate, SchemaDefaults, SchemaDerivation, SchemaNameTransform}
 import pl.iterators.baklava.http4s.BaklavaHttp4s
 import pl.iterators.baklava.munit.{BaklavaMunit, MunitAsExecution}
 
-case class GitHubUser(login: String, id: Long, name: Option[String], company: Option[String], public_repos: Int, followers: Int)
-case class GitHubRepo(name: String, full_name: String, description: Option[String], stargazers_count: Int, language: Option[String])
-case class GitHubError(message: String, documentation_url: Option[String])
+// GitHub's JSON is snake_case; the codec decodes it into idiomatic camelCase fields
+given Configuration = Configuration.default.withSnakeCaseMemberNames
+
+case class GitHubUser(login: String, id: Long, name: Option[String], company: Option[String], publicRepos: Int, followers: Int)
+    derives ConfiguredCodec
+case class GitHubRepo(name: String, fullName: String, description: Option[String], stargazersCount: Int, language: Option[String])
+    derives ConfiguredCodec
+case class GitHubError(message: String, documentationUrl: Option[String]) derives ConfiguredCodec
+
+// documented schemas must match the wire format, so mirror the codec's naming strategy
+trait GitHubSchemas extends SchemaDerivation with SchemaDefaults {
+  override def transformMemberName(name: String): String      = SchemaNameTransform.snakeCase(name)
+  override def transformConstructorName(name: String): String = SchemaNameTransform.snakeCase(name)
+}
 
 class GitHubApiSpec
     extends BaklavaMunit[HttpRoutes[IO], BaklavaHttp4s.ToEntityMarshaller, BaklavaHttp4s.FromEntityUnmarshaller]
-    with BaklavaHttp4s[Unit, Unit, MunitAsExecution] {
+    with BaklavaHttp4s[Unit, Unit, MunitAsExecution]
+    with GitHubSchemas {
 
   implicit val runtime: IORuntime                = IORuntime.global
   override def strictHeaderCheckDefault: Boolean = false
@@ -101,7 +113,7 @@ class GitHubApiSpec
         .respondsWith[GitHubRepo](Ok, description = "Repository found")
         .assert { ctx =>
           val response = ctx.performRequest(routes)
-          assertEquals(response.body.full_name, "theiterators/baklava")
+          assertEquals(response.body.fullName, "theiterators/baklava")
         }
     )
   )
@@ -217,5 +229,6 @@ final case class GitHubUser(company: Option[String] = None, followers: Int, id: 
 ## How it works
 
 - **Remote APIs via `performRequest`**: Baklava's DSL builds an `http4s` `Request[IO]` and hands it to `performRequest`, which normally runs it against local routes. Overriding it to send the request with a real client (Ember here) turns Baklava into a documentation-generating integration test for any HTTP service. The response body is compiled to memory so it can be read both by your assertions and by the serializer.
+- **Naming strategies**: the case classes use idiomatic camelCase, while GitHub's wire format is snake_case. Two things bridge that gap, and they must agree: circe's `Configuration.withSnakeCaseMemberNames` handles runtime decoding, and the `GitHubSchemas` mixin (a `SchemaDerivation` with the matching `SchemaNameTransform.snakeCase` override) makes the documented schemas and generated clients use the wire names — `public_repos`, not `publicRepos`. See [Naming Strategies](dsl-reference.md#naming-strategies).
 - **Generation in `afterAll`**: the sbt plugin normally runs `BaklavaGenerate` after `sbt test`. In a standalone script we call it from `afterAll` instead, so a single `scala-cli test` invocation runs the tests and generates output. Config entries use the `key|<base64 value>` argument format; formatters are auto-discovered from the classpath, so which outputs you get is controlled purely by the `//> using dep` lines — swap in `baklava-tsrest`, `baklava-orpc`, `baklava-simple`, or `baklava-postman` to taste.
 - **Rate limits**: unauthenticated GitHub API calls are limited to 60/hour per IP; this script makes 3 per run. If you document an API that needs auth, add the header in `performRequest` (e.g. a bearer token from an environment variable) or document it properly with Baklava's `security` DSL — see [DSL Reference](dsl-reference.md).
