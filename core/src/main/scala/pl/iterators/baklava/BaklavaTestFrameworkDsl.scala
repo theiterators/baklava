@@ -261,7 +261,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       )
     }
 
-    if (responseContext.responseBodyString.nonEmpty && responseBodySchema == Schema.emptyBodySchema) {
+    if (responseContext.responseBodyString.nonEmpty && Schema.isEmptyBody(responseBodySchema)) {
       throw new BaklavaAssertionException(
         "Expected empty response body, but got: " + responseContext.responseBodyString.take(maxBodyLengthInAssertion)
       )
@@ -378,8 +378,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                       ],
                       route: RouteType
                   ) => {
-                    // count the attempt, not the completion — decode failures throw from inside
-                    // baklavaPerformRequest and would otherwise report "was not called" (issue #128)
+                    // count the attempt, not the completion — decode failures throw from inside (#128)
                     timesCalled += 1
                     val responseContext =
                       baklavaPerformRequest[
@@ -659,8 +658,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
                 ],
                 route: RouteType
             ) => {
-              // count the attempt, not the completion — decode failures throw from inside
-              // baklavaPerformRequest and would otherwise report "was not called" (issue #128)
+              // count the attempt, not the completion — decode failures throw from inside (#128)
               timesCalled += 1
               val responseContext =
                 baklavaPerformRequest[

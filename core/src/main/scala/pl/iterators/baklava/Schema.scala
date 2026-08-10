@@ -232,4 +232,7 @@ trait SchemaDefaults {
 
 }
 
-object Schema extends SchemaDerivation with SchemaDefaults {}
+object Schema extends SchemaDerivation with SchemaDefaults {
+  // every SchemaDefaults mixin carries its own emptyBodySchema instance, so identity checks miss
+  def isEmptyBody(schema: Schema[?]): Boolean = schema.`type` == SchemaType.NullType && schema.className == "EmptyBody"
+}
