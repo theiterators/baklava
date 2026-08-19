@@ -21,6 +21,12 @@ Baklava is a Scala library that generates API documentation directly from your H
 2. Run your tests with `sbt test` — Baklava serializes each test case to JSON in `target/baklava/calls/`
 3. The SBT plugin automatically generates documentation from the collected test cases
 
+:::warning[sbt 2: use `testFull` to generate documentation]
+
+sbt 2 redefined `test` as an incremental task cached in a global store (`~/.cache/sbt`) that survives `clean` — on a warm cache it may run only a subset of your suite, or nothing at all, and the generated documentation only covers the tests that actually ran. Run `sbt testFull` (the uncached, run-everything task) whenever you want complete documentation. Baklava refuses to overwrite existing output when zero calls were captured, but a partial run still produces partial documentation.
+
+:::
+
 ### Quick links
 
 - [Installation](installation.md)

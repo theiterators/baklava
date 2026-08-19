@@ -29,6 +29,14 @@ The generation pipeline:
 3. Every formatter found on the classpath processes the calls and writes its output
 4. The call files are cleaned up
 
+Because generation only sees the calls captured in the current run, the output is only as complete as the test run itself. If zero calls were captured, generation is skipped with a warning so existing output is not overwritten by an empty spec.
+
+:::warning[sbt 2: use `testFull` to generate documentation]
+
+sbt 2 redefined `test` as an incremental task cached in a global store (`~/.cache/sbt`) that survives `clean` — on a warm cache it may run only a subset of your suite, or nothing at all, and the generated documentation only covers the tests that actually ran. Run `sbt testFull` (the uncached, run-everything task) whenever you want complete documentation.
+
+:::
+
 ## Simple Format
 
 **Dependency:** `"pl.iterators" %% "baklava-simple" % "VERSION" % Test`

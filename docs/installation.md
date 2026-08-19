@@ -290,6 +290,12 @@ The plugin provides several SBT tasks:
 - `baklavaGenerate` - Generate API documentation from your tests (executed automatically during `sbt test`)
 - `baklavaClean` - Clean generated documentation files
 
+:::warning[sbt 2: use `testFull` to generate documentation]
+
+sbt 2 redefined `test` as an incremental task cached in a global store (`~/.cache/sbt`) that survives `clean` — on a warm cache it may run only a subset of your suite, or nothing at all, and the generated documentation only covers the tests that actually ran. Run `sbt testFull` (the uncached, run-everything task) whenever you want complete documentation. Baklava refuses to overwrite existing output when zero calls were captured, but a partial run still produces partial documentation.
+
+:::
+
 The documentation will be generated in `target/baklava/` directory after running your tests:
 - Simple format: `target/baklava/simple/`
 - OpenAPI format: `target/baklava/openapi/openapi.yml`

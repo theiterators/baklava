@@ -119,6 +119,9 @@ sbt test
 # Output in target/baklava/openapi/openapi.yml, target/baklava/simple/, etc.
 ```
 
+> [!WARNING]
+> **On sbt 2, use `sbt testFull` to generate documentation.** sbt 2 redefined `test` as an incremental task cached in a global store (`~/.cache/sbt`) that survives `clean` — on a warm cache it may run only a subset of your suite, or nothing at all, and the generated documentation only covers the tests that actually ran. `testFull` is the uncached, run-everything task. (Baklava refuses to overwrite existing output when zero calls were captured, but a partial run still produces partial documentation.)
+
 ## Try It Without a Build
 
 Prefer to see it working first? A single [scala-cli](https://scala-cli.virtuslab.org/) script can test the **live GitHub REST API** and generate an OpenAPI spec plus a typed sttp client from verified responses — no sbt project needed:
