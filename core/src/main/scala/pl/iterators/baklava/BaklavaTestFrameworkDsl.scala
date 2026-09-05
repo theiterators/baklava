@@ -721,10 +721,7 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
     }
 
   def onRequest: OnRequest[EmptyBody, Unit, Unit, Unit] =
-    onRequest(EmptyBodyInstance: EmptyBody, AppliedSecurity(NoopSecurity, Map.empty), (), (), ())(
-      emptyToRequestBodyType,
-      Schema.emptyBodySchema
-    )
+    onRequest[EmptyBody, Unit, Unit, Unit](EmptyBodyInstance: EmptyBody, AppliedSecurity(NoopSecurity, Map.empty), (), (), ())
   def onRequest[RequestBody: ToRequestBodyType: Schema, PathParametersProvided, QueryParametersProvided, HeadersProvided](
       body: RequestBody = EmptyBodyInstance: EmptyBody,
       security: AppliedSecurity = AppliedSecurity(NoopSecurity, Map.empty),

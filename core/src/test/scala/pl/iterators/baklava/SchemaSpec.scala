@@ -17,7 +17,7 @@ class SchemaSpec extends AnyFunSpec with Matchers {
 
     it("for Option[Int]") {
       val derived  = implicitly[Schema[Option[Int]]]
-      val expected = Schema.optionSchema(Schema.intSchema)
+      val expected = Schema.optionSchema[Int]
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
@@ -29,7 +29,7 @@ class SchemaSpec extends AnyFunSpec with Matchers {
 
     it("for Option[String]") {
       val derived  = implicitly[Schema[Option[String]]]
-      val expected = Schema.optionSchema(Schema.stringSchema)
+      val expected = Schema.optionSchema[String]
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
@@ -41,7 +41,7 @@ class SchemaSpec extends AnyFunSpec with Matchers {
 
     it("for Option[UUID]") {
       val derived  = implicitly[Schema[Option[UUID]]]
-      val expected = Schema.optionSchema(Schema.uuidSchema)
+      val expected = Schema.optionSchema[UUID]
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
@@ -57,8 +57,8 @@ class SchemaSpec extends AnyFunSpec with Matchers {
         val properties: Map[String, Schema[?]] =
           Map(
             "x" -> Schema.intSchema,
-            "y" -> Schema.optionSchema(Schema.stringSchema),
-            "z" -> Schema.optionSchema(Schema.uuidSchema)
+            "y" -> Schema.optionSchema[String],
+            "z" -> Schema.optionSchema[UUID]
           )
         val items: Option[Schema[?]]      = None
         val `enum`: Option[Set[String]]   = None
@@ -119,12 +119,12 @@ class SchemaSpec extends AnyFunSpec with Matchers {
     }
 
     it("survives withDescription and withDefault copies") {
-      Schema.optionSchema(Schema.stringSchema).withDescription("d").nullable shouldBe true
-      Schema.optionSchema(Schema.stringSchema).withDefault(Some("x")).nullable shouldBe true
+      Schema.optionSchema[String].withDescription("d").nullable shouldBe true
+      Schema.optionSchema[String].withDefault(Some("x")).nullable shouldBe true
     }
 
     it("flows into BaklavaSchemaSerializable") {
-      BaklavaSchemaSerializable(Schema.optionSchema(Schema.stringSchema)).nullable shouldBe true
+      BaklavaSchemaSerializable(Schema.optionSchema[String]).nullable shouldBe true
       BaklavaSchemaSerializable(Schema.stringSchema).nullable shouldBe false
     }
   }

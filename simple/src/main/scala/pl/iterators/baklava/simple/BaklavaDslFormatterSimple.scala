@@ -432,7 +432,7 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
                                case (name, prop) if prop.required => name
                              }
                              .sorted
-                             .map(Json.fromString): _*
+                             .map(Json.fromString)*
                          )
                        else Json.Null),
         "additionalProperties" -> (

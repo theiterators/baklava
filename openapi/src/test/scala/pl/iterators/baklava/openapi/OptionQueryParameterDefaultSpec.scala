@@ -18,7 +18,7 @@ class OptionQueryParameterDefaultSpec extends AnyFunSpec with Matchers {
   describe("OpenAPI generation for Option[T] query parameters (regression for #49)") {
 
     it("emits `default: null`, not the string `None`, for an optional parameter") {
-      val optionSchema = BaklavaSchemaSerializable(Schema.optionSchema(Schema.stringSchema))
+      val optionSchema = BaklavaSchemaSerializable(Schema.optionSchema[String])
       val call         = syntheticCall(BaklavaQueryParamSerializable("filter", None, optionSchema))
 
       val openAPI = new OpenAPI()

@@ -169,7 +169,7 @@ trait BaklavaHttpDsl[
       responseBody: FromResponseBodyType[ResponseBody],
       classTag: ClassTag[ResponseBody]
   ): BaklavaResponseContext[ResponseBody, HttpRequest, HttpResponse] = {
-    val request: HttpRequest   = baklavaContextToHttpRequest(ctx)(requestBody)
+    val request: HttpRequest   = baklavaContextToHttpRequest(ctx)
     val response: HttpResponse = performRequest(route, request)
     httpResponseToBaklavaResponseContext(request, response)
   }

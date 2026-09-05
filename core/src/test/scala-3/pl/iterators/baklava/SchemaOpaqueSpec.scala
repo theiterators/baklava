@@ -28,7 +28,7 @@ class SchemaOpaqueSpec extends AnyFunSpec with Matchers with KebsBaklavaSchema {
 
     it("for Option[OInt]") {
       val derived  = implicitly[Schema[Option[OInt]]]
-      val expected = Schema.optionSchema(Schema.intSchema)
+      val expected = Schema.optionSchema[Int]
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
@@ -40,7 +40,7 @@ class SchemaOpaqueSpec extends AnyFunSpec with Matchers with KebsBaklavaSchema {
 
     it("for Option[OString]") {
       val derived  = implicitly[Schema[Option[OString]]]
-      val expected = Schema.optionSchema(Schema.stringSchema)
+      val expected = Schema.optionSchema[String]
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
@@ -52,7 +52,7 @@ class SchemaOpaqueSpec extends AnyFunSpec with Matchers with KebsBaklavaSchema {
 
     it("for Option[OUUID]") {
       val derived  = implicitly[Schema[Option[OUUID]]]
-      val expected = Schema.optionSchema(Schema.uuidSchema)
+      val expected = Schema.optionSchema[UUID]
       SchemaCompare.assertSchemaFieldsEqual(derived, expected)
     }
 
@@ -68,8 +68,8 @@ class SchemaOpaqueSpec extends AnyFunSpec with Matchers with KebsBaklavaSchema {
         val properties: Map[String, Schema[?]] =
           Map(
             "x" -> Schema.intSchema,
-            "y" -> Schema.optionSchema(Schema.stringSchema),
-            "z" -> Schema.optionSchema(Schema.uuidSchema)
+            "y" -> Schema.optionSchema[String],
+            "z" -> Schema.optionSchema[UUID]
           )
         val items: Option[Schema[?]]      = None
         val `enum`: Option[Set[String]]   = None

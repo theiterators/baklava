@@ -244,7 +244,7 @@ case class BaklavaRequestContextSerializable(
 
 object BaklavaRequestContextSerializable {
   def apply(
-      c: BaklavaRequestContext[_, _, _, _, _, _, _],
+      c: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       bodyString: String
   ): BaklavaRequestContextSerializable = {
     val pathParamValues  = extractPathParamValues(c.symbolicPath, c.path)
@@ -351,7 +351,7 @@ case class BaklavaResponseContextSerializable(
 ) extends Serializable
 
 object BaklavaResponseContextSerializable {
-  def apply(c: BaklavaResponseContext[_, _, _]): BaklavaResponseContextSerializable =
+  def apply(c: BaklavaResponseContext[?, ?, ?]): BaklavaResponseContextSerializable =
     BaklavaResponseContextSerializable(
       protocol = c.protocol,
       status = c.status,

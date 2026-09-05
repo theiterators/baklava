@@ -228,7 +228,7 @@ trait BaklavaPekkoHttp[TestFrameworkFragmentType, TestFrameworkFragmentsType, Te
           PekkoMultipart.FormData.BodyPart(name, HttpEntity(value))
       }
       // Fixed boundary keeps the captured request body byte-stable across gold-test runs.
-      Marshalling.Opaque(() => PekkoMultipart.FormData(parts: _*).toEntity(boundary = "baklava-multipart-boundary"))
+      Marshalling.Opaque(() => PekkoMultipart.FormData(parts*).toEntity(boundary = "baklava-multipart-boundary"))
     }
 
   override implicit protected def emptyToResponseBodyType: FromEntityUnmarshaller[EmptyBody] =

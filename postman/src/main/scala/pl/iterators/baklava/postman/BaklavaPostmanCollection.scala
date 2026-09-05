@@ -25,8 +25,8 @@ private[postman] object BaklavaPostmanCollection {
         "name"   -> Json.fromString(collectionName),
         "schema" -> Json.fromString(schemaUrl)
       ),
-      "item"     -> Json.arr(folderItems ++ topLevelItems: _*),
-      "variable" -> Json.arr(collectionVariables(calls): _*)
+      "item"     -> Json.arr((folderItems ++ topLevelItems)*),
+      "variable" -> Json.arr(collectionVariables(calls)*)
     )
   }
 
@@ -61,7 +61,7 @@ private[postman] object BaklavaPostmanCollection {
   private def folderNode(name: String, items: Seq[Json]): Json =
     Json.obj(
       "name" -> Json.fromString(name),
-      "item" -> Json.arr(items: _*)
+      "item" -> Json.arr(items*)
     )
 
   private def endpointItem(calls: Seq[BaklavaSerializableCall]): Json = {
@@ -88,7 +88,7 @@ private[postman] object BaklavaPostmanCollection {
     Json.obj(
       "name"     -> Json.fromString(displayName),
       "request"  -> requestJson,
-      "response" -> Json.arr(calls.map(responseExample): _*)
+      "response" -> Json.arr(calls.map(responseExample)*)
     )
   }
 
@@ -136,9 +136,9 @@ private[postman] object BaklavaPostmanCollection {
     Json.obj(
       "raw"      -> Json.fromString(s"$rawBase/$rawPath$rawQuery"),
       "host"     -> Json.arr(Json.fromString(rawBase)),
-      "path"     -> Json.arr(postmanPath.map(Json.fromString): _*),
-      "query"    -> (if (queryJson.isEmpty) Json.Null else Json.arr(queryJson: _*)),
-      "variable" -> (if (variables.isEmpty) Json.Null else Json.arr(variables: _*))
+      "path"     -> Json.arr(postmanPath.map(Json.fromString)*),
+      "query"    -> (if (queryJson.isEmpty) Json.Null else Json.arr(queryJson*)),
+      "variable" -> (if (variables.isEmpty) Json.Null else Json.arr(variables*))
     )
   }
 
@@ -157,7 +157,7 @@ private[postman] object BaklavaPostmanCollection {
           "description" -> h.description.map(Json.fromString).getOrElse(Json.Null)
         )
       }
-    Json.arr(entries: _*)
+    Json.arr(entries*)
   }
 
   private def requestBody(call: BaklavaSerializableCall): Json = {
@@ -283,7 +283,7 @@ private[postman] object BaklavaPostmanCollection {
       "name"                     -> Json.fromString(name),
       "status"                   -> Json.fromString(statusPhrase(status)),
       "code"                     -> Json.fromInt(status),
-      "header"                   -> Json.arr(responseHeaders: _*),
+      "header"                   -> Json.arr(responseHeaders*),
       "body"                     -> Json.fromString(call.response.bodyString),
       "_postman_previewlanguage" -> Json.fromString {
         normalizeContentType(call.response.responseContentType.getOrElse("")) match {

@@ -11,7 +11,7 @@ ThisBuild / developers             := List(
 )
 
 val Scala213 = "2.13.18"
-val Scala3   = "3.3.7"
+val Scala3   = "3.9.0"
 ThisBuild / crossScalaVersions := Seq(Scala213, Scala3)
 ThisBuild / scalaVersion       := Scala213
 ThisBuild / publishTo          := {
@@ -106,30 +106,30 @@ lazy val baklava =
     sbtplugin
   )
 
-val swaggerV       = "2.2.45"
-val swaggerParserV = "2.1.39"
-val pekkoHttpV     = "1.3.0"
-val pekkoV         = "1.1.5"
-val kebsV          = "2.1.4"
-val circeV         = "0.14.15"
-val jsoniterV      = "2.13.39"
+val swaggerV       = "2.2.55"
+val swaggerParserV = "2.1.48"
+val pekkoHttpV     = "1.4.0"
+val pekkoV         = "1.7.0"
+val kebsV          = "2.2.1"
+val circeV         = "0.14.16"
+val jsoniterV      = "2.38.2" // 2.38.3+ codec derivation trips a forward-reference error on Scala 3.9.0
 val specs2V        = "4.23.0"
-val scalatestV     = "3.2.19"
-val munitV         = "1.2.4"
-val http4sV        = "0.23.33"
+val scalatestV     = "3.2.20"
+val munitV         = "1.3.6"
+val http4sV        = "0.23.36"
 val reflectionsV   = "0.10.2"
-val magnoliaS2V    = "1.1.13"
-val magnoliaS3V    = "1.3.18"
+val magnoliaS2V    = "1.1.14"
+val magnoliaS3V    = "1.3.23"
 
-val enumeratumV     = "1.9.6"
-val pekkoHttpJsonV  = "3.9.0"
+val enumeratumV     = "1.9.8"
+val pekkoHttpJsonV  = "3.12.0"
 val testcontainersV = "0.44.1"
 
 val webjarsLocatorV = "0.52"
-val swaggerUiV      = "5.32.1"
-val typesafeConfigV = "1.4.6"
-val sttpModelV      = "1.7.17"
-val sttpClient4V    = "4.0.25"
+val swaggerUiV      = "5.32.14"
+val typesafeConfigV = "1.4.9"
+val sttpModelV      = "1.7.18"
+val sttpClient4V    = "4.0.26"
 
 lazy val core = project
   .in(file("core"))
@@ -233,7 +233,8 @@ lazy val openapi = project
     Test / parallelExecution := false,
     scalacOptions ++= {
       CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((3, _)) => Seq("-Xmax-inlines:64")
+        // Tests pass evidence explicitly and are shared with 2.13, which cannot spell `using` applications
+        case Some((3, _)) => Seq("-Xmax-inlines:64", "-Wconf:msg=Implicit parameters should be provided with a `using` clause:s")
         case _            => Nil
       }
     },
@@ -268,7 +269,7 @@ lazy val pekkohttproutes = project
     name := "baklava-pekko-http-routes",
     libraryDependencies ++= {
       Seq(
-        "org.apache.pekko"    %% "pekko-stream"       % pekkoHttpV,
+        "org.apache.pekko"    %% "pekko-stream"       % pekkoV,
         "org.apache.pekko"    %% "pekko-http"         % pekkoHttpV,
         "com.typesafe"         % "config"             % typesafeConfigV,
         "org.webjars"          % "webjars-locator"    % webjarsLocatorV,
@@ -276,7 +277,7 @@ lazy val pekkohttproutes = project
         "io.swagger.parser.v3" % "swagger-parser"     % swaggerParserV,
         "org.webjars"          % "swagger-ui"         % swaggerUiV,
         "org.apache.pekko"    %% "pekko-http-testkit" % pekkoHttpV % "test",
-        "org.apache.pekko"    %% "pekko-testkit"      % pekkoHttpV % "test",
+        "org.apache.pekko"    %% "pekko-testkit"      % pekkoV     % "test",
         "org.scalatest"       %% "scalatest"          % scalatestV % "test"
       )
     }
