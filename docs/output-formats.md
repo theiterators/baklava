@@ -94,9 +94,9 @@ baklavaGenerateConfigs := Map(
 
 The `openapi-info` value can be JSON or YAML and supports all OpenAPI info fields (title, version, description, contact, license, termsOfService).
 
-### SwaggerUI (Pekko HTTP only)
+### SwaggerUI
 
-Add `"pl.iterators" %% "baklava-pekko-http-routes" % "VERSION"` (not test-scoped) to serve the generated spec via SwaggerUI at runtime. See [Installation — SwaggerUI](installation.md#optional-swaggerui-support) for setup.
+Add `"pl.iterators" %% "baklava-pekko-http-routes" % "VERSION"` or `"pl.iterators" %% "baklava-http4s-routes" % "VERSION"` (not test-scoped) to serve the generated spec via SwaggerUI at runtime. See [Installation — SwaggerUI](installation.md#optional-swaggerui-support) for setup.
 
 ### Post-Processing
 

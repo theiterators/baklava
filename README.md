@@ -8,7 +8,7 @@
 [![CI](https://github.com/theiterators/baklava/actions/workflows/ci.yml/badge.svg)](https://github.com/theiterators/baklava/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Generate OpenAPI, HTML docs, or TypeScript client contracts from your routing tests.**
+**Turn your HTTP tests into OpenAPI, HTML docs, Postman collections, and typed TypeScript or Scala clients, for APIs you serve or consume.**
 
 Baklava is a Scala library that turns your HTTP tests — for routes you serve or third-party APIs you consume — into API documentation. Instead of maintaining docs separately, your tests become the single source of truth.
 
@@ -134,13 +134,19 @@ Grab the script from [Standalone Scripts with scala-cli](https://theiterators.gi
 
 ## Output Formats
 
-**OpenAPI** generates a standard `openapi.yml` spec. Optionally serve it via SwaggerUI with `baklava-pekko-http-routes`.
+**OpenAPI** generates a standard `openapi.yml` spec. Optionally serve it via SwaggerUI with `baklava-pekko-http-routes` or `baklava-http4s-routes`.
 
 **Simple HTML** generates self-contained, browsable HTML pages with no external dependencies.
 
 **TS-REST** generates a TypeScript npm package with [ts-rest](https://ts-rest.com/) contracts and [Zod](https://zod.dev/) schemas for type-safe frontend API clients.
 
 **oRPC** generates a TypeScript npm package with [oRPC](https://orpc.dev) contracts (`@orpc/contract` + Zod), consumable from any frontend via `OpenAPILink` with first-class TanStack Query support.
+
+**ts-fetch** generates a plain-TypeScript npm package with a typed `fetch`-based function per endpoint and no runtime dependencies.
+
+**sttp-client** generates Scala source files with typed [sttp-client4](https://sttp.softwaremill.com) request builders, usable with any sttp backend.
+
+**Postman** generates a Postman Collection v2.1 JSON file that imports directly into Postman or Insomnia, with example values and auth blocks filled in.
 
 All formatters are auto-discovered from the classpath. Just add the dependency and it works.
 
@@ -151,6 +157,7 @@ Full documentation is available at [theiterators.github.io/baklava](https://thei
 - [Installation](https://theiterators.github.io/baklava/docs/installation)
 - [Pekko HTTP Integration](https://theiterators.github.io/baklava/docs/pekko-http)
 - [http4s Integration](https://theiterators.github.io/baklava/docs/http4s)
+- [Remote APIs (sttp)](https://theiterators.github.io/baklava/docs/sttp)
 - [DSL Reference](https://theiterators.github.io/baklava/docs/dsl-reference)
 - [Examples](https://theiterators.github.io/baklava/docs/examples)
 - [Standalone Scripts (scala-cli)](https://theiterators.github.io/baklava/docs/scala-cli)
