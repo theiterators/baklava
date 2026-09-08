@@ -3,15 +3,15 @@ sidebar_position: 1
 title: Introduction to Baklava
 ---
 ## Baklava
-##### Generate OpenAPI, HTML Docs or TypeScript client interface from routing tests.
+##### Turn your HTTP tests into OpenAPI, HTML docs, Postman collections, and typed TypeScript or Scala clients, for APIs you serve or consume.
 
-Baklava is a Scala library that generates API documentation directly from your HTTP routing tests. Instead of maintaining documentation separately, your tests become the single source of truth for your API specification.
+Baklava is a Scala library that generates API documentation and client code directly from your HTTP tests — for routes you serve or third-party APIs you consume. Instead of maintaining documentation separately, your tests become the single source of truth for your API specification.
 
 ### Supported stacks
 
 - **HTTP Integration**: Pekko HTTP, http4s (for routes you serve), or sttp (for remote APIs you consume)
 - **Test Frameworks**: ScalaTest, Specs2, MUnit
-- **Output Formats**: OpenAPI (with optional SwaggerUI), Simple, TS-REST
+- **Output Formats**: OpenAPI (with optional SwaggerUI), Simple HTML, TS-REST, oRPC, ts-fetch, sttp-client, Postman
 - **Scala Versions**: 2.13 and 3 (LTS)
 - **JDK**: 11+
 

@@ -15,7 +15,7 @@ const projectGitHubUrl = 'https://github.com/theiterators/baklava';
 
 const config: Config = {
   title: 'Baklava',
-  tagline: 'Generate OpenAPI, HTML Docs or TypeScript client interface from routing tests.',
+  tagline: 'Turn your HTTP tests into OpenAPI, HTML docs, Postman collections, and typed TypeScript or Scala clients, for APIs you serve or consume.',
   favicon: 'https://raw.githubusercontent.com/theiterators/baklava/master/logo.png',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
