@@ -14,11 +14,11 @@ import scala.util.Using
   */
 class BaklavaDslFormatterPostman extends BaklavaDslFormatter {
 
-  private val dirName  = "target/baklava/postman"
   private val fileName = "collection.json"
 
-  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
-    val dir = new File(dirName)
+  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall], outputRoot: String): Unit = {
+    val dirName = s"$outputRoot/postman"
+    val dir     = new File(dirName)
     dir.mkdirs()
 
     val collectionName = config.getOrElse("postman.collectionName", "Baklava-generated API")

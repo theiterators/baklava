@@ -13,9 +13,8 @@ import scala.util.Using
   */
 class BaklavaDslFormatterSttpClient extends BaklavaDslFormatter {
 
-  private val dirName = "target/baklava/sttpclient"
-
-  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
+  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall], outputRoot: String): Unit = {
+    val dirName     = s"$outputRoot/sttpclient"
     val basePackage = config.getOrElse("sttp-client-package", "baklavaclient")
     val basePath    = s"$dirName/src/main/scala/${basePackage.replace('.', '/')}"
     new File(basePath).mkdirs()

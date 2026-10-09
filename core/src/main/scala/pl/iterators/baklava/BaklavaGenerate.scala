@@ -31,9 +31,11 @@ object BaklavaGenerate {
     }
   }
 
-  /** Runs the formatters over the captured calls. With zero captured calls generation is skipped (returning false), so a previously
+  /** Runs the formatters over the captured calls, then once more per configured view (see [[BaklavaView]]) with that view's subset of the
+    * calls under `target/baklava/views/<name>`. With zero captured calls generation is skipped (returning false), so a previously
     * generated spec is never overwritten by an empty one — zero calls almost always means the test suite didn't actually run, e.g. sbt 2's
-    * incremental `test` restoring a cached result (see issue #135).
+    * incremental `test` restoring a cached result (see issue #135). A view that selects zero calls is skipped the same way. An invalid
+    * `views` configuration fails generation before any formatter runs.
     */
   private[baklava] def generate(
       configMap: Map[String, String],
@@ -48,7 +50,21 @@ object BaklavaGenerate {
       )
       false
     } else {
+      val views = BaklavaView.fromConfig(configMap) match {
+        case Right(parsed) => parsed
+        case Left(error)   => sys.error(s"Baklava: invalid '${BaklavaView.ConfigKey}' configuration: $error")
+      }
       formatters.foreach(_.create(configMap, calls))
+      views.foreach { view =>
+        val selected = view.select(calls)
+        if (selected.isEmpty) {
+          System.err.println(
+            s"Baklava: view '${view.name}' selected 0 of ${calls.size} captured calls — skipping its output so nothing empty is written."
+          )
+        } else {
+          formatters.foreach(_.create(configMap, selected, view.outputRoot(BaklavaDslFormatter.DefaultOutputRoot)))
+        }
+      }
       true
     }
   }

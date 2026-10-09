@@ -12,14 +12,11 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
 
   private val plainRenderer = new TsZodRenderer(TsZodDialect.tsRest)
 
-  private val dirName                 = "target/baklava/tsrest"
-  private val sourcesDirName          = "target/baklava/tsrest/src"
-  private val packageContractJsonPath = s"$dirName/package-contracts.json"
-
-  private val contractTsPath = s"$sourcesDirName/contracts.ts"
-  private val schemasTsPath  = s"$sourcesDirName/schemas.ts"
-
-  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
+  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall], outputRoot: String): Unit = {
+    val dirName                 = s"$outputRoot/tsrest"
+    val sourcesDirName          = s"$dirName/src"
+    val packageContractJsonPath = s"$dirName/package-contracts.json"
+    val schemasTsPath           = s"$sourcesDirName/schemas.ts"
     // Module files are named after the current route set; without a wipe, files from a previous
     // run (renamed or removed routes) would linger and ship to consumers syncing the directory.
     deleteRecursively(new File(sourcesDirName))
@@ -68,9 +65,9 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     }
 
     rendered.foreach { case (module, body, usedRefs) =>
-      writeModuleFile(module, body, usedRefs, assignment, commonNames, refs, defUses)
+      writeModuleFile(sourcesDirName, module, body, usedRefs, assignment, commonNames, refs, defUses)
     }
-    writeContractsFile(modules)
+    writeContractsFile(sourcesDirName, modules)
   }
 
   private[tsrest] def buildSchemaRefs(endpoints: Seq[Endpoint]): Map[BaklavaSchemaSerializable, String] = {
@@ -98,6 +95,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     module.fileSegments.mkString("/") + ".contract.ts"
 
   private def writeModuleFile(
+      sourcesDirName: String,
       module: RouterModule,
       body: String,
       usedRefs: Set[String],
@@ -144,7 +142,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
     )
   }
 
-  private def writeContractsFile(modules: Seq[RouterModule]): Unit = {
+  private def writeContractsFile(sourcesDirName: String, modules: Seq[RouterModule]): Unit = {
     val imports = modules
       .map(m => s"""import { ${m.constName} } from "./${moduleFilePath(m).stripSuffix(".ts")}";""")
       .mkString("\n")
@@ -169,7 +167,7 @@ class BaklavaDslFormatterTsRest extends BaklavaDslFormatter {
       }
 
     writeTo(
-      contractTsPath,
+      s"$sourcesDirName/contracts.ts",
       s"""import { initContract } from "@ts-rest/core";
          |$imports
          |

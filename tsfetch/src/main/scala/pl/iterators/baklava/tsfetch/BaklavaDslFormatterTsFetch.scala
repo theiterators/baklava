@@ -21,10 +21,9 @@ import scala.util.Using
   */
 class BaklavaDslFormatterTsFetch extends BaklavaDslFormatter {
 
-  private val dirName        = "target/baklava/tsfetch"
-  private val sourcesDirName = s"$dirName/src"
-
-  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
+  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall], outputRoot: String): Unit = {
+    val dirName        = s"$outputRoot/tsfetch"
+    val sourcesDirName = s"$dirName/src"
     // Module folders are named after the current route set; without a wipe, folders from a
     // previous run (renamed or removed routes) would linger and ship to consumers syncing the
     // directory.

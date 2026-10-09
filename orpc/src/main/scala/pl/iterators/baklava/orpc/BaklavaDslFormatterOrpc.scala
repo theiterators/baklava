@@ -12,16 +12,13 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
 
   private val plainRenderer = new TsZodRenderer(TsZodDialect.orpc)
 
-  private val dirName                 = "target/baklava/orpc"
-  private val sourcesDirName          = "target/baklava/orpc/src"
-  private val packageContractJsonPath = s"$dirName/package-contracts.json"
-
-  private val contractTsPath = s"$sourcesDirName/contracts.ts"
-  private val schemasTsPath  = s"$sourcesDirName/schemas.ts"
-  private val clientTsPath   = s"$sourcesDirName/client.ts"
-  private val securityTsPath = s"$sourcesDirName/security.ts"
-
-  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
+  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall], outputRoot: String): Unit = {
+    val dirName                 = s"$outputRoot/orpc"
+    val sourcesDirName          = s"$dirName/src"
+    val packageContractJsonPath = s"$dirName/package-contracts.json"
+    val schemasTsPath           = s"$sourcesDirName/schemas.ts"
+    val clientTsPath            = s"$sourcesDirName/client.ts"
+    val securityTsPath          = s"$sourcesDirName/security.ts"
     // Module files are named after the current route set; without a wipe, files from a previous
     // run (renamed or removed routes) would linger and ship to consumers syncing the directory.
     deleteRecursively(new File(sourcesDirName))
@@ -72,9 +69,9 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
     }
 
     rendered.foreach { case (module, body, usedRefs) =>
-      writeModuleFile(module, body, usedRefs, assignment, commonNames, refs, defUses)
+      writeModuleFile(sourcesDirName, module, body, usedRefs, assignment, commonNames, refs, defUses)
     }
-    writeContractsFile(modules)
+    writeContractsFile(sourcesDirName, modules)
 
     // The `security` in each route's `spec` references schemes by name; `security.ts` exports the
     // matching OpenAPI Security Scheme Objects for the consumer's OpenAPI generator config. Always
@@ -140,6 +137,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
   // --- Contract emission ---------------------------------------------------------------------
 
   private def writeModuleFile(
+      sourcesDirName: String,
       module: RouterModule,
       body: String,
       usedRefs: Set[String],
@@ -188,7 +186,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
   private def moduleFilePath(module: RouterModule): String =
     module.fileSegments.mkString("/") + ".contract.ts"
 
-  private def writeContractsFile(modules: Seq[RouterModule]): Unit = {
+  private def writeContractsFile(sourcesDirName: String, modules: Seq[RouterModule]): Unit = {
     val imports = modules
       .map(m => s"""import { ${m.constName} } from "./${moduleFilePath(m).stripSuffix(".ts")}";""")
       .mkString("\n")
@@ -213,7 +211,7 @@ class BaklavaDslFormatterOrpc extends BaklavaDslFormatter {
       }
 
     writeTo(
-      contractTsPath,
+      s"$sourcesDirName/contracts.ts",
       s"""$imports
          |
          |export const contracts = {
