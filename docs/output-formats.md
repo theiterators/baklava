@@ -31,6 +31,8 @@ The generation pipeline:
 
 Because generation only sees the calls captured in the current run, the output is only as complete as the test run itself. If zero calls were captured, generation is skipped with a warning so existing output is not overwritten by an empty spec.
 
+Every formatter can also be run again over a filtered subset of the calls, for a public-facing OpenAPI document or a client contract without the admin routes. See [Configuration — Output views](configuration.md#output-views).
+
 :::warning[sbt 2: use `testFull` to generate documentation]
 
 sbt 2 redefined `test` as an incremental task cached in a global store (`~/.cache/sbt`) that survives `clean` — on a warm cache it may run only a subset of your suite, or nothing at all, and the generated documentation only covers the tests that actually ran. Run `sbt testFull` (the uncached, run-everything task) whenever you want complete documentation.

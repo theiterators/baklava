@@ -11,11 +11,9 @@ import scala.util.Using
 
 class BaklavaDslFormatterOpenAPI extends BaklavaDslFormatter {
 
-  private val dirName = "target/baklava/openapi"
-  private val dirFile = new File(dirName)
-
-  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
-    dirFile.mkdirs()
+  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall], outputRoot: String): Unit = {
+    val dirName = s"$outputRoot/openapi"
+    new File(dirName).mkdirs()
     val openapiFile = new File(s"$dirName/openapi.yml")
 
     Using(new FileOutputStream(openapiFile)) { outputStream =>

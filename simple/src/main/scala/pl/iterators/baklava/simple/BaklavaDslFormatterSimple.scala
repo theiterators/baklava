@@ -11,9 +11,6 @@ import scala.util.Using
 
 class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
 
-  private val dirName = "target/baklava/simple"
-  private val dirFile = new File(dirName)
-
   private val css =
     """<style>
       |  *, *::before, *::after { box-sizing: border-box; }
@@ -53,8 +50,9 @@ class BaklavaDslFormatterSimple extends BaklavaDslFormatter {
       |  .copy-btn:active { background: #0a58ca; }
       |</style>""".stripMargin
 
-  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall]): Unit = {
-    dirFile.mkdirs()
+  override def create(config: Map[String, String], calls: Seq[BaklavaSerializableCall], outputRoot: String): Unit = {
+    val dirName = s"$outputRoot/simple"
+    new File(dirName).mkdirs()
 
     val endpoints = calls
       .groupBy(c => (c.request.method, c.request.symbolicPath))
