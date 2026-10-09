@@ -18,10 +18,10 @@ Save as `github-api-docs.test.scala`:
 
 ```scala
 //> using scala 3.3.8
-//> using dep pl.iterators::baklava-sttp:2.1.0
-//> using dep pl.iterators::baklava-munit:2.1.0
-//> using dep pl.iterators::baklava-openapi:2.1.0
-//> using dep pl.iterators::baklava-sttpclient:2.1.0
+//> using dep pl.iterators::baklava-sttp:2.2.0
+//> using dep pl.iterators::baklava-munit:2.2.0
+//> using dep pl.iterators::baklava-openapi:2.2.0
+//> using dep pl.iterators::baklava-sttpclient:2.2.0
 //> using dep io.circe::circe-core:0.14.16
 
 import io.circe.derivation.{Configuration, ConfiguredCodec}
