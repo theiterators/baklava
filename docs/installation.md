@@ -292,7 +292,7 @@ The plugin provides several SBT tasks:
 
 :::tip[Incremental runs are fine]
 
-Captured calls are kept in a persistent store under `target/baklava/store/`, one directory per test suite. Every run replaces the entries of the suites that ran and keeps the rest, then regenerates the documentation from the whole store. Plain `sbt test` therefore produces complete documentation even on sbt 2, whose `test` is incremental and may run only some suites, or none. The one exception is right after `clean` (or `baklavaClean`): the store is gone, and on a warm sbt 2 cache `test` may run nothing, in which case Baklava skips generation and prints a message. Run `sbt testFull` once to rebuild the store.
+Captured calls are kept in a persistent store under `target/baklava/store/`, one directory per test suite. Every run replaces the entries of the suites that ran and keeps the rest, then regenerates the documentation from the whole store. Plain `sbt test` therefore produces complete documentation even on sbt 2, whose `test` is incremental and may run only some suites, or none. The store cannot help when sbt 2 skips a suite that has no entry in it: after `baklavaClean` (or `clean` on sbt 1, which deletes `target/`), or when a suite that had been removed comes back unchanged, for example after switching branches, because sbt 2 caches test results by content. Run `sbt testFull` once in that case. Baklava prints a message when the store is empty.
 
 :::
 
@@ -309,7 +309,8 @@ The documentation will be generated in `target/baklava/` directory after running
 - A suite that still exists but no longer makes any Baklava call keeps its last stored calls. Rename or delete the suite, or run `baklavaClean` followed by a full test run, to drop them.
 - Test groups that run concurrently (a raised `Tags.ForkedTestGroup` limit with one JVM per suite) are not supported: they share one staging directory.
 - `sbt baklavaGenerate` on its own regenerates all output from the store without re-running tests, for example after changing `baklavaGenerateConfigs`.
-- `sbt baklavaClean` deletes `target/baklava`, including the store; the next full test run rebuilds it.
+- A suite that was removed from the store (deleted, then restored unchanged, for example by switching branches) is served from sbt 2's test cache without running, so it stays undocumented until `testFull` or until it changes.
+- `sbt baklavaClean` deletes `target/baklava`, including the store; rebuild it with `testFull` on sbt 2 or `test` on sbt 1. On sbt 2, `clean` leaves `target/baklava` in place.
 
 ## Runtime Configuration
 

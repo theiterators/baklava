@@ -73,8 +73,8 @@ object BaklavaGenerate {
   /** Runs the formatters over the stored calls, then once more per configured view (see [[BaklavaView]]) with that view's subset of the
     * calls under `target/baklava/views/<name>`. With zero calls generation is skipped (returning false), so a previously generated spec is
     * never overwritten by an empty one — an empty store means nothing was captured in this run and nothing is left from earlier runs, e.g.
-    * right after `clean` when sbt 2's cached `test` runs no suite (see issue #135). A view that selects zero calls is skipped the same
-    * way. An invalid `views` configuration fails generation before any formatter runs.
+    * right after `baklavaClean` when sbt 2's cached `test` runs no suite (see issue #135). A view that selects zero calls is skipped the
+    * same way. An invalid `views` configuration fails generation before any formatter runs.
     */
   private[baklava] def generate(
       configMap: Map[String, String],
@@ -84,7 +84,7 @@ object BaklavaGenerate {
     if (calls.isEmpty) {
       System.err.println(
         "Baklava: the call store is empty (0 calls) — skipping generation so existing output is not overwritten. " +
-          "Nothing was captured in this run and no earlier run is stored, which is expected right after `clean`. " +
+          "Nothing was captured in this run and no earlier run is stored, which is expected right after `baklavaClean` (or `clean` on sbt 1). " +
           "If your tests did run, make sure they use the Baklava DSL. " +
           "On sbt 2 a warm cache may have skipped every suite: run `testFull` once to rebuild the store; " +
           "afterwards plain `test` keeps it current."

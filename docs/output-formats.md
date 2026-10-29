@@ -28,13 +28,13 @@ The generation pipeline:
 2. After the tests, the sbt plugin runs `BaklavaGenerate`, which moves every suite that captured something into the persistent store `target/baklava/store/<suite>/`, replacing that suite's previous entry, and removes store entries whose test class no longer exists
 3. Every formatter found on the classpath processes all calls in the store and writes its output
 
-Documentation is therefore the union of what each suite captured on its most recent run. If the store ends up empty (right after `clean`, with nothing captured), generation is skipped with a warning so existing output is not overwritten by an empty spec.
+Documentation is therefore the union of what each suite captured on its most recent run. If the store ends up empty (after `baklavaClean`, with nothing captured), generation is skipped with a warning so existing output is not overwritten by an empty spec.
 
 Every formatter can also be run again over a filtered subset of the calls, for a public-facing OpenAPI document or a client contract without the admin routes. See [Configuration — Output views](configuration.md#output-views).
 
 :::tip[Incremental runs are fine]
 
-Captured calls are kept in a persistent store under `target/baklava/store/`, one directory per test suite. Every run replaces the entries of the suites that ran and keeps the rest, then regenerates the documentation from the whole store. Plain `sbt test` therefore produces complete documentation even on sbt 2, whose `test` is incremental and may run only some suites, or none. The one exception is right after `clean` (or `baklavaClean`): the store is gone, and on a warm sbt 2 cache `test` may run nothing, in which case Baklava skips generation and prints a message. Run `sbt testFull` once to rebuild the store.
+Captured calls are kept in a persistent store under `target/baklava/store/`, one directory per test suite. Every run replaces the entries of the suites that ran and keeps the rest, then regenerates the documentation from the whole store. Plain `sbt test` therefore produces complete documentation even on sbt 2, whose `test` is incremental and may run only some suites, or none. The store cannot help when sbt 2 skips a suite that has no entry in it: after `baklavaClean` (or `clean` on sbt 1, which deletes `target/`), or when a suite that had been removed comes back unchanged, for example after switching branches, because sbt 2 caches test results by content. Run `sbt testFull` once in that case. Baklava prints a message when the store is empty.
 
 :::
 
