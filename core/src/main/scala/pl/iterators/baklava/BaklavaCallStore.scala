@@ -54,6 +54,32 @@ final class BaklavaCallStore(val baseDir: Path) {
     suites.map(_.getFileName.toString).sorted
   }
 
+  /** Removes store entries of suites whose class no longer exists on the classpath (deleted or renamed suites).
+    *
+    * A suite is kept when any of `loaders` can load its class, or fails to link it; it is removed only when every loader throws
+    * `ClassNotFoundException`. Names starting with `_` (the reserved [[BaklavaCallStore.UnscopedSuite]]) are never candidates.
+    *
+    * Fail-safe: when the loaders evidently cannot see test classes at all, nothing is deleted and a [[BaklavaCallStore.Skipped]] names the
+    * reason. That is the case when a suite merged in this run (so its class must exist) does not resolve, or when not a single stored
+    * suite resolves. Keeping possibly stale calls with a warning beats wiping the store.
+    */
+  def pruneMissingSuites(mergedSuites: Seq[String], loaders: Seq[ClassLoader]): BaklavaCallStore.PruneOutcome = {
+    val candidates = storedSuites().filterNot(_.startsWith("_"))
+    val resolved   = candidates.map(suite => suite -> BaklavaCallStore.resolves(suite, loaders)).toMap
+    mergedSuites.find(suite => resolved.get(suite).contains(false)) match {
+      case Some(fresh) =>
+        BaklavaCallStore.Skipped(
+          s"suite '$fresh' was captured in this run but its class cannot be loaded; the class loader cannot see test classes"
+        )
+      case None if candidates.nonEmpty && !resolved.values.exists(identity) =>
+        BaklavaCallStore.Skipped(s"none of the ${candidates.size} stored suites can be loaded")
+      case None =>
+        val gone = candidates.filterNot(resolved)
+        gone.foreach(suite => deleteRecursively(storeDir.resolve(suite)))
+        BaklavaCallStore.Pruned(gone)
+    }
+  }
+
   /** Deletes the staging directory, legacy flat files and empty suite directories included. */
   def clearStaging(): Try[Unit] = Try(deleteRecursively(stagingDir))
 
@@ -105,4 +131,25 @@ object BaklavaCallStore {
 
   /** The suite name for a test class: its fully-qualified name, without the `$` of an `object` spec. */
   def suiteName(clazz: Class[_]): String = clazz.getName.stripSuffix("$")
+
+  /** Result of [[BaklavaCallStore.pruneMissingSuites]]. */
+  sealed trait PruneOutcome
+
+  /** The named suites were removed from the store (possibly none). */
+  final case class Pruned(suites: Seq[String]) extends PruneOutcome
+
+  /** Nothing was removed because the class loaders cannot be trusted to see test classes; `reason` says why. */
+  final case class Skipped(reason: String) extends PruneOutcome
+
+  /** True unless every loader throws `ClassNotFoundException` for `name`; a linkage error counts as "exists". */
+  private[baklava] def resolves(name: String, loaders: Seq[ClassLoader]): Boolean =
+    loaders.exists { loader =>
+      try {
+        Class.forName(name, false, loader)
+        true
+      } catch {
+        case _: ClassNotFoundException => false
+        case _: Throwable              => true
+      }
+    }
 }
