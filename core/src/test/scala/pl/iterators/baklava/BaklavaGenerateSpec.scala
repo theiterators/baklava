@@ -2,7 +2,6 @@ package pl.iterators.baklava
 
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import sttp.model.StatusCode
 
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
@@ -18,34 +17,7 @@ class BaklavaGenerateSpec extends AnyFunSpec with Matchers {
   private val call      = callAt("/pets/{id}", "/pets/1", tags = Seq("public"))
   private val adminCall = callAt("/admin/loggers/{name}", "/admin/loggers/root", tags = Seq("Admin"))
 
-  private def callAt(symbolicPath: String, path: String, tags: Seq[String]) = BaklavaSerializableCall(
-    BaklavaRequestContextSerializable(
-      symbolicPath = symbolicPath,
-      path = path,
-      pathDescription = None,
-      pathSummary = None,
-      method = None,
-      operationDescription = None,
-      operationSummary = None,
-      operationId = None,
-      operationTags = tags,
-      securitySchemes = Seq.empty,
-      bodySchema = None,
-      headersSeq = Seq.empty,
-      pathParametersSeq = Seq.empty,
-      queryParametersSeq = Seq.empty,
-      responseDescription = None,
-      responseHeaders = Seq.empty
-    ),
-    BaklavaResponseContextSerializable(
-      protocol = BaklavaHttpProtocol("HTTP/1.1"),
-      status = StatusCode.Ok,
-      headers = Seq.empty,
-      requestContentType = None,
-      responseContentType = None,
-      bodySchema = None
-    )
-  )
+  private def callAt(symbolicPath: String, path: String, tags: Seq[String]) = CallFixtures.callAt(symbolicPath, path, tags)
 
   private def captureStdErr[T](body: => T): (T, String) = {
     val buffer   = new ByteArrayOutputStream()
