@@ -136,6 +136,19 @@ class BaklavaGenerateSpec extends AnyFunSpec with Matchers {
       stderr should include("baklavaClean")
     }
 
+    it("keeps this run's captures in staging when the merge fails, so a rerun can retry") {
+      val tmp      = freshDir()
+      val store    = new BaklavaCallStore(tmp)
+      val captured = store.write("pl.iterators.baklava.BaklavaGenerateSpec", callAt("/staged", "/staged", Nil)).get
+      Files.write(tmp.resolve("store"), Array.empty[Byte]) // a plain file where the store directory belongs: every merge fails
+      val formatter     = new RecordingFormatter
+      val (ran, stderr) = captureStdErr(BaklavaGenerate.run(Map.empty, store, Seq(getClass.getClassLoader), Seq(formatter)))
+
+      ran shouldBe false
+      stderr should include("failed to merge")
+      Files.exists(captured) shouldBe true
+    }
+
     it("skips generation with the store-empty message when nothing is stored or captured") {
       val formatter     = new RecordingFormatter
       val (ran, stderr) =

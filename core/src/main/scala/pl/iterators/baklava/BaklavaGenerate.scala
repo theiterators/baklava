@@ -34,8 +34,9 @@ object BaklavaGenerate {
   private[baklava] def defaultLoaders: Seq[ClassLoader] =
     (Option(Thread.currentThread().getContextClassLoader).toSeq :+ getClass.getClassLoader).distinct
 
-  /** Merges this run's captures into `store`, prunes suites whose class `loaders` cannot find, clears staging, and runs the formatters
-    * over the whole store. The store is never cleared: it is what the next run builds on. Returns whether the formatters ran.
+  /** Merges this run's captures into `store`, prunes suites whose class `loaders` cannot find, clears staging (only after a successful
+    * merge, so a failed merge can be retried), and runs the formatters over the whole store. The store is never cleared: it is what the
+    * next run builds on. Returns whether the formatters ran.
     */
   private[baklava] def run(
       configMap: Map[String, String],
@@ -43,10 +44,14 @@ object BaklavaGenerate {
       loaders: Seq[ClassLoader],
       formatters: => Seq[BaklavaDslFormatter]
   ): Boolean = {
-    val merged = store.mergeRunIntoStore() match {
+    val mergeResult = store.mergeRunIntoStore()
+    val merged      = mergeResult match {
       case Success(suites)    => suites
       case Failure(exception) =>
-        System.err.println(s"Baklava: failed to merge captured calls into the store: $exception")
+        System.err.println(
+          s"Baklava: failed to merge captured calls into the store: $exception. " +
+            "This run's captures stay in the staging directory; `baklavaGenerate` retries the merge."
+        )
         Nil
     }
     store.pruneMissingSuites(merged, loaders) match {
@@ -58,9 +63,11 @@ object BaklavaGenerate {
             "run `baklavaClean` and a full test run to reset the store."
         )
     }
-    store.clearStaging() match {
-      case Failure(exception) => System.err.println(s"Baklava: failed to clear the staging directory: $exception")
-      case Success(_)         => ()
+    if (mergeResult.isSuccess) {
+      store.clearStaging() match {
+        case Failure(exception) => System.err.println(s"Baklava: failed to clear the staging directory: $exception")
+        case Success(_)         => ()
+      }
     }
     val calls = store.listStoredCalls()
     val kept  = store.storedSuites().size - merged.size

@@ -179,8 +179,24 @@ class BaklavaCallStoreSpec extends AnyFunSpec with Matchers {
       store.storedSuites() shouldBe Seq("com.acme.A", "com.acme.B")
     }
 
+    it("resolves a nested object suite, whose class name keeps a trailing $") {
+      val store  = new BaklavaCallStore(freshDir())
+      val nested = BaklavaCallStore.suiteName(BaklavaCallStoreSpec.NestedObjectSuite.getClass)
+      nested should endWith("BaklavaCallStoreSpec$NestedObjectSuite")
+      seedStore(store, nested, CallFixtures.callAt("/n", "/n"))
+      seedStore(store, RealSuite, CallFixtures.callAt("/kept", "/kept"))
+      store.pruneMissingSuites(Nil, Seq(getClass.getClassLoader)) shouldBe BaklavaCallStore.Pruned(Nil)
+      store.storedSuites() should contain(nested)
+    }
+
     it("on an empty store is Pruned(Nil)") {
       new BaklavaCallStore(freshDir()).pruneMissingSuites(Nil, Seq(loaderKnowing(Set.empty))) shouldBe BaklavaCallStore.Pruned(Nil)
     }
   }
+}
+
+object BaklavaCallStoreSpec {
+
+  /** Stands in for a suite declared as an `object` nested in another type; its class is `BaklavaCallStoreSpec$NestedObjectSuite$`. */
+  object NestedObjectSuite
 }

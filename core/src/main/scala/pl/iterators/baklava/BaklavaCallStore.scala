@@ -141,15 +141,20 @@ object BaklavaCallStore {
   /** Nothing was removed because the class loaders cannot be trusted to see test classes; `reason` says why. */
   final case class Skipped(reason: String) extends PruneOutcome
 
-  /** True unless every loader throws `ClassNotFoundException` for `name`; a linkage error counts as "exists". */
+  /** True unless every loader throws `ClassNotFoundException` for `name` and for `name$`; a linkage error counts as "exists". The `$`
+    * variant covers suites declared as an `object` nested in another type: [[suiteName]] strips the trailing `$`, and unlike a top-level
+    * object such a suite has no mirror class under the stripped name.
+    */
   private[baklava] def resolves(name: String, loaders: Seq[ClassLoader]): Boolean =
-    loaders.exists { loader =>
-      try {
-        Class.forName(name, false, loader)
-        true
-      } catch {
-        case _: ClassNotFoundException => false
-        case _: Throwable              => true
+    Seq(name, name + "$").exists(candidate =>
+      loaders.exists { loader =>
+        try {
+          Class.forName(candidate, false, loader)
+          true
+        } catch {
+          case _: ClassNotFoundException => false
+          case _: Throwable              => true
+        }
       }
-    }
+    )
 }
