@@ -752,8 +752,9 @@ trait BaklavaTestFrameworkDsl[RouteType, ToRequestBodyType[_], FromResponseBodyT
       r: => R
   ): TestFrameworkFragmentType
 
+  /** Captures the call under this suite's name, so that generation can replace exactly this suite's calls when it re-runs. */
   protected def store(request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?], response: BaklavaResponseContext[?, ?, ?]): Unit = {
-    BaklavaSerialize.serializeCall(request, response) match {
+    BaklavaSerialize.serializeCall(BaklavaCallStore.suiteName(getClass), request, response) match {
       case scala.util.Failure(exception) =>
         System.err.println(s"Failed to serialize call: $exception")
       case scala.util.Success(_) => // Success, no action needed
