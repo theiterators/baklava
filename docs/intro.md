@@ -18,12 +18,12 @@ Baklava is a Scala library that generates API documentation and client code dire
 ### How it works
 
 1. Write routing tests using the Baklava DSL — define paths, methods, parameters, request/response examples
-2. Run your tests with `sbt test` — Baklava serializes each test case to JSON in `target/baklava/calls/`
-3. The SBT plugin automatically generates documentation from the collected test cases
+2. Run your tests with `sbt test` — Baklava serializes each test case to JSON in `target/baklava/calls/<suite>/`
+3. The SBT plugin merges the captured calls into a persistent store (`target/baklava/store/`) and generates documentation from it
 
-:::warning[sbt 2: use `testFull` to generate documentation]
+:::tip[Incremental runs are fine]
 
-sbt 2 redefined `test` as an incremental task cached in a global store (`~/.cache/sbt`) that survives `clean` — on a warm cache it may run only a subset of your suite, or nothing at all, and the generated documentation only covers the tests that actually ran. Run `sbt testFull` (the uncached, run-everything task) whenever you want complete documentation. Baklava refuses to overwrite existing output when zero calls were captured, but a partial run still produces partial documentation.
+Captured calls are kept in a persistent store under `target/baklava/store/`, one directory per test suite. Every run replaces the entries of the suites that ran and keeps the rest, then regenerates the documentation from the whole store. Plain `sbt test` therefore produces complete documentation even on sbt 2, whose `test` is incremental and may run only some suites, or none. The one exception is right after `clean` (or `baklavaClean`): the store is gone, and on a warm sbt 2 cache `test` may run nothing, in which case Baklava skips generation and prints a message. Run `sbt testFull` once to rebuild the store.
 
 :::
 

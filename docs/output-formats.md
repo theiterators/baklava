@@ -24,18 +24,17 @@ libraryDependencies ++= Seq(
 ```
 
 The generation pipeline:
-1. During `sbt test`, each test case is serialized to a JSON file in `target/baklava/calls/`
-2. After tests complete, the SBT plugin runs `BaklavaGenerate` which reads all call files
-3. Every formatter found on the classpath processes the calls and writes its output
-4. The call files are cleaned up
+1. During the test run, each captured call is written as a JSON file to `target/baklava/calls/<suite>/`, where `<suite>` is the fully-qualified name of the test class that made it
+2. After the tests, the sbt plugin runs `BaklavaGenerate`, which moves every suite that captured something into the persistent store `target/baklava/store/<suite>/`, replacing that suite's previous entry, and removes store entries whose test class no longer exists
+3. Every formatter found on the classpath processes all calls in the store and writes its output
 
-Because generation only sees the calls captured in the current run, the output is only as complete as the test run itself. If zero calls were captured, generation is skipped with a warning so existing output is not overwritten by an empty spec.
+Documentation is therefore the union of what each suite captured on its most recent run. If the store ends up empty (right after `clean`, with nothing captured), generation is skipped with a warning so existing output is not overwritten by an empty spec.
 
 Every formatter can also be run again over a filtered subset of the calls, for a public-facing OpenAPI document or a client contract without the admin routes. See [Configuration — Output views](configuration.md#output-views).
 
-:::warning[sbt 2: use `testFull` to generate documentation]
+:::tip[Incremental runs are fine]
 
-sbt 2 redefined `test` as an incremental task cached in a global store (`~/.cache/sbt`) that survives `clean` — on a warm cache it may run only a subset of your suite, or nothing at all, and the generated documentation only covers the tests that actually ran. Run `sbt testFull` (the uncached, run-everything task) whenever you want complete documentation.
+Captured calls are kept in a persistent store under `target/baklava/store/`, one directory per test suite. Every run replaces the entries of the suites that ran and keeps the rest, then regenerates the documentation from the whole store. Plain `sbt test` therefore produces complete documentation even on sbt 2, whose `test` is incremental and may run only some suites, or none. The one exception is right after `clean` (or `baklavaClean`): the store is gone, and on a warm sbt 2 cache `test` may run nothing, in which case Baklava skips generation and prints a message. Run `sbt testFull` once to rebuild the store.
 
 :::
 

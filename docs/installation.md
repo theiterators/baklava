@@ -287,12 +287,12 @@ inConfig(Test)(
 
 The plugin provides several SBT tasks:
 
-- `baklavaGenerate` - Generate API documentation from your tests (executed automatically during `sbt test`)
-- `baklavaClean` - Clean generated documentation files
+- `baklavaGenerate` - Generate API documentation from the stored calls (runs automatically after tests)
+- `baklavaClean` - Delete generated documentation and the stored calls
 
-:::warning[sbt 2: use `testFull` to generate documentation]
+:::tip[Incremental runs are fine]
 
-sbt 2 redefined `test` as an incremental task cached in a global store (`~/.cache/sbt`) that survives `clean` — on a warm cache it may run only a subset of your suite, or nothing at all, and the generated documentation only covers the tests that actually ran. Run `sbt testFull` (the uncached, run-everything task) whenever you want complete documentation. Baklava refuses to overwrite existing output when zero calls were captured, but a partial run still produces partial documentation.
+Captured calls are kept in a persistent store under `target/baklava/store/`, one directory per test suite. Every run replaces the entries of the suites that ran and keeps the rest, then regenerates the documentation from the whole store. Plain `sbt test` therefore produces complete documentation even on sbt 2, whose `test` is incremental and may run only some suites, or none. The one exception is right after `clean` (or `baklavaClean`): the store is gone, and on a warm sbt 2 cache `test` may run nothing, in which case Baklava skips generation and prints a message. Run `sbt testFull` once to rebuild the store.
 
 :::
 
@@ -301,6 +301,15 @@ The documentation will be generated in `target/baklava/` directory after running
 - OpenAPI format: `target/baklava/openapi/openapi.yml`
 - TS-REST format: `target/baklava/tsrest/`
 - oRPC contract format: `target/baklava/orpc/`
+
+### Incremental runs and `testOnly`
+
+- `sbt testOnly com.acme.UsersRouterSpec` refreshes the documentation of that suite and keeps every other suite's documentation as it was. The same holds for `testQuick` and for sbt 2's incremental `test`.
+- Filtering inside a suite (for example `testOnly com.acme.UsersRouterSpec -- -z "GET /users"`) replaces that suite's stored calls with the subset that ran. Run the suite unfiltered afterwards.
+- A suite that still exists but no longer makes any Baklava call keeps its last stored calls. Rename or delete the suite, or run `baklavaClean` followed by a full test run, to drop them.
+- Test groups that run concurrently (a raised `Tags.ForkedTestGroup` limit with one JVM per suite) are not supported: they share one staging directory.
+- `sbt baklavaGenerate` on its own regenerates all output from the store without re-running tests, for example after changing `baklavaGenerateConfigs`.
+- `sbt baklavaClean` deletes `target/baklava`, including the store; the next full test run rebuilds it.
 
 ## Runtime Configuration
 
