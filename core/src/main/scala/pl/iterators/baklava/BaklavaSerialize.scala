@@ -368,9 +368,6 @@ object BaklavaSerialize {
     CodecMakerConfig.withAllowRecursiveTypes(true)
   )
 
-  /** Captures one request/response pair for the test suite named `suite` (see [[BaklavaCallStore.suiteName]]) into the default
-    * [[BaklavaCallStore]]'s staging area, from where generation merges it into the persistent store.
-    */
   def serializeCall(
       suite: String,
       request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],

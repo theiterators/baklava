@@ -10,13 +10,9 @@ import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import scala.util.{Try, Using}
 
-/** On-disk layout of captured calls under `baseDir` (by default `target/baklava`):
-  *
-  *   - `calls/<suite>/<sha256>.json` — staging: what the current test run captured, written by the DSL as tests execute;
-  *   - `store/<suite>/<sha256>.json` — the persistent store generation formats from.
-  *
-  * `<suite>` is the fully-qualified class name of the test suite that captured the call, `<sha256>` the content hash of the call JSON, so
-  * identical calls within a suite collapse to one file.
+/** Captured calls under `baseDir` (`target/baklava` by default): `calls/<suite>/<sha256>.json` is the staging area the DSL writes while
+  * tests run, `store/<suite>/<sha256>.json` the persistent store generation formats from. `<suite>` is the suite's class name, `<sha256>`
+  * the content hash of the call, so identical calls within a suite collapse to one file.
   */
 final class BaklavaCallStore(val baseDir: Path) {
 
@@ -25,7 +21,6 @@ final class BaklavaCallStore(val baseDir: Path) {
 
   import BaklavaSerialize.serializableCallCodec
 
-  /** Writes `call` to staging under `suite` and returns the written file. */
   def write(suite: String, call: BaklavaSerializableCall): Try[Path] = Try {
     val jsonBytes = writeToArray(call)
     val hash      = MessageDigest.getInstance("SHA-256").digest(jsonBytes)
@@ -35,9 +30,7 @@ final class BaklavaCallStore(val baseDir: Path) {
     Files.write(suiteDir.resolve(s"$name.json"), jsonBytes)
   }
 
-  /** Moves every staging suite directory that holds at least one call into the store, replacing that suite's earlier entry wholesale.
-    * Suites absent from staging are left untouched. Returns the merged suite names, sorted.
-    */
+  /** Moves each non-empty staging suite into the store, replacing that suite's earlier entry; suites absent from staging stay. */
   def mergeRunIntoStore(): Try[Seq[String]] = Try {
     val suites = subdirectories(stagingDir).filter(dir => jsonFiles(dir).nonEmpty)
     suites.foreach { dir =>
@@ -54,14 +47,9 @@ final class BaklavaCallStore(val baseDir: Path) {
     suites.map(_.getFileName.toString).sorted
   }
 
-  /** Removes store entries of suites whose class no longer exists on the classpath (deleted or renamed suites).
-    *
-    * A suite is kept when any of `loaders` can load its class, or fails to link it; it is removed only when every loader throws
-    * `ClassNotFoundException`. Names starting with `_` (the reserved [[BaklavaCallStore.UnscopedSuite]]) are never candidates.
-    *
-    * Fail-safe: when the loaders evidently cannot see test classes at all, nothing is deleted and a [[BaklavaCallStore.Skipped]] names the
-    * reason. That is the case when a suite merged in this run (so its class must exist) does not resolve, or when not a single stored
-    * suite resolves. Keeping possibly stale calls with a warning beats wiping the store.
+  /** Removes store entries of suites whose class no longer exists. Fail-safe: when the loaders evidently cannot see test classes at all (a
+    * suite merged in this run does not resolve, or no stored suite does) nothing is deleted and [[BaklavaCallStore.Skipped]] says why;
+    * stale calls behind a warning beat a wiped store.
     */
   def pruneMissingSuites(mergedSuites: Seq[String], loaders: Seq[ClassLoader]): BaklavaCallStore.PruneOutcome = {
     val candidates = storedSuites().filterNot(_.startsWith("_"))
@@ -80,13 +68,10 @@ final class BaklavaCallStore(val baseDir: Path) {
     }
   }
 
-  /** Deletes the staging directory, legacy flat files and empty suite directories included. */
   def clearStaging(): Try[Unit] = Try(deleteRecursively(stagingDir))
 
-  /** Suite names present in the store, sorted. */
   def storedSuites(): Seq[String] = subdirectories(storeDir).map(_.getFileName.toString).sorted
 
-  /** Every decodable call in the store, ordered by suite name then file name, with a call captured by several suites listed once. */
   def listStoredCalls(): Seq[BaklavaSerializableCall] = {
     val seen = mutable.HashSet.empty[String]
     for {
@@ -97,7 +82,6 @@ final class BaklavaCallStore(val baseDir: Path) {
     } yield call
   }
 
-  /** Every decodable call anywhere under staging, flat legacy files included, in path order. */
   def listStagedCalls(): Seq[BaklavaSerializableCall] =
     if (!Files.isDirectory(stagingDir)) Nil
     else Using.resource(Files.walk(stagingDir))(_.iterator().asScala.filter(isJsonFile).toList).sorted.flatMap(readCall)
@@ -126,24 +110,17 @@ object BaklavaCallStore {
 
   lazy val default: BaklavaCallStore = new BaklavaCallStore(DefaultBaseDir)
 
-  /** Suite name used for calls serialized without a suite (the deprecated two-argument `BaklavaSerialize.serializeCall`). */
+  /** Calls serialized through the deprecated two-argument `BaklavaSerialize.serializeCall`; `_`-prefixed suites are never pruned. */
   val UnscopedSuite: String = "_unscoped"
 
-  /** The suite name for a test class: its fully-qualified name, without the `$` of an `object` spec. */
   def suiteName(clazz: Class[_]): String = clazz.getName.stripSuffix("$")
 
-  /** Result of [[BaklavaCallStore.pruneMissingSuites]]. */
   sealed trait PruneOutcome
-
-  /** The named suites were removed from the store (possibly none). */
   final case class Pruned(suites: Seq[String]) extends PruneOutcome
+  final case class Skipped(reason: String)     extends PruneOutcome
 
-  /** Nothing was removed because the class loaders cannot be trusted to see test classes; `reason` says why. */
-  final case class Skipped(reason: String) extends PruneOutcome
-
-  /** True unless every loader throws `ClassNotFoundException` for `name` and for `name$`; a linkage error counts as "exists". The `$`
-    * variant covers suites declared as an `object` nested in another type: [[suiteName]] strips the trailing `$`, and unlike a top-level
-    * object such a suite has no mirror class under the stripped name.
+  /** Tries `name$` too: an `object` suite nested in another type has no mirror class under the name [[suiteName]] produces. A linkage
+    * error counts as "exists".
     */
   private[baklava] def resolves(name: String, loaders: Seq[ClassLoader]): Boolean =
     Seq(name, name + "$").exists(candidate =>

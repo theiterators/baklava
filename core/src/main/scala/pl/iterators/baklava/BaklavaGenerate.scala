@@ -3,12 +3,9 @@ package pl.iterators.baklava
 import java.util.Base64
 import scala.util.{Failure, Success}
 
-/** Entry point the sbt plugin runs after the tests (and that a standalone script calls from `afterAll`).
-  *
-  * Captured calls flow staging → store → formatters, see [[BaklavaCallStore]]: the calls this run captured are merged into the persistent
-  * store, suite by suite, replacing each re-run suite's previous calls; store entries of suites whose class no longer exists are removed;
-  * and every formatter runs over the whole store. Documentation is therefore the union of what each suite captured on its most recent run,
-  * which keeps it complete under sbt 2's incremental `test` and under `testOnly`.
+/** Entry point the sbt plugin runs after the tests (and that a standalone script calls from `afterAll`): merges this run's captures into
+  * the persistent [[BaklavaCallStore]], prunes suites whose class is gone and formats the whole store, so the documentation stays the
+  * union of what each suite captured on its most recent run under sbt 2's incremental `test` and under `testOnly`.
   */
 object BaklavaGenerate {
   def main(args: Array[String]): Unit = {
@@ -28,16 +25,10 @@ object BaklavaGenerate {
     ()
   }
 
-  /** The thread's context class loader first (sbt's in-process runner points it at the full test classpath, including under class-loader
-    * layering strategies that hide project classes from this class's own loader), then this class's loader.
-    */
+  /** Context class loader first: under sbt's layered class loaders it sees the test classpath when this class's own loader does not. */
   private[baklava] def defaultLoaders: Seq[ClassLoader] =
     (Option(Thread.currentThread().getContextClassLoader).toSeq :+ getClass.getClassLoader).distinct
 
-  /** Merges this run's captures into `store`, prunes suites whose class `loaders` cannot find, clears staging (only after a successful
-    * merge, so a failed merge can be retried), and runs the formatters over the whole store. The store is never cleared: it is what the
-    * next run builds on. Returns whether the formatters ran.
-    */
   private[baklava] def run(
       configMap: Map[String, String],
       store: BaklavaCallStore,

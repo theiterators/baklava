@@ -2,7 +2,6 @@ package pl.iterators.baklava
 
 import sttp.model.StatusCode
 
-/** Minimal captured calls for tests that exercise the call store and the generator; only the request path and tags vary. */
 object CallFixtures {
 
   def callAt(symbolicPath: String, path: String, tags: Seq[String] = Nil): BaklavaSerializableCall = BaklavaSerializableCall(

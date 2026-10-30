@@ -11,7 +11,6 @@ import java.nio.file.{Files, Path}
 import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 
-/** Exercises the real default store under `target/baklava/calls`; the suite directories it creates are removed afterwards. */
 class BaklavaSerializeSpec extends AnyFunSpec with Matchers with BeforeAndAfterAll {
 
   private val suite = "pl.iterators.baklava.BaklavaSerializeSpec.fixture"

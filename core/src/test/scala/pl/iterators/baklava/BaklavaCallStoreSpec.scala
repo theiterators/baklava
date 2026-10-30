@@ -12,7 +12,6 @@ class BaklavaCallStoreSpec extends AnyFunSpec with Matchers {
 
   private def freshDir(): Path = Files.createTempDirectory("baklava-store")
 
-  /** Puts `call` into the persistent store under `suite`, as an earlier run would have. */
   private def seedStore(store: BaklavaCallStore, suite: String, call: BaklavaSerializableCall): Unit = {
     store.write(suite, call).get
     store.mergeRunIntoStore().get
@@ -21,12 +20,9 @@ class BaklavaCallStoreSpec extends AnyFunSpec with Matchers {
 
   private def paths(calls: Seq[BaklavaSerializableCall]): Seq[String] = calls.map(_.request.symbolicPath)
 
-  /** A real class whose name stands in for a suite that still exists. */
   private val RealSuite = classOf[BaklavaCallStore].getName
 
-  /** A class loader that loads exactly `names` (which must be real classes: the JVM rejects a class returned under another name), fails to
-    * link `linkageErrors`, and has never heard of anything else.
-    */
+  // `names` must be real classes: the JVM rejects a class returned under another name
   private def loaderKnowing(names: Set[String], linkageErrors: Set[String] = Set.empty): ClassLoader =
     new ClassLoader(getClass.getClassLoader) {
       override def loadClass(name: String, resolve: Boolean): Class[_] =
@@ -197,6 +193,5 @@ class BaklavaCallStoreSpec extends AnyFunSpec with Matchers {
 
 object BaklavaCallStoreSpec {
 
-  /** Stands in for a suite declared as an `object` nested in another type; its class is `BaklavaCallStoreSpec$NestedObjectSuite$`. */
   object NestedObjectSuite
 }
