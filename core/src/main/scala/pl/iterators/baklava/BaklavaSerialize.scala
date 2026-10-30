@@ -5,14 +5,7 @@ import com.github.plokhotnyuk.jsoniter_scala.macros.*
 import io.circe.Json
 import sttp.model.{Header => SttpHeader, Method, StatusCode}
 
-import java.io.File
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
-import java.security.MessageDigest
-import java.util.Base64
-import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 /** Jsoniter codec for circe `Json` values. Used to round-trip a structured default value (issue #61) through the on-disk serialized call
@@ -368,10 +361,6 @@ case class BaklavaSerializableCall(request: BaklavaRequestContextSerializable, r
 
 object BaklavaSerialize {
 
-  private val dirName       = "target/baklava/calls"
-  private val dirFile       = new File(dirName)
-  private val fileExtension = "json"
-
   // JSON codec for BaklavaSerializableCall. The import brings our custom `Json`-typed codec into
   // scope so jsoniter-scala's macro picks it up when walking into `BaklavaSchemaSerializable.default`.
   import JsonCirceCodec.jsonValueCodec
@@ -380,56 +369,27 @@ object BaklavaSerialize {
   )
 
   def serializeCall(
+      suite: String,
       request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
       response: BaklavaResponseContext[?, ?, ?]
-  ): Try[Unit] = {
-    for {
-      _ <- Try(dirFile.mkdirs())
-      context = BaklavaSerializableCall(
+  ): Try[Unit] =
+    Try(
+      BaklavaSerializableCall(
         BaklavaRequestContextSerializable(request, response.requestBodyString),
         BaklavaResponseContextSerializable(response)
       )
-      jsonBytes = writeToArray(context)
-      hashBytes = MessageDigest.getInstance("SHA-256").digest(jsonBytes)
-      chunkName = Base64.getUrlEncoder.encodeToString(hashBytes).replaceAll("=", "")
-      chunkFile = new File(s"$dirName/$chunkName.$fileExtension")
-      _ <- Try(Files.write(chunkFile.toPath, jsonBytes))
-    } yield ()
-  }
+    ).flatMap(BaklavaCallStore.default.write(suite, _)).map(_ => ())
 
-  def listSerializedCalls(): Try[Seq[BaklavaSerializableCall]] = {
-    Try {
-      dirFile.mkdirs()
-      Option(dirFile.listFiles())
-        .getOrElse(Array.empty[File])
-        .filter(_.getName.endsWith(fileExtension))
-        .flatMap(readCallFromFile)
-        .toSeq
-    }
-  }
+  @deprecated("Use the overload that takes the suite name", "2.3.0")
+  def serializeCall(
+      request: BaklavaRequestContext[?, ?, ?, ?, ?, ?, ?],
+      response: BaklavaResponseContext[?, ?, ?]
+  ): Try[Unit] = serializeCall(BaklavaCallStore.UnscopedSuite, request, response)
 
-  private def readCallFromFile(file: File): Option[BaklavaSerializableCall] = {
-    Try {
-      val jsonBytes = Files.readAllBytes(file.toPath)
-      readFromArray[BaklavaSerializableCall](jsonBytes)
-    }.toOption
-  }
+  @deprecated("Generation now reads the persistent store; use BaklavaCallStore", "2.3.0")
+  def listSerializedCalls(): Try[Seq[BaklavaSerializableCall]] = Try(BaklavaCallStore.default.listStagedCalls())
 
-  def cleanSerializedCalls(): Try[Unit] = {
-    val dir: Path = Paths.get(dirFile.getPath)
-
-    if (Files.exists(dir) && Files.isDirectory(dir)) {
-      Try {
-        Files
-          .walk(dir)
-          .sorted(implicitly[Ordering[Path]].reverse)
-          .iterator()
-          .asScala
-          .foreach(Files.delete)
-      }
-    } else {
-      Try(())
-    }
-  }
+  @deprecated("Generation now reads the persistent store; use BaklavaCallStore", "2.3.0")
+  def cleanSerializedCalls(): Try[Unit] = BaklavaCallStore.default.clearStaging()
 
 }

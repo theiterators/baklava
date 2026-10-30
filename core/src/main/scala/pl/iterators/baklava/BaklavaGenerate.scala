@@ -3,6 +3,10 @@ package pl.iterators.baklava
 import java.util.Base64
 import scala.util.{Failure, Success}
 
+/** Entry point the sbt plugin runs after the tests (and that a standalone script calls from `afterAll`): merges this run's captures into
+  * the persistent [[BaklavaCallStore]], prunes suites whose class is gone and formats the whole store, so the documentation stays the
+  * union of what each suite captured on its most recent run under sbt 2's incremental `test` and under `testOnly`.
+  */
 object BaklavaGenerate {
   def main(args: Array[String]): Unit = {
     val configMap = args.map { entry =>
@@ -17,25 +21,58 @@ object BaklavaGenerate {
       }
     }.toMap
 
-    BaklavaSerialize.listSerializedCalls() match {
-      case Success(calls) =>
-        if (generate(configMap, calls, BaklavaDslFormatter.formatters)) {
-          BaklavaSerialize.cleanSerializedCalls() match {
-            case Failure(exception) =>
-              System.err.println(s"Failed to clean serialized calls: $exception")
-            case Success(_) => // Success, no action needed
-          }
-        }
-      case Failure(exception) =>
-        System.err.println(s"Failed to list serialized calls: $exception")
-    }
+    run(configMap, BaklavaCallStore.default, defaultLoaders, BaklavaDslFormatter.formatters)
+    ()
   }
 
-  /** Runs the formatters over the captured calls, then once more per configured view (see [[BaklavaView]]) with that view's subset of the
-    * calls under `target/baklava/views/<name>`. With zero captured calls generation is skipped (returning false), so a previously
-    * generated spec is never overwritten by an empty one — zero calls almost always means the test suite didn't actually run, e.g. sbt 2's
-    * incremental `test` restoring a cached result (see issue #135). A view that selects zero calls is skipped the same way. An invalid
-    * `views` configuration fails generation before any formatter runs.
+  /** Context class loader first: under sbt's layered class loaders it sees the test classpath when this class's own loader does not. */
+  private[baklava] def defaultLoaders: Seq[ClassLoader] =
+    (Option(Thread.currentThread().getContextClassLoader).toSeq :+ getClass.getClassLoader).distinct
+
+  private[baklava] def run(
+      configMap: Map[String, String],
+      store: BaklavaCallStore,
+      loaders: Seq[ClassLoader],
+      formatters: => Seq[BaklavaDslFormatter]
+  ): Boolean = {
+    val mergeResult = store.mergeRunIntoStore()
+    val merged      = mergeResult match {
+      case Success(suites)    => suites
+      case Failure(exception) =>
+        System.err.println(
+          s"Baklava: failed to merge captured calls into the store: $exception. " +
+            "This run's captures stay in the staging directory; `baklavaGenerate` retries the merge."
+        )
+        Nil
+    }
+    store.pruneMissingSuites(merged, loaders) match {
+      case BaklavaCallStore.Pruned(suites) =>
+        suites.foreach(suite => System.err.println(s"Baklava: removed stored calls of '$suite' — its class no longer exists."))
+      case BaklavaCallStore.Skipped(reason) =>
+        System.err.println(
+          s"Baklava: skipped pruning stored suites — $reason. Stale suites may remain in the output; " +
+            "run `baklavaClean` and a full test run to reset the store."
+        )
+    }
+    if (mergeResult.isSuccess) {
+      store.clearStaging() match {
+        case Failure(exception) => System.err.println(s"Baklava: failed to clear the staging directory: $exception")
+        case Success(_)         => ()
+      }
+    }
+    val calls = store.listStoredCalls()
+    val kept  = store.storedSuites().size - merged.size
+    System.err.println(
+      s"Baklava: merged ${merged.size} suite(s) from this run, kept $kept from earlier runs, formatting ${calls.size} call(s)."
+    )
+    generate(configMap, calls, formatters)
+  }
+
+  /** Runs the formatters over the stored calls, then once more per configured view (see [[BaklavaView]]) with that view's subset of the
+    * calls under `target/baklava/views/<name>`. With zero calls generation is skipped (returning false), so a previously generated spec is
+    * never overwritten by an empty one — an empty store means nothing was captured in this run and nothing is left from earlier runs, e.g.
+    * right after `baklavaClean` when sbt 2's cached `test` runs no suite (see issue #135). A view that selects zero calls is skipped the
+    * same way. An invalid `views` configuration fails generation before any formatter runs.
     */
   private[baklava] def generate(
       configMap: Map[String, String],
@@ -44,9 +81,11 @@ object BaklavaGenerate {
   ): Boolean = {
     if (calls.isEmpty) {
       System.err.println(
-        "Baklava captured 0 calls — skipping generation so existing output is not overwritten. " +
+        "Baklava: the call store is empty (0 calls) — skipping generation so existing output is not overwritten. " +
+          "Nothing was captured in this run and no earlier run is stored, which is expected right after `baklavaClean` (or `clean` on sbt 1). " +
           "If your tests did run, make sure they use the Baklava DSL. " +
-          "If no tests ran, you may have hit sbt 2's incremental, cached `test` task; run `testFull` for a full run."
+          "On sbt 2 a warm cache may have skipped every suite: run `testFull` once to rebuild the store; " +
+          "afterwards plain `test` keeps it current."
       )
       false
     } else {

@@ -2,10 +2,10 @@ package pl.iterators.baklava
 
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import sttp.model.StatusCode
 
 import java.io.{ByteArrayOutputStream, PrintStream}
 import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path}
 
 class BaklavaGenerateSpec extends AnyFunSpec with Matchers {
 
@@ -18,34 +18,7 @@ class BaklavaGenerateSpec extends AnyFunSpec with Matchers {
   private val call      = callAt("/pets/{id}", "/pets/1", tags = Seq("public"))
   private val adminCall = callAt("/admin/loggers/{name}", "/admin/loggers/root", tags = Seq("Admin"))
 
-  private def callAt(symbolicPath: String, path: String, tags: Seq[String]) = BaklavaSerializableCall(
-    BaklavaRequestContextSerializable(
-      symbolicPath = symbolicPath,
-      path = path,
-      pathDescription = None,
-      pathSummary = None,
-      method = None,
-      operationDescription = None,
-      operationSummary = None,
-      operationId = None,
-      operationTags = tags,
-      securitySchemes = Seq.empty,
-      bodySchema = None,
-      headersSeq = Seq.empty,
-      pathParametersSeq = Seq.empty,
-      queryParametersSeq = Seq.empty,
-      responseDescription = None,
-      responseHeaders = Seq.empty
-    ),
-    BaklavaResponseContextSerializable(
-      protocol = BaklavaHttpProtocol("HTTP/1.1"),
-      status = StatusCode.Ok,
-      headers = Seq.empty,
-      requestContentType = None,
-      responseContentType = None,
-      bodySchema = None
-    )
-  )
+  private def callAt(symbolicPath: String, path: String, tags: Seq[String]) = CallFixtures.callAt(symbolicPath, path, tags)
 
   private def captureStdErr[T](body: => T): (T, String) = {
     val buffer   = new ByteArrayOutputStream()
@@ -114,6 +87,77 @@ class BaklavaGenerateSpec extends AnyFunSpec with Matchers {
       val error = intercept[RuntimeException](BaklavaGenerate.generate(config, Seq(call), Seq(formatter)))
       error.getMessage should include("by-moon-phase:full")
       formatter.invocations shouldBe empty
+    }
+  }
+
+  describe("BaklavaGenerate.run") {
+
+    def freshDir(): Path = Files.createTempDirectory("baklava-generate")
+
+    it("formats the union of this run's captures and earlier runs' store, and keeps the store") {
+      val tmp   = freshDir()
+      val store = new BaklavaCallStore(tmp)
+      store.write("pl.iterators.baklava.BaklavaGenerateSpec", callAt("/old", "/old", Nil)).get
+      store.mergeRunIntoStore().get
+      store.write("pl.iterators.baklava.BaklavaCallStoreSpec", callAt("/new", "/new", Nil)).get
+      val formatter     = new RecordingFormatter
+      val (ran, stderr) = captureStdErr(BaklavaGenerate.run(Map.empty, store, Seq(getClass.getClassLoader), Seq(formatter)))
+
+      ran shouldBe true
+      formatter.invocations.map(_._2.map(_.request.symbolicPath)) shouldBe List(Seq("/new", "/old"))
+      store.listStoredCalls().size shouldBe 2
+      Files.exists(tmp.resolve("calls")) shouldBe false
+      stderr should include("merged 1 suite(s) from this run, kept 1 from earlier runs, formatting 2 call(s)")
+    }
+
+    it("prunes a stored suite whose class is gone and reports it") {
+      val store = new BaklavaCallStore(freshDir())
+      store.write("com.acme.Gone", callAt("/gone", "/gone", Nil)).get
+      store.write("pl.iterators.baklava.BaklavaGenerateSpec", callAt("/kept", "/kept", Nil)).get
+      store.mergeRunIntoStore().get
+      val formatter   = new RecordingFormatter
+      val (_, stderr) = captureStdErr(BaklavaGenerate.run(Map.empty, store, Seq(getClass.getClassLoader), Seq(formatter)))
+
+      formatter.invocations.map(_._2.map(_.request.symbolicPath)) shouldBe List(Seq("/kept"))
+      stderr should include("removed stored calls of 'com.acme.Gone'")
+    }
+
+    it("warns instead of pruning when the loaders cannot see test classes") {
+      val store = new BaklavaCallStore(freshDir())
+      store.write("pl.iterators.baklava.BaklavaGenerateSpec", callAt("/fresh", "/fresh", Nil)).get
+      val blind = new ClassLoader(null) {
+        override def loadClass(name: String, resolve: Boolean): Class[_] = throw new ClassNotFoundException(name)
+      }
+      val formatter   = new RecordingFormatter
+      val (_, stderr) = captureStdErr(BaklavaGenerate.run(Map.empty, store, Seq(blind), Seq(formatter)))
+
+      formatter.invocations.map(_._2.map(_.request.symbolicPath)) shouldBe List(Seq("/fresh"))
+      stderr should include("skipped pruning")
+      stderr should include("baklavaClean")
+    }
+
+    it("keeps this run's captures in staging when the merge fails, so a rerun can retry") {
+      val tmp      = freshDir()
+      val store    = new BaklavaCallStore(tmp)
+      val captured = store.write("pl.iterators.baklava.BaklavaGenerateSpec", callAt("/staged", "/staged", Nil)).get
+      Files.write(tmp.resolve("store"), Array.empty[Byte]) // a plain file where the store directory belongs: every merge fails
+      val formatter     = new RecordingFormatter
+      val (ran, stderr) = captureStdErr(BaklavaGenerate.run(Map.empty, store, Seq(getClass.getClassLoader), Seq(formatter)))
+
+      ran shouldBe false
+      stderr should include("failed to merge")
+      Files.exists(captured) shouldBe true
+    }
+
+    it("skips generation with the store-empty message when nothing is stored or captured") {
+      val formatter     = new RecordingFormatter
+      val (ran, stderr) =
+        captureStdErr(BaklavaGenerate.run(Map.empty, new BaklavaCallStore(freshDir()), Seq(getClass.getClassLoader), Seq(formatter)))
+
+      ran shouldBe false
+      formatter.invocations shouldBe empty
+      stderr should include("0")
+      stderr should include("testFull")
     }
   }
 }

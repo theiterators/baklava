@@ -119,8 +119,8 @@ sbt test
 # Output in target/baklava/openapi/openapi.yml, target/baklava/simple/, etc.
 ```
 
-> [!WARNING]
-> **On sbt 2, use `sbt testFull` to generate documentation.** sbt 2 redefined `test` as an incremental task cached in a global store (`~/.cache/sbt`) that survives `clean` — on a warm cache it may run only a subset of your suite, or nothing at all, and the generated documentation only covers the tests that actually ran. `testFull` is the uncached, run-everything task. (Baklava refuses to overwrite existing output when zero calls were captured, but a partial run still produces partial documentation.)
+> [!TIP]
+> **Incremental runs are fine.** Captured calls are kept in a persistent store under `target/baklava/store/`, one directory per test suite. Every run replaces the entries of the suites that captured at least one call and keeps the rest, then regenerates the documentation from the whole store. Plain `sbt test` therefore produces complete documentation even on sbt 2, whose `test` is incremental and may run only some suites, or none. The store cannot help when sbt 2 skips a suite that has no entry in it: on a checkout without `target/` on a machine whose sbt cache already holds the results (a second clone, or CI restoring `~/.cache/sbt` but not `target/`), after `baklavaClean` (or `clean` on sbt 1, which deletes `target/`), or when a suite that had been removed comes back unchanged, for example after switching branches, because sbt 2 caches test results by content. Run `sbt testFull` once in that case, and prefer `testFull` over `test` in CI on sbt 2. Baklava prints a message when the store is empty.
 
 ## Try It Without a Build
 

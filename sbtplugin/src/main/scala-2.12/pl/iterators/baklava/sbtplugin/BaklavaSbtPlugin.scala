@@ -12,8 +12,8 @@ object BaklavaSbtPlugin extends AutoPlugin {
   override def trigger = noTrigger
 
   object autoImport {
-    val baklavaGenerate = taskKey[Unit]("Generate documentation using baklava")
-    val baklavaClean    = taskKey[Unit]("Clean artifacts created by baklava")
+    val baklavaGenerate = taskKey[Unit]("Generate documentation from the stored calls (runs automatically after tests)")
+    val baklavaClean    = taskKey[Unit]("Delete generated documentation and the stored calls")
 
     val baklavaGenerateConfigs = taskKey[Map[String, String]]("Options for baklava generate")
   }
@@ -67,6 +67,11 @@ object BaklavaSbtPlugin extends AutoPlugin {
           IO.delete(baklavaDir)
         }
 
+      },
+      Test / testOptions += Tests.Setup { () =>
+        // Staging holds only this run's captures; an interrupted earlier run or an older Baklava's flat files must not leak in.
+        val staging = new File("target/baklava/calls")
+        if (staging.exists()) IO.delete(staging)
       },
       Test / testOptions += Tests.Cleanup { () =>
         // Here we got copy paster code from baklavaGenerate task. I do not know how to use baklavaGenerate task here.
