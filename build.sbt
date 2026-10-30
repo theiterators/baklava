@@ -1,4 +1,4 @@
-ThisBuild / tlBaseVersion          := "2.2"
+ThisBuild / tlBaseVersion          := "2.3"
 ThisBuild / tlCiHeaderCheck        := false
 ThisBuild / tlUntaggedAreSnapshots := true
 ThisBuild / versionScheme          := Some("early-semver")
