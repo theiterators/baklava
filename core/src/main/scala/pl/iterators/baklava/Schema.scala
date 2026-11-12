@@ -17,6 +17,11 @@ object SchemaType {
   case object ObjectType extends SchemaType
 }
 
+@scala.annotation.implicitNotFound(
+  "No Schema[${T}] found. Case classes, case objects and sealed traits / enums get one derived automatically unless " +
+    "-Xmacro-settings:baklava.schema.autoDerivation=false is set; otherwise define one, e.g. " +
+    "`implicit val schema: Schema[${T}] = Schema.derived`."
+)
 trait Schema[T] {
   val className: String
   val `type`: SchemaType

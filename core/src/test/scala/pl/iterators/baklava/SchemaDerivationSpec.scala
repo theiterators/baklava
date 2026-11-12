@@ -6,6 +6,13 @@ import org.scalatest.matchers.should.Matchers
 import java.util.UUID
 
 object SchemaDerivationFixtures {
+  // a wrapper with its own instance that needs the wrapped type's schema — like NonEmptyList[T] in user code
+  final class Wrapper[T](val value: T)
+  object Wrapper {
+    implicit def wrapperSchema[T](implicit inner: Schema[T]): Schema[Wrapper[T]] =
+      Schema.listSchema(inner).asInstanceOf[Schema[Wrapper[T]]]
+  }
+  final case class Wrapping(leaves: Wrapper[Leaf])
   final case class Leaf(id: UUID, label: String)
   final case class WithDefaults(name: String, count: Int = 3, tags: List[String] = List("a", "b"))
   final case class Page[T](items: List[T], total: Long = 0L)
@@ -93,6 +100,10 @@ class SchemaDerivationSpec extends AnyFunSpec with Matchers {
       s.`type` shouldBe SchemaType.StringType
       s.`enum` shouldBe Some(Set("Circle", "Square", "Rect", "Dot"))
     }
+
+    it("list the subtype names alphabetically, keeping generated docs stable") {
+      implicitly[Schema[Shape]].`enum`.get.toList shouldBe List("Circle", "Dot", "Rect", "Square")
+    }
   }
 
   describe("a DTO reached through many fields and wrappers") {
@@ -105,6 +116,29 @@ class SchemaDerivationSpec extends AnyFunSpec with Matchers {
       render(s.properties("byKey").additionalPropertiesSchema.get) shouldBe flag
       render(s.properties("related").items.get) shouldBe render(Schema.optionSchema(implicitly[Schema[Flag]]))
       s.properties("shape").`enum` shouldBe Some(Set("Circle", "Square", "Rect", "Dot"))
+    }
+  }
+
+  describe("one derivation") {
+    it("derives a nested type once and shares that instance across fields and wrappers") {
+      val s       = implicitly[Schema[AuditEntry]]
+      val current = s.properties("current")
+      s.properties("history").items.get should be theSameInstanceAs current
+      s.properties("byKey").additionalPropertiesSchema.get should be theSameInstanceAs current
+      s.properties("current").properties("owner").properties should be theSameInstanceAs
+      s.properties("current").properties("children").items.get.properties
+    }
+  }
+
+  describe("Schema.derived") {
+    it("derives the same schema as the automatic instance") {
+      render(Schema.derived[AuditEntry]) shouldBe render(implicitly[Schema[AuditEntry]])
+    }
+  }
+
+  describe("custom wrapper instances") {
+    it("receive the derived schema of the wrapped type") {
+      render(implicitly[Schema[Wrapping]].properties("leaves")) shouldBe render(Schema.listSchema(implicitly[Schema[Leaf]]))
     }
   }
 
