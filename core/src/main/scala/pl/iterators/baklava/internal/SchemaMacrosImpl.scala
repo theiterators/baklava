@@ -4,32 +4,16 @@ package internal
 import hearth.*
 import hearth.fp.effect.*
 
-/** Cross-compiled (Scala 2.13 / 3) `Schema` derivation, built with Hearth.
-  *
-  * One expansion walks the whole type tree: every case class / sealed trait it meets becomes one `lazy val` in the generated block, so a
-  * type referenced from many fields is derived once, not once per occurrence. The generated code only collects metadata (field names,
-  * defaults, subtype names) and hands it to the plain [[SchemaDerivation.deriveProduct]] / [[SchemaDerivation.deriveEnum]] methods of the
-  * derivation object the macro was called on, so the naming hooks keep working as ordinary overrides.
-  *
-  * For each nested type, in order:
-  *   1. an instance already in implicit scope (pinned instances, `SchemaDefaults`, integrations), never the automatic instance
-  *      re-expanding itself;
-  *   1. the built-in wrappers (`Option`, `List`, `Seq`, `Vector`, `Set`, `Array`, `Map`) around a derived type;
-  *   1. structural derivation of case classes, case objects and sealed traits / enums;
-  *   1. as a last resort, any instance at all, including the automatic one (e.g. a custom `Wrapper[T]` instance that needs `Schema[Dto]`).
-  */
+// One expansion derives the whole case class tree; each nested case class becomes one cached lazy val, so a type
+// referenced from many fields is derived once. Nested types resolve in order: an instance already in scope, a built-in
+// wrapper (Option, List, ...) around a derived type, structural derivation, then any instance at all.
 private[baklava] trait SchemaMacrosImpl { this: MacroCommons =>
 
   import SchemaMacrosImpl.*
 
   def deriveSchema[A: Type](self: Expr[SchemaDerivation], automatic: Boolean): Expr[Schema[A]] = {
     val program: MIO[Expr[Schema[A]]] =
-      if (automatic && NestedLookup.active)
-        // inside another derivation's lookup of an existing instance: decline, so that lookup only finds instances
-        // that exist already and the enclosing derivation derives this type itself (and caches it)
-        MIO.fail(Declined)
-      else if (automatic && !autoDerivationEnabled)
-        MIO.fail(AutoDerivationDisabled(Type.plainPrint[A]))
+      if (automatic && NestedLookup.active) MIO.fail(Declined)
       else
         MIO.scoped { runSafe =>
           val ctx = new Ctx(self, ValDefsCache.mlocal)
@@ -37,8 +21,8 @@ private[baklava] trait SchemaMacrosImpl { this: MacroCommons =>
           runSafe(ctx.cache.get).toValDefs.use(_ => top)
         }
 
-    // Not `runToExprOrFail`: that sets up run-wide state which must not be re-entered, and a nested type's instance
-    // (e.g. `Wrapper[Dto]` needing `Schema[Dto]`) can expand this macro again while this run is still going.
+    // not runToExprOrFail: a nested type's instance (e.g. Wrapper[Dto]) can expand this macro again while this run is
+    // still going, and runToExprOrFail must not be re-entered
     program.unsafe.runSync._2 match {
       case Right(expr)  => expr
       case Left(errors) => Environment.reportErrorAndAbort(errors.toVector.map(describe(Type.plainPrint[A], _)).mkString("\n"))
@@ -46,13 +30,9 @@ private[baklava] trait SchemaMacrosImpl { this: MacroCommons =>
   }
 
   private def describe(typeName: String, error: Throwable): String = error match {
-    case Declined                        => s"Schema[$typeName] is derived by the enclosing derivation"
-    case AutoDerivationDisabled(derived) =>
-      s"automatic Schema derivation is disabled (-Xmacro-settings:baklava.schema.autoDerivation=false); " +
-      s"define an instance for $derived, e.g. `implicit val schema: Schema[$derived] = Schema.derived`"
+    case Declined              => s"Schema[$typeName] is derived by the enclosing derivation"
     case NotDerivable(missing) =>
-      s"cannot derive Schema[$missing]: it is not a case class, case object, sealed trait or enum, " +
-      s"and no Schema[$missing] is in scope"
+      s"cannot derive Schema[$missing]: only case classes and case objects are derived, and no Schema[$missing] is in scope"
     case other => s"cannot derive Schema[$typeName]: $other"
   }
 
@@ -82,28 +62,10 @@ private[baklava] trait SchemaMacrosImpl { this: MacroCommons =>
     }
   }
 
-  /** An instance that exists without deriving `A`: never the automatic instance expanding itself again. The automatic instance is left out
-    * of the search where the compiler supports it, and declines anywhere deeper in the search (e.g. `listSchema`'s argument when looking
-    * up `Schema[List[Dto]]`), which exclusion alone does not reach.
-    */
+  // the automatic instance declines while NestedLookup is set, so this finds only instances that already exist
   private def existingInstance[A](implicit SchemaA: Type[Schema[A]]): Option[Expr[Schema[A]]] =
-    NestedLookup.during {
-      try Expr.summonImplicitIgnoring[Schema[A]](automaticInstances*).toOption
-      catch {
-        // compilers before Scala 3.7 / 2.13.17 cannot leave implicits out of a search
-        case _: HearthRequirementError => Expr.summonImplicit[Schema[A]].toOption
-      }
-    }
+    NestedLookup.during(Expr.summonImplicit[Schema[A]].toOption)
 
-  private lazy val automaticInstances: Seq[UntypedMethod] =
-    Type
-      .of[SchemaDerivationCompat]
-      .asUntyped
-      .methods
-      .filter(method => method.name == "autoDerived" || method.name == "gen")
-      .toSeq
-
-  /** Case classes, case objects and sealed traits / enums, each emitted once as a cached `lazy val`. */
   private def deriveStructurally[A: Type](ctx: Ctx): MIO[Option[Expr[Schema[A]]]] = {
     implicit val SchemaA: Type[Schema[A]] = Types.Schema[A]
     val className                         = Expr(Type.shortName[A])
@@ -131,18 +93,7 @@ private[baklava] trait SchemaMacrosImpl { this: MacroCommons =>
         }
       case None if Type.isCaseObject[A] || Type.isCaseVal[A] =>
         cached(MIO.pure(productExpr[A](ctx.self, className, Nil)))
-      case None =>
-        Type.exhaustiveChildren[A] match {
-          case Some(children) =>
-            // sorted, as magnolia listed subtypes: the enum ends up in a Set, and small Sets keep insertion order
-            val names = children.toList.map { case (_, child) => child.Underlying.shortName }.sorted
-            cached {
-              MIO.pure(Expr.quote {
-                Expr.splice(ctx.self).deriveEnum[A](Expr.splice(className), Expr.splice(stringListExpr(names)))
-              })
-            }
-          case None => MIO.pure(None)
-        }
+      case None => MIO.pure(None)
     }
   }
 
@@ -166,9 +117,7 @@ private[baklava] trait SchemaMacrosImpl { this: MacroCommons =>
     }
   }
 
-  /** A platform-specific reference to the default of `A`'s `index`-th (0-based) constructor parameter; `None` uses Hearth's default-value
-    * method.
-    */
+  // overridden on Scala 2, where Hearth's default getter does not typecheck inside implicit search
   protected def platformDefaultValue[A: Type](index: Int): Option[Expr[Any]] = None
 
   private def hearthDefaultValue(param: Parameter)(implicit AnyT: Type[Any]): Option[Expr[Any]] =
@@ -188,7 +137,6 @@ private[baklava] trait SchemaMacrosImpl { this: MacroCommons =>
         }
     }
 
-  /** `Option[T]`, `List[T]`, … around a type that needs deriving: derive `T` here (cached) and wrap it. */
   private def deriveWrapped[A: Type](ctx: Ctx): MIO[Option[Expr[Schema[A]]]] = {
     def wrap1[F[_]](ctor: Type.Ctor1[F])(build: Wrap1[F]): Option[MIO[Expr[Schema[A]]]] =
       ctor.unapply(Type[A]).collect {
@@ -246,8 +194,7 @@ private[baklava] trait SchemaMacrosImpl { this: MacroCommons =>
     def apply[T: Type](schema: Expr[Schema[T]]): Expr[Schema[F[T]]]
   }
 
-  // Quoted code spells out _root_-qualified names: Scala 2 cross-quotes keep names as written, and the code lands in
-  // the user's scope.
+  // _root_-qualified: Scala 2 cross-quotes keep names as written and the code lands in the user's scope
   private def productExpr[A: Type](
       self: Expr[SchemaDerivation],
       className: Expr[String],
@@ -259,20 +206,7 @@ private[baklava] trait SchemaMacrosImpl { this: MacroCommons =>
     Expr.quote(Expr.splice(self).deriveProduct[A](Expr.splice(className), Expr.splice(list)))
   }
 
-  private def stringListExpr(values: List[String]): Expr[List[String]] =
-    values.foldRight(Expr.quote(_root_.scala.List.empty[_root_.java.lang.String])) { (value, acc) =>
-      Expr.quote(Expr.splice(Expr(value)) :: Expr.splice(acc))
-    }
-
   private def cacheKey[A: Type]: String = s"schema:${Type.plainPrint[A]}"
-
-  private def autoDerivationEnabled: Boolean =
-    (for {
-      settings <- Environment.typedSettings.toOption
-      baklava  <- settings.get("baklava")
-      schema   <- baklava.get("schema")
-      enabled  <- schema.get("autoDerivation").flatMap(_.asBoolean)
-    } yield enabled).getOrElse(true)
 
   private object Types {
     val Any: Type[Any]                                  = Type.of[Any]
@@ -289,13 +223,9 @@ private[baklava] trait SchemaMacrosImpl { this: MacroCommons =>
 
 private[baklava] object SchemaMacrosImpl {
 
-  /** Set while a derivation looks up an existing instance on a compiler that cannot leave the automatic instance out of the search (before
-    * Scala 3.7 / 2.13.17); the automatic instance declines while it is set.
-    */
+  // Set while a derivation looks up an existing instance; the automatic instance declines meanwhile. Kept in a JVM-wide
+  // slot because Scala 2 loads macro implementations in a fresh classloader per expansion.
   object NestedLookup {
-    // Scala 2 loads macro implementations in a fresh classloader per expansion by default
-    // (-Ycache-macro-class-loader:none), so a plain field here would not be shared with the nested expansion. The
-    // ThreadLocal lives in a JVM-wide slot and holds only bootstrap classes, so every classloader sees the same one.
     private val flag: ThreadLocal[java.lang.Boolean] = {
       val props = System.getProperties
       props.synchronized {
@@ -320,7 +250,6 @@ private[baklava] object SchemaMacrosImpl {
     }
   }
 
-  case object Declined                                      extends Exception with scala.util.control.NoStackTrace
-  final case class AutoDerivationDisabled(typeName: String) extends Exception with scala.util.control.NoStackTrace
-  final case class NotDerivable(typeName: String)           extends Exception with scala.util.control.NoStackTrace
+  case object Declined                            extends Exception with scala.util.control.NoStackTrace
+  final case class NotDerivable(typeName: String) extends Exception with scala.util.control.NoStackTrace
 }

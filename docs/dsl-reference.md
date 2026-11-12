@@ -694,15 +694,16 @@ Baklava uses a [`Schema[T]`](https://github.com/theiterators/baklava/blob/v2.3.0
 - `Option` types
 - `Array[Byte]` (mapped to binary format in OpenAPI)
 - Case classes and case objects (derived as objects, on both Scala 2.13 and Scala 3)
-- Sealed traits / enums (derived as `enum` in OpenAPI)
+
+Sealed traits and enums are not derived: how they go over the wire depends on your codecs, so define their `Schema` yourself, by hand or with [kebs](https://github.com/theiterators/kebs)' `kebs-baklava` enum schemas.
 
 Each schema has a `SchemaType` which maps to OpenAPI types: `StringType`, `IntegerType`, `NumberType`, `BooleanType`, `ArrayType`, `ObjectType`, `NullType`.
 
 ### Deriving Schemas
 
-Without any setup, a `Schema` for a case class or sealed trait is derived wherever one is needed: at every `onRequest(body = ...)` and `respondsWith[T]` call site. That is convenient, but each of those call sites derives the type, and everything nested in it, from scratch. In a test suite with many route specs this adds noticeably to compile time.
+Without any setup, a `Schema` for a case class is derived wherever one is needed, e.g. at every `onRequest(body = ...)` and `respondsWith[T]` call site. Each derivation covers the whole type, deriving every nested case class once however many fields refer to it, and uses any instance already in scope for a nested type.
 
-Deriving each DTO once and sharing the instance avoids that:
+To derive a DTO once for the whole test suite, or to customize it, define the instance explicitly:
 
 ```scala
 object ApiSchemas {
@@ -720,18 +721,6 @@ On Scala 3 the same can live on the type itself:
 final case class User(name: String, address: Address) derives Schema
 ```
 
-A derivation picks up any instance already in scope for a nested type and derives the rest itself, each nested type once, however many fields refer to it. Pinning only the types that call sites mention is therefore enough; types used only inside them need no instance of their own.
-
-### Turning Off Automatic Derivation
-
-To make sure the per-call-site derivation never creeps back, switch it off for the test sources:
-
-```scala
-Test / scalacOptions += "-Xmacro-settings:baklava.schema.autoDerivation=false"
-```
-
-A call site that needs a `Schema` nobody defined then fails to compile with a message naming the type, instead of quietly deriving it. `Schema.derived` and `derives Schema` keep working, and still derive the nested types they reach.
-
 ### Custom Schemas
 
 You can customize derived schemas:
@@ -744,12 +733,11 @@ implicit val myTypeSchema: Schema[MyType] = Schema.derived[MyType]
 
 ### Naming Strategies
 
-By default, derived schemas use the Scala field names as property names and sealed trait / enum subtype names as enum values. If your JSON codecs use a different naming strategy (e.g. circe's `Configuration.snakeCaseMemberNames`), override the naming hooks on `SchemaDerivation` so the documented schemas match the wire format:
+By default, derived schemas use the Scala field names as property names. If your JSON codecs use a different naming strategy (e.g. circe's `Configuration.snakeCaseMemberNames`), override `transformMemberName` on `SchemaDerivation` so the documented schemas match the wire format:
 
 ```scala
 object MySchemas extends SchemaDerivation with SchemaDefaults {
-  override def transformMemberName(name: String): String      = SchemaNameTransform.snakeCase(name)
-  override def transformConstructorName(name: String): String = SchemaNameTransform.snakeCase(name)
+  override def transformMemberName(name: String): String = SchemaNameTransform.snakeCase(name)
 }
 ```
 
@@ -762,11 +750,11 @@ import MySchemas.given // Scala 3
 implicit val userSchema: Schema[User] = MySchemas.derived
 ```
 
-The transform applies to the whole schema tree — nested case classes, collection items and map values included. `transformMemberName` maps case class fields to property names; `transformConstructorName` maps sealed trait / enum subtypes to enum values. Class names (used for `x-class` and schema references) are not transformed.
+The transform applies to the whole derived schema tree — nested case classes, collection items and map values included. Class names (used for `x-class` and schema references) are not transformed.
 
-`SchemaNameTransform` ships with `snakeCase`, `screamingSnakeCase` and `kebabCase`, but any `String => String` works as a transform — the hooks are plain methods, so custom conventions (acronym tables, legacy field maps) need no extra machinery.
+`SchemaNameTransform` ships with `snakeCase`, `screamingSnakeCase` and `kebabCase`, but any `String => String` works as a transform — the hook is a plain method, so custom conventions (acronym tables, legacy field maps) need no extra machinery.
 
-Note that the hooks only affect documentation and generated clients; runtime serialization in tests still goes through your own codecs, so the transform must match what those codecs actually emit.
+Note that the hook only affects documentation and generated clients; runtime serialization in tests still goes through your own codecs, so the transform must match what those codecs actually emit.
 
 ## Best Practices
 

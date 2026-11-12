@@ -3,7 +3,7 @@ package internal
 
 import scala.reflect.macros.whitebox
 
-// whitebox, like magnolia's Scala 2 derivation
+// whitebox like magnolia: blackbox implicit macros fail when expanded inside another derivation's implicit search
 private[baklava] class SchemaMacros(val c: whitebox.Context) extends hearth.MacroCommonsScala2 with SchemaMacrosImpl {
 
   def derivedImpl[T: c.WeakTypeTag]: c.Expr[Schema[T]] =
@@ -12,14 +12,10 @@ private[baklava] class SchemaMacros(val c: whitebox.Context) extends hearth.Macr
   def genImpl[T: c.WeakTypeTag]: c.Expr[Schema[T]] =
     resettle(deriveSchema[T](c.Expr[SchemaDerivation](c.prefix.tree), automatic = true))
 
-  // The output defines local symbols (the cached lazy vals). When the expansion happens inside another derivation's
-  // implicit lookup, attributed local symbols end up with the wrong owner and the instance silently fails to typecheck;
-  // resetting them lets the typer re-enter them where the tree lands (magnolia does the same).
+  // the cached lazy vals get the wrong owner when expanded inside another derivation's implicit search
   private def resettle[A](expr: c.Expr[A]): c.Expr[A] = c.Expr[A](c.untypecheck(expr.tree))
 
-  // Hearth hands back the default getter with its symbol attached; inside an implicit search that symbol's type can
-  // come out erroneous and silently disqualify the whole instance. Select the getter by name on the companion instead
-  // and let the typer resolve it, as magnolia does.
+  // Hearth's default getter carries a symbol that types as <error> inside implicit search; select it by name instead
   override protected def platformDefaultValue[A: Type](index: Int): Option[Expr[Any]] = {
     import c.universe.*
     val tpe       = Type[A].tpe.dealias

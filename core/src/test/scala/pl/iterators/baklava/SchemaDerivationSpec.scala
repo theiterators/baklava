@@ -6,7 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import java.util.UUID
 
 object SchemaDerivationFixtures {
-  // a wrapper with its own instance that needs the wrapped type's schema — like NonEmptyList[T] in user code
+  // has its own instance that needs the wrapped type's schema, like NonEmptyList[T]
   final class Wrapper[T](val value: T)
   object Wrapper {
     implicit def wrapperSchema[T](implicit inner: Schema[T]): Schema[Wrapper[T]] =
@@ -20,14 +20,17 @@ object SchemaDerivationFixtures {
   final case class Holder(marker: Marker.type, id: UUID)
 
   sealed trait Shape
-  final case class Circle(radius: Double)              extends Shape
-  sealed trait Polygon                                 extends Shape
-  final case class Square(side: Double)                extends Polygon
-  final case class Rect(width: Double, height: Double) extends Polygon
-  case object Dot                                      extends Shape
+  object Shape {
+    case object Circle extends Shape
+    case object Square extends Shape
+    implicit val schema: Schema[Shape] = PrimitiveSchema[Shape]("Shape", SchemaType.StringType, None)
+  }
 
-  // the same nested type reached through many fields and wrappers — the shape from #146 that pushed
-  // magnolia's call-site expansion over -Xmax-inlines
+  sealed trait Unschemed
+  final case class Plain(value: Int) extends Unschemed
+  final case class HasUnschemed(value: Unschemed)
+
+  // the same nested type reached through many fields and wrappers, as in #146
   final case class Flag(key: String, enabled: Boolean, owner: Option[Leaf], children: List[Leaf])
   final case class AuditEntry(
       before: Option[Flag],
@@ -93,16 +96,15 @@ class SchemaDerivationSpec extends AnyFunSpec with Matchers {
     }
   }
 
-  describe("derived sealed trait schemas") {
-    it("are string enums of the leaf subtype names, flattening nested sealed traits") {
-      val s = implicitly[Schema[Shape]]
-      s.className shouldBe "Shape"
-      s.`type` shouldBe SchemaType.StringType
-      s.`enum` shouldBe Some(Set("Circle", "Square", "Rect", "Dot"))
+  describe("sealed traits and enums") {
+    it("are not derived") {
+      assertDoesNotCompile("implicitly[Schema[Unschemed]]")
+      assertDoesNotCompile("Schema.derived[Unschemed]")
+      assertDoesNotCompile("implicitly[Schema[HasUnschemed]]")
     }
 
-    it("list the subtype names alphabetically, keeping generated docs stable") {
-      implicitly[Schema[Shape]].`enum`.get.toList shouldBe List("Circle", "Dot", "Rect", "Square")
+    it("use the instance in scope when nested in a derived type") {
+      implicitly[Schema[AuditEntry]].properties("shape") should be theSameInstanceAs Shape.schema
     }
   }
 
@@ -115,7 +117,6 @@ class SchemaDerivationSpec extends AnyFunSpec with Matchers {
       render(s.properties("history").items.get) shouldBe flag
       render(s.properties("byKey").additionalPropertiesSchema.get) shouldBe flag
       render(s.properties("related").items.get) shouldBe render(Schema.optionSchema(implicitly[Schema[Flag]]))
-      s.properties("shape").`enum` shouldBe Some(Set("Circle", "Square", "Rect", "Dot"))
     }
   }
 
@@ -145,7 +146,7 @@ class SchemaDerivationSpec extends AnyFunSpec with Matchers {
   describe("explicit derivation") {
     it("prefers a pinned instance in scope over re-deriving") {
       implicit val pinnedLeaf: Schema[Leaf] = baseLeafSchema.withDescription("pinned")
-      implicitly[Schema[Flag]].properties("owner").description shouldBe Some("pinned")
+      implicitly[Schema[Flag]].properties("owner").description shouldBe pinnedLeaf.description
     }
   }
 }
