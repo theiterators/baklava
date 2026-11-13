@@ -690,12 +690,27 @@ Common status codes available:
 Baklava uses a [`Schema[T]`](https://github.com/theiterators/baklava/blob/v2.3.0/core/src/main/scala/pl/iterators/baklava/Schema.scala#L20) type class to describe data types for documentation generation. Instances are provided for:
 
 - Primitive types (`String`, `Int`, `Long`, `Double`, `Boolean`, `UUID`, `BigDecimal`, etc.)
-- Collections (`Seq`, `List`, `Set`, `Map`)
+- Collections (`Seq`, `List`, `Vector`, `Set`, `Array`, `Map`)
 - `Option` types
 - `Array[Byte]` (mapped to binary format in OpenAPI)
 - Case classes and case objects (derived as objects, on both Scala 2.13 and Scala 3)
 
-Sealed traits and enums are not derived: how they go over the wire depends on your codecs, so define their `Schema` yourself, by hand or with [kebs](https://github.com/theiterators/kebs)' `kebs-baklava` enum schemas.
+Sealed traits and enums are not derived: how they go over the wire depends on your codecs, so define their `Schema` yourself. With [kebs](https://github.com/theiterators/kebs), mix `KebsBaklavaEnumsSchema` from `kebs-baklava` into your specs; it covers every type with a kebs `EnumLike` instance in scope (on Scala 3, plain enums get one from `KebsEnum` in `kebs-enum`). By hand, a string enum looks like this:
+
+```scala
+implicit val colorSchema: Schema[Color] = new Schema[Color] {
+  val className: String                  = "Color"
+  val `type`: SchemaType                 = SchemaType.StringType
+  val format: Option[String]             = None
+  val properties: Map[String, Schema[?]] = Map.empty
+  val items: Option[Schema[?]]           = None
+  val `enum`: Option[Set[String]]        = Some(Set("Red", "Green", "Blue"))
+  val required: Boolean                  = true
+  val additionalProperties: Boolean      = false
+  val default: Option[Color]             = None
+  val description: Option[String]        = None
+}
+```
 
 Each schema has a `SchemaType` which maps to OpenAPI types: `StringType`, `IntegerType`, `NumberType`, `BooleanType`, `ArrayType`, `ObjectType`, `NullType`.
 
