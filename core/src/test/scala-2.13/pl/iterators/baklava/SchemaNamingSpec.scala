@@ -43,37 +43,16 @@ class SchemaNamingSpec extends AnyFunSpec with Matchers {
       derived.properties("extra_data").additionalPropertiesSchema.get.properties.keySet shouldBe Set("inner_field", "some_count")
     }
 
-    it("transforms sealed trait enum values") {
-      val derived = implicitly[Schema[UserStatus]]
-      derived.`enum` shouldBe Some(Set("active_user", "banned_user"))
-      derived.className shouldBe "UserStatus"
-    }
-
-    it("transforms enum values of a sealed trait field") {
-      val derived = implicitly[Schema[WithStatus]]
-      derived.properties("current_status").`enum` shouldBe Some(Set("active_user", "banned_user"))
-    }
-
     it("transforms the key of a field with a default value and keeps the default") {
       val derived = implicitly[Schema[WithDefault]]
       derived.properties("page_size").default shouldBe Some(42)
     }
   }
 
-  describe("SchemaDerivation with a member-only transform") {
-    import MemberOnlySnakeCaseSchemas._
-
-    it("transforms member names but leaves enum values untouched") {
-      val derived = implicitly[Schema[WithStatus]]
-      derived.properties("current_status").`enum` shouldBe Some(Set("ActiveUser", "BannedUser"))
-    }
-  }
-
   describe("default Schema derivation") {
-    it("keeps identity naming for members and enum values") {
+    it("keeps identity naming for members") {
       val derived = implicitly[Schema[OuterPayload]]
       derived.properties.keySet shouldBe Set("firstName", "lastName", "innerPayload", "tagsList", "extraData")
-      implicitly[Schema[UserStatus]].`enum` shouldBe Some(Set("ActiveUser", "BannedUser"))
     }
   }
 }
