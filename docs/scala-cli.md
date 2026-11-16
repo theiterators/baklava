@@ -44,8 +44,7 @@ case class GitHubError(message: String, documentationUrl: Option[String]) derive
 
 // documented schemas must match the wire format, so mirror the codec's naming strategy
 trait GitHubSchemas extends SchemaDerivation with SchemaDefaults {
-  override def transformMemberName(name: String): String      = SchemaNameTransform.snakeCase(name)
-  override def transformConstructorName(name: String): String = SchemaNameTransform.snakeCase(name)
+  override def transformMemberName(name: String): String = SchemaNameTransform.snakeCase(name)
 }
 
 class GitHubApiSpec

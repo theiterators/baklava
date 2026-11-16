@@ -3,10 +3,6 @@ package pl.iterators.baklava
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
-enum TrafficLight {
-  case RedLight, GreenLight
-}
-
 class SchemaNamingSpec extends AnyFunSpec with Matchers {
   import SchemaNamingFixtures.*
 
@@ -46,38 +42,12 @@ class SchemaNamingSpec extends AnyFunSpec with Matchers {
       val derived = implicitly[Schema[OuterPayload]]
       derived.properties("extra_data").additionalPropertiesSchema.get.properties.keySet shouldBe Set("inner_field", "some_count")
     }
-
-    it("transforms sealed trait enum values") {
-      val derived = implicitly[Schema[UserStatus]]
-      derived.`enum` shouldBe Some(Set("active_user", "banned_user"))
-      derived.className shouldBe "UserStatus"
-    }
-
-    it("transforms enum values of a sealed trait field") {
-      val derived = implicitly[Schema[WithStatus]]
-      derived.properties("current_status").`enum` shouldBe Some(Set("active_user", "banned_user"))
-    }
-
-    it("transforms Scala 3 enum values") {
-      val derived = implicitly[Schema[TrafficLight]]
-      derived.`enum` shouldBe Some(Set("red_light", "green_light"))
-    }
-  }
-
-  describe("SchemaDerivation with a member-only transform") {
-    import MemberOnlySnakeCaseSchemas.given
-
-    it("transforms member names but leaves enum values untouched") {
-      val derived = implicitly[Schema[WithStatus]]
-      derived.properties("current_status").`enum` shouldBe Some(Set("ActiveUser", "BannedUser"))
-    }
   }
 
   describe("default Schema derivation") {
-    it("keeps identity naming for members and enum values") {
+    it("keeps identity naming for members") {
       val derived = implicitly[Schema[OuterPayload]]
       derived.properties.keySet shouldBe Set("firstName", "lastName", "innerPayload", "tagsList", "extraData")
-      implicitly[Schema[UserStatus]].`enum` shouldBe Some(Set("ActiveUser", "BannedUser"))
     }
   }
 }

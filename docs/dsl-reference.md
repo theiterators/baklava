@@ -687,50 +687,89 @@ Common status codes available:
 
 ## Schema System
 
-Baklava uses a [`Schema[T]`](https://github.com/theiterators/baklava/blob/v2.3.0/core/src/main/scala/pl/iterators/baklava/Schema.scala#L20) type class to describe data types for documentation generation. Schemas are automatically derived via [Magnolia](https://github.com/softwaremill/magnolia) for:
+Baklava uses a [`Schema[T]`](https://github.com/theiterators/baklava/blob/v2.3.0/core/src/main/scala/pl/iterators/baklava/Schema.scala#L20) type class to describe data types for documentation generation. Instances are provided for:
 
 - Primitive types (`String`, `Int`, `Long`, `Double`, `Boolean`, `UUID`, `BigDecimal`, etc.)
-- Collections (`Seq`, `List`, `Set`, `Map`)
+- Collections (`Seq`, `List`, `Vector`, `Set`, `Array`, `Map`)
 - `Option` types
 - `Array[Byte]` (mapped to binary format in OpenAPI)
-- Case classes (automatic derivation via Magnolia — works on both Scala 2.13 and Scala 3)
-- Sealed traits / enums (derived as `enum` in OpenAPI)
+- Case classes and case objects (derived as objects, on both Scala 2.13 and Scala 3)
+
+Sealed traits and enums are not derived: how they go over the wire depends on your codecs, so define their `Schema` yourself. With [kebs](https://github.com/theiterators/kebs), mix `KebsBaklavaEnumsSchema` from `kebs-baklava` into your specs; it covers every type with a kebs `EnumLike` instance in scope (on Scala 3, plain enums get one from `KebsEnum` in `kebs-enum`). By hand, a string enum looks like this:
+
+```scala
+implicit val colorSchema: Schema[Color] = new Schema[Color] {
+  val className: String                  = "Color"
+  val `type`: SchemaType                 = SchemaType.StringType
+  val format: Option[String]             = None
+  val properties: Map[String, Schema[?]] = Map.empty
+  val items: Option[Schema[?]]           = None
+  val `enum`: Option[Set[String]]        = Some(Set("Red", "Green", "Blue"))
+  val required: Boolean                  = true
+  val additionalProperties: Boolean      = false
+  val default: Option[Color]             = None
+  val description: Option[String]        = None
+}
+```
 
 Each schema has a `SchemaType` which maps to OpenAPI types: `StringType`, `IntegerType`, `NumberType`, `BooleanType`, `ArrayType`, `ObjectType`, `NullType`.
 
-### Custom Schemas
+### Deriving Schemas
 
-You can customize automatically derived schemas:
+Without any setup, a `Schema` for a case class is derived wherever one is needed, e.g. at every `onRequest(body = ...)` and `respondsWith[T]` call site. Each derivation covers the whole type, deriving every nested case class once however many fields refer to it, and uses any instance already in scope for a nested type.
+
+To derive a DTO once for the whole test suite, or to customize it, define the instance explicitly:
 
 ```scala
-implicit val myTypeSchema: Schema[MyType] = implicitly[Schema[MyType]]
+object ApiSchemas {
+  implicit val addressSchema: Schema[Address] = Schema.derived
+  implicit val userSchema: Schema[User]       = Schema.derived
+}
+
+// in the specs
+import ApiSchemas._
+```
+
+On Scala 3 the same can live on the type itself:
+
+```scala
+final case class User(name: String, address: Address) derives Schema
+```
+
+### Custom Schemas
+
+You can customize derived schemas:
+
+```scala
+implicit val myTypeSchema: Schema[MyType] = Schema.derived[MyType]
   .withDescription("Description of MyType")
   .withDefault(MyType("example", 42))
 ```
 
 ### Naming Strategies
 
-By default, derived schemas use the Scala field names as property names and sealed trait / enum subtype names as enum values. If your JSON codecs use a different naming strategy (e.g. circe's `Configuration.snakeCaseMemberNames`), override the naming hooks on `SchemaDerivation` so the documented schemas match the wire format:
+By default, derived schemas use the Scala field names as property names. If your JSON codecs use a different naming strategy (e.g. circe's `Configuration.snakeCaseMemberNames`), override `transformMemberName` on `SchemaDerivation` so the documented schemas match the wire format:
 
 ```scala
 object MySchemas extends SchemaDerivation with SchemaDefaults {
-  override def transformMemberName(name: String): String      = SchemaNameTransform.snakeCase(name)
-  override def transformConstructorName(name: String): String = SchemaNameTransform.snakeCase(name)
+  override def transformMemberName(name: String): String = SchemaNameTransform.snakeCase(name)
 }
 ```
 
-Then import its derivation instead of relying on the default one:
+Then import its derivation instead of relying on the default one, or derive explicitly through it:
 
 ```scala
 import MySchemas._     // Scala 2.13
 import MySchemas.given // Scala 3
+
+implicit val userSchema: Schema[User] = MySchemas.derived
 ```
 
-The transform applies to the whole schema tree — nested case classes, collection items and map values included. `transformMemberName` maps case class fields to property names; `transformConstructorName` maps sealed trait / enum subtypes to enum values. Class names (used for `x-class` and schema references) are not transformed.
+The transform applies to the whole derived schema tree — nested case classes, collection items and map values included. Class names (used for `x-class` and schema references) are not transformed.
 
-`SchemaNameTransform` ships with `snakeCase`, `screamingSnakeCase` and `kebabCase`, but any `String => String` works as a transform — the hooks are plain methods, so custom conventions (acronym tables, legacy field maps) need no extra machinery.
+`SchemaNameTransform` ships with `snakeCase`, `screamingSnakeCase` and `kebabCase`, but any `String => String` works as a transform — the hook is a plain method, so custom conventions (acronym tables, legacy field maps) need no extra machinery.
 
-Note that the hooks only affect documentation and generated clients; runtime serialization in tests still goes through your own codecs, so the transform must match what those codecs actually emit.
+Note that the hook only affects documentation and generated clients; runtime serialization in tests still goes through your own codecs, so the transform must match what those codecs actually emit.
 
 ## Best Practices
 

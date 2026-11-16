@@ -17,6 +17,18 @@ class NullableOptionSchemaSpec extends AnyFunSpec with Matchers {
   sealed trait Status
   case object Active   extends Status
   case object Archived extends Status
+  implicit val statusEnumSchema: Schema[Status] = new Schema[Status] {
+    val className: String                  = "Status"
+    val `type`: SchemaType                 = SchemaType.StringType
+    val format: Option[String]             = None
+    val properties: Map[String, Schema[?]] = Map.empty
+    val items: Option[Schema[?]]           = None
+    val `enum`: Option[Set[String]]        = Some(Set("Active", "Archived"))
+    val required: Boolean                  = true
+    val additionalProperties: Boolean      = false
+    val default: Option[Status]            = None
+    val description: Option[String]        = None
+  }
   case class Project(name: String, status: Option[Status])
 
   describe("OpenAPI schema emission for Option fields") {

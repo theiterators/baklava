@@ -17,6 +17,9 @@ object SchemaType {
   case object ObjectType extends SchemaType
 }
 
+@scala.annotation.implicitNotFound(
+  "No Schema[${T}] found. Only case classes and case objects get one derived; define one for other types, e.g. sealed traits and enums."
+)
 trait Schema[T] {
   val className: String
   val `type`: SchemaType

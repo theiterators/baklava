@@ -61,14 +61,6 @@ ThisBuild / githubWorkflowAddedJobs += WorkflowJob(
 )
 
 scalacOptions += "-Xmax-inlines:64"
-// Suppress magnolia macro type parameter shadowing warning (magnolia 1.1.x generates shadowed type params)
-ThisBuild / scalacOptions ++= {
-  CrossVersion.partialVersion(scalaVersion.value) match {
-    case Some((2, _)) => Seq("-Wconf:msg=shadows type:s")
-    case _            => Nil
-  }
-}
-// TODO: add -Yretain-trees to scalacOptions to enable magnolia features
 
 lazy val noPublishSettings =
   Seq(
@@ -118,8 +110,7 @@ val scalatestV     = "3.2.19"
 val munitV         = "1.2.4"
 val http4sV        = "0.23.33"
 val reflectionsV   = "0.10.2"
-val magnoliaS2V    = "1.1.13"
-val magnoliaS3V    = "1.3.18"
+val hearthV        = "0.4.3"
 
 val enumeratumV     = "1.9.6"
 val pekkoHttpJsonV  = "3.9.0"
@@ -136,6 +127,8 @@ lazy val core = project
   .settings(
     name := "baklava-core",
     perScalaVersionTestSources,
+    // Hearth's cross-quotes expand to code carrying @nowarn, which 2.13 flags when there is nothing to suppress
+    scalacOptions ++= (if (scalaVersion.value.startsWith("2.")) Seq("-Wconf:msg=@nowarn annotation does not suppress:s") else Nil),
     libraryDependencies ++=
       Seq(
         "org.reflections"                        % "reflections"           % reflectionsV,
@@ -144,11 +137,15 @@ lazy val core = project
         "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % jsoniterV  % "provided",
         "com.softwaremill.sttp.model"           %% "core"                  % sttpModelV,
         "org.scalatest"                         %% "scalatest"             % scalatestV % "test",
-        if (scalaVersion.value.startsWith("3")) "com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaS3V
-        else "com.softwaremill.magnolia1_2"                                    %% "magnolia" % magnoliaS2V
+        // Schema derivation macros (cross-compiled with Hearth's cross-quotes)
+        "com.kubuszok" %% "hearth" % hearthV
       ) ++ (
         if (scalaVersion.value.startsWith("3")) {
-          Seq("pl.iterators" %% "kebs-opaque" % kebsV % "test", "pl.iterators" %% "kebs-baklava" % kebsV % "test")
+          Seq(
+            compilerPlugin("com.kubuszok" % "hearth-cross-quotes_3" % hearthV),
+            "pl.iterators" %% "kebs-opaque"  % kebsV % "test",
+            "pl.iterators" %% "kebs-baklava" % kebsV % "test"
+          )
         } else
           Seq(
             "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided",
