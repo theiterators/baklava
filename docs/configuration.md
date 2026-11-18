@@ -15,7 +15,6 @@ Example YAML configuration with all fields specified in version 3.0.1 of Open AP
 ```sbt
 inConfig(Test)(
   BaklavaSbtPlugin.settings(Test) ++ Seq(
-    fork := false,
     baklavaGenerateConfigs := Map(
       "openapi-info" ->
         s"""

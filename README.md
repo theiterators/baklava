@@ -66,7 +66,6 @@ libraryDependencies ++= Seq(
 ```scala
 inConfig(Test)(
   BaklavaSbtPlugin.settings(Test) ++ Seq(
-    fork := false,
     baklavaGenerateConfigs := Map(
       "openapi-info" ->
         s"""
