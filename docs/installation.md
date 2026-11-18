@@ -93,9 +93,7 @@ The minimal configuration required in your `build.sbt`:
 
 ```scala
 inConfig(Test)(
-  BaklavaSbtPlugin.settings(Test) ++ Seq(
-    fork := false
-  )
+  BaklavaSbtPlugin.settings(Test)
 )
 ```
 
@@ -108,7 +106,6 @@ If you're using the OpenAPI format, add this configuration:
 ```scala
 inConfig(Test)(
   BaklavaSbtPlugin.settings(Test) ++ Seq(
-    fork := false,
     baklavaGenerateConfigs := Map(
       "openapi-info" ->
         s"""
@@ -150,7 +147,6 @@ If you're using both OpenAPI and TS-REST formats:
 ```scala
 inConfig(Test)(
   BaklavaSbtPlugin.settings(Test) ++ Seq(
-    fork := false,
     baklavaGenerateConfigs := Map(
       "openapi-info" ->
         s"""
@@ -193,7 +189,6 @@ libraryDependencies ++= Seq(
 
 inConfig(Test)(
   BaklavaSbtPlugin.settings(Test) ++ Seq(
-    fork := false,
     baklavaGenerateConfigs := Map(
       "openapi-info" ->
         s"""
@@ -223,9 +218,7 @@ libraryDependencies ++= Seq(
 )
 
 inConfig(Test)(
-  BaklavaSbtPlugin.settings(Test) ++ Seq(
-    fork := false
-  )
+  BaklavaSbtPlugin.settings(Test)
 )
 ```
 
@@ -257,7 +250,6 @@ libraryDependencies ++= Seq(
 
 inConfig(Test)(
   BaklavaSbtPlugin.settings(Test) ++ Seq(
-    fork := false,
     baklavaGenerateConfigs := Map(
       "openapi-info" ->
         s"""
@@ -308,6 +300,8 @@ The documentation will be generated in `target/baklava/` directory after running
 - Filtering inside a suite (for example `testOnly com.acme.UsersRouterSpec -- -z "GET /users"`) replaces that suite's stored calls with the subset that ran. Run the suite unfiltered afterwards.
 - A suite that still exists but no longer makes any Baklava call keeps its last stored calls. Rename or delete the suite, or run `baklavaClean` followed by a full test run, to drop them.
 - Only sbt's default single test group is supported. With one JVM per suite (`testGrouping`), sbt may start the next group's JVM while the previous group's generation is still merging and clearing the shared staging directory, so a suite's stored calls can end up incomplete; that holds even with the default sequential group limit.
+- Tests can run in-process or forked. With the single default group, `Test / fork := true` (with or without `Test / testForkedParallel := true`) produces the same documentation as an in-process run: the forked JVM writes the calls under `target/baklava/calls/`, and sbt clears that directory before the tests and generates from it afterwards. Forking also keeps test threads, loaded classes and containers out of the sbt server.
+- When a forked run is cancelled, sbt may leave its test JVM running until its tests finish. Wait for it to exit, or stop it, before starting the next run: anything it writes after the next run has started lands in that run's staging directory and replaces the stored calls of the suites it touches, which may then be incomplete or out of date. Running `testFull` afterwards restores them.
 - `sbt baklavaGenerate` on its own regenerates all output from the store without re-running tests, for example after changing `baklavaGenerateConfigs`.
 - A suite that was removed from the store (deleted, then restored unchanged, for example by switching branches) is served from sbt 2's test cache without running, so it stays undocumented until `testFull` or until it changes.
 - `sbt baklavaClean` deletes `target/baklava`, including the store; rebuild it with `testFull` on sbt 2 or `test` on sbt 1. On sbt 2, `clean` leaves `target/baklava` in place.
